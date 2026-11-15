@@ -2687,13 +2687,14 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="archive"><span class="mi">${ic('archive',22)}</span><div>Archivio storie<small>Le tue storie dopo 24 ore</small></div></button>
  <button data-m="vplus"><span class="mi" style="color:#f0abfc">${ic('crown',22)}</span><div>VYBE+<small>Abbonamento e vantaggi</small></div></button>
  <button data-m="subs"><span class="mi" style="color:#d8b4fe">⭐</span><div>Abbonamenti al canale<small>Standard 3,99 € · Premium Deluxe 20 €</small></div></button>
+ <button data-m="transfer"><span class="mi">📲</span><div>Trasferisci account<small>Backup cifrato per accedere da un altro dispositivo</small></div></button>
  <button data-m="vchat"><span class="mi">💬</span><div>Vybe Chat<small>Messaggi, gruppi e stati con i tuoi amici</small></div></button>
  <button data-m="shop"><span class="mi">🛍️</span><div>Negozio Vybe<small>Merch dei creator, carrello e ordini</small></div></button>
  <button data-m="myshop"><span class="mi">🏷️</span><div>Il mio negozio<small>Crea e vendi le tue magliette, felpe e tazze</small></div></button>
  <button data-m="wallet"><span class="mi" style="color:#fde68a">${ic('gift',22)}</span><div>Saldo e regali<small>Regali delle dirette e prelievo su Giro</small></div></button>
  <button data-m="collabs"><span class="mi">${ic('brief',22)}</span><div>Collaborazioni con brand<small>Campagne e guadagni</small></div></button>
  <button data-m="settings"><span class="mi">${ic('gear',22)}</span><div>Impostazioni e privacy</div></button></div>`);
- $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat()})[b.dataset.m]()})}
+ $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer})[b.dataset.m]()})}
 
 /* ---------- Impostazioni ---------- */
 function openSettings(){const a=S.acc,s=a.settings,teen=S.teen,st=a.status;
@@ -3940,6 +3941,52 @@ function vcStatusView(list,gi){if(gi<0||!list[gi])return;let i=0,tm=0,paused=fal
 {const os=openShare;openShare=function(id){os(id);const sh=$$('#layer>.ov').pop();if(!sh)return;const m=$('.menu',sh);if(m)m.insertAdjacentHTML('afterbegin',`<button id="shVc"><span class="mi">💬</span>Invia in Vybe Chat</button>`);const b=$('#shVc',sh);if(b)b.onclick=()=>{closeOv(sh);if(!VC.on)return toast('Vybe Chat non è collegata');vcPickConv('Invia a…',async cids=>{for(const k of cids)await vcSharePost(k,id);toast('Inviato in Vybe Chat 💬')})}}}
 {const op=openProduct;openProduct=function(id){op(id);const ov=$$('#layer>.ovf').pop();if(!ov)return;const s=$('.psel',ov);if(s)s.insertAdjacentHTML('afterend',`<button class="btn soft" id="pVc" style="margin-top:8px">💬 Invia a un amico in Vybe Chat</button>`);const b=$('#pVc',ov);if(b)b.onclick=()=>{if(!VC.on)return toast('Vybe Chat non è collegata');vcPickConv('Invia a…',async cids=>{for(const k of cids)await vcShareProd(k,id);toast('Prodotto inviato 💬')})}}}
 {const ea=enterApp;enterApp=function(){ea();if(Real.on&&!VC.on)VC.start()}}
+
+/* ===================== TRASFERISCI ACCOUNT (backup cifrato con la password) ===================== */
+async function bkKey(pw,salt){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function toDataURL(u){if(!u||typeof u!=='string')return null;if(u.startsWith('data:'))return u;try{const r=await fetch(u);if(!r.ok)return null;const b=await r.blob();if(!b.type.startsWith('image/'))return null;return await new Promise(res=>{const f=new FileReader();f.onload=()=>res(f.result);f.onerror=()=>res(null);f.readAsDataURL(b)})}catch(e){return null}}
+async function buildBackup(pw,onp){const a=JSON.parse(JSON.stringify(S.acc));let lost=0;
+ a.avatar=await toDataURL(a.avatar);const own=[];for(const[i,p]of(a.own||[]).entries()){onp&&onp(`Preparo i post ${i+1}/${a.own.length}`);
+  if(p.type==='video'){const pos=await toDataURL(p.poster);if(pos){p.type='photo';p.img=pos;delete p.video;delete p.url;delete p.poster;p.ratio=p.ratio||1.78;own.push(p)}lost++;continue}
+  if(p.img){const d=await toDataURL(p.img);if(!d){lost++;continue}p.img=d}own.push(p)}a.own=own;
+ const st=[];for(const s of a.stories||[]){if(s.img){const d=await toDataURL(s.img);if(!d)continue;s.img=d}if(s.video){continue}st.push(s)}a.stories=st;
+ if(a.shop&&a.shop.my)for(const p of a.shop.my)if(p.img&&!p.img.startsWith('data:'))p.img=await toDataURL(p.img)||undefined;
+ a.loggedIn=false;delete a.rfw;delete a.rok;delete a.rseen;delete a.rlk;delete a.rlkSeen;
+ onp&&onp('Cifro il backup…');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));const key=await bkKey(pw,salt);
+ const c=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(a)));
+ return{text:JSON.stringify({vybe:'backup',v:1,u:a.username,t:Date.now(),salt:b64e(salt),iv:b64e(iv),c:b64e(c)}),lost}}
+async function readBackup(text,pw){let o;try{o=JSON.parse(text.trim())}catch(e){throw new Error('Il file o il codice non è un backup di Vybe')}if(!o||o.vybe!=='backup')throw new Error('Il file o il codice non è un backup di Vybe');
+ let acc;try{const key=await bkKey(pw,b64d(o.salt));const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(o.iv)},key,b64d(o.c));acc=JSON.parse(new TextDecoder().decode(p))}catch(e){throw new Error('Password sbagliata')}
+ if(!acc||!acc.username||!acc.passHash||(await hash(acc.salt+'|'+pw))!==acc.passHash)throw new Error('Password sbagliata');return acc}
+function openTransfer(){const a=S.acc;const sh=openSheet(`<div style="padding:8px 18px 20px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">📲 Trasferisci il tuo account</h3>
+ <p class="sub" style="margin:0">Crea un backup del tuo account (profilo, post, follower, saldo, negozio, impostazioni) per riaprirlo su un altro telefono o sull’altra versione di Vybe. Il backup è <b>cifrato con la tua password</b>: senza password nessuno può aprirlo.</p>
+ <label class="fld"><span>Conferma la tua password</span><input class="in" id="bp" type="password" autocomplete="current-password"></label><small class="hint" id="bh"></small>
+ <button class="btn" id="bgo">Crea backup</button></div>`);
+ $('#bgo',sh).onclick=async()=>{const pw=$('#bp',sh).value,h=$('#bh',sh);if((await hash(a.salt+'|'+pw))!==a.passHash){h.textContent='Password sbagliata';h.className='hint err';return}
+  const b=$('#bgo',sh);b.disabled=true;let res;try{res=await buildBackup(pw,t=>b.textContent=t)}catch(e){b.disabled=false;b.textContent='Crea backup';return toast('Errore nel creare il backup')}
+  closeOv(sh);const kb=Math.round(res.text.length/1024),name=`vybe-${a.username}.vybe`;
+  const s2=openSheet(`<div style="padding:8px 18px 22px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">✅ Backup pronto</h3><p class="sub" style="margin:0">${kb>1024?(kb/1024).toFixed(1)+' MB':kb+' KB'} · cifrato${res.lost?` · ${res.lost} video non inclusi (resta l’anteprima)`:''}</p>
+   <button class="btn" id="bs">📁 Salva o condividi il file</button><button class="btn soft" id="bc">📋 Copia il codice</button>
+   <div class="studnote" style="margin:4px 0 0">Poi sull’altro dispositivo apri Vybe → <b>Accedi</b> → <b>Ripristina da backup</b>, scegli il file (o incolla il codice) e inserisci la tua password.</div></div>`);
+  const file=new File([res.text],name,{type:'application/octet-stream'});
+  $('#bs',s2).onclick=async()=>{try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Backup Vybe'});return}}catch(e){if(e&&e.name==='AbortError')return}
+   try{const u=URL.createObjectURL(file),l=document.createElement('a');l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);toast('File scaricato: '+name)}catch(e){toast('Il download non è disponibile qui: usa “Copia il codice”')}};
+  $('#bc',s2).onclick=async()=>{try{await navigator.clipboard.writeText(res.text);toast('Codice copiato: incollalo sull’altro dispositivo')}catch(e){const s3=openSheet(`<div style="padding:8px 16px 18px"><b>Copia questo codice</b><textarea class="ta" style="width:100%;min-height:200px;font-size:11px;margin-top:8px" readonly>${esc(res.text.slice(0,400000))}</textarea></div>`);const t=$('textarea',s3);t.focus();t.select()}}}}
+function openRestore(){const sh=openSheet(`<div style="padding:8px 18px 22px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">🔑 Accedi con il tuo account</h3>
+ <p class="sub" style="margin:0">Hai già un account Vybe su un altro telefono o sull’altra versione dell’app? Lì apri <b>☰ → Trasferisci account</b>, crea il backup e poi caricalo qui.</p>
+ <button class="btn soft" id="rf">📁 Scegli il file di backup</button><input type="file" id="rfi" style="display:none"><small class="hint" id="rfn"></small>
+ <textarea class="ta" id="rt" placeholder="…oppure incolla qui il codice del backup" style="width:100%;min-height:70px;margin:0;font-size:12px"></textarea>
+ <label class="fld"><span>Password del tuo account</span><input class="in" id="rp" type="password" autocomplete="current-password"></label><small class="hint" id="rh"></small>
+ <button class="btn" id="rgo">Accedi</button></div>`);$('.sheet',sh).style.maxHeight='92%';$('.sheet',sh).style.overflowY='auto';let ftext='';
+ $('#rf',sh).onclick=()=>$('#rfi',sh).click();$('#rfi',sh).onchange=async()=>{const f=$('#rfi',sh).files[0];if(!f)return;if(f.size>60e6)return toast('File troppo grande');ftext=await f.text();$('#rfn',sh).textContent='✓ '+f.name;$('#rfn',sh).className='hint'};
+ $('#rgo',sh).onclick=async()=>{const text=ftext||$('#rt',sh).value,pw=$('#rp',sh).value,h=$('#rh',sh);if(!text.trim()){h.textContent='Scegli il file o incolla il codice';h.className='hint err';return}if(!pw){h.textContent='Inserisci la password';h.className='hint err';return}
+  const g=guard();if(Date.now()<g.until){h.textContent='Troppi tentativi, riprova tra poco';h.className='hint err';return}
+  const b=$('#rgo',sh);b.disabled=true;b.textContent='Verifico…';let acc;try{acc=await readBackup(text,pw)}catch(e){b.disabled=false;b.textContent='Accedi';g.fails++;if(g.fails>=5){g.locks++;g.until=Date.now()+60000*Math.pow(2,g.locks-1);g.fails=0}store.set('vybe_guard',g);h.textContent=e.message;h.className='hint err';return}
+  const cur=store.get('vybe_acc');const go=()=>{acc.updated=Date.now();acc.loggedIn=false;S.acc=acc;store.set('vybe_acc',acc);store.set('vybe_guard',{fails:0,until:0,locks:0});closeOv(sh);toast('Account trovato: '+acc.username+' · inserisci il PIN');try{if(Persist.ready)persistSoon()}catch(e){}loginPin()};
+  if(cur&&cur.username!==acc.username){b.disabled=false;b.textContent='Accedi';confirmSheet('Sostituire l’account su questo dispositivo?',`Qui c’è già @${cur.username}: verrà sostituito da @${acc.username}.`,'Sostituisci',go)}else go()}}
+/* collegamenti */
+{const sw=showWelcome;showWelcome=function(){sw();if(!$('#wLog')){const n=$('#wNew');if(n)n.insertAdjacentHTML('afterend','<button class="btn soft" id="wLog">Accedi</button>');const l=$('#wLog');if(l)l.onclick=openRestore}else{$('#wLog').textContent='Accedi'}}}
+{const sl=showLogin;showLogin=function(){sl();const f=$('#forgot');if(f&&!$('#lrst'))f.insertAdjacentHTML('afterend','<button class="link" id="lrst" style="font-size:13px">Accedi con un backup da un altro dispositivo</button>');const r=$('#lrst');if(r)r.onclick=openRestore}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
