@@ -4090,6 +4090,48 @@ async function bootAccount(acc){
    else if(r.status===401)Cloud.forget()}}catch(e){}}
  if(acc){store.set('vybe_acc',acc);IDBS.set('acc',JSON.parse(JSON.stringify(acc)))}return acc}
 
+/* ===================== PERSONE REALI ANCHE NELL'APP (Vercel): elenco iscritti, ricerca, segui ===================== */
+const VDB={base:null,cb:null,full:{},fullT:{},poll:0,nullT:0,lastLight:'',lastFull:'',fullAt:0,pend:null,ptmr:0,
+ LIGHT:['u','n','bio','av','priv','teen','fw','ok','lk','ord','t0','ck'],
+ async dirUrl(){if(this.base)return this.base;try{const c=localStorage.getItem('vybe_dir');if(c){this.base=c;return c}}catch(e){}if(Date.now()-this.nullT<300000)return null;
+  try{const r=await fetch('/api/pub');const j=await r.json();if(j.dir){this.base=j.dir;try{localStorage.setItem('vybe_dir',j.dir)}catch(e){}return j.dir}}catch(e){}this.nullT=Date.now();return null},
+ fullUrl(uid){return this.base?this.base.replace(/dir\.json.*$/,'pub/'+uid+'.json'):null},
+ collection(){return{onSnapshot:(cb)=>{this.cb=cb;this.tick();clearInterval(this.poll);this.poll=setInterval(()=>{if(document.visibilityState==='visible')this.tick()},90000);
+   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-(this.lastTick||0)>20000)this.tick()});return()=>clearInterval(this.poll)}}},
+ doc(path){return{set:d=>this.publish(d),delete:()=>this.remove(),get:async()=>({exists:false,data:()=>undefined})}},
+ emit(){if(!this.cb||!this.dir)return;const docs=Object.keys(this.dir).map(id=>{const d=Object.assign({},this.full[id]||{},this.dir[id]);return{id,exists:true,data:()=>d}});this.cb({docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:{fromCache:false}})},
+ async tick(){this.lastTick=Date.now();const u=await this.dirUrl();let dir=this.dir||{};if(u){try{const r=await fetch(u);if(r.ok)dir=await r.json()}catch(e){}}if(!dir||typeof dir!=='object')dir={};this.dir=dir;this.emit();
+  const want=new Set([...(S.acc&&S.acc.rfw||[])].filter(x=>dir[x]));if(this.view&&dir[this.view])want.add(this.view);let ch=false;
+  for(const id of want){if(id===Real.uid)continue;if(this.fullT[id]&&Date.now()-this.fullT[id]<240000&&(dir[id].ft||0)<=this.fullT[id])continue;const fu=this.fullUrl(id);if(!fu)continue;try{const r=await fetch(fu);if(r.ok){this.full[id]=await r.json();this.fullT[id]=Date.now();ch=true}}catch(e){}}
+  if(ch)this.emit()},
+ async loadFull(uid){this.view=uid;const fu=this.fullUrl(uid);if(!fu||(this.fullT[uid]&&Date.now()-this.fullT[uid]<120000))return;try{const r=await fetch(fu);if(r.ok){this.full[uid]=await r.json();this.fullT[uid]=Date.now();this.emit()}}catch(e){}},
+ async publish(d){const light={};for(const k of this.LIGHT)if(d[k]!==undefined)light[k]=d[k];const ls=JSON.stringify(light),fs=JSON.stringify(d);
+  const needL=ls!==this.lastLight,needF=fs!==this.lastFull;if(!needL&&!needF)return;this.pend={light,full:d,ls,fs,needL,needF};
+  const wait=needL?15000:Math.max(15000,240000-(Date.now()-this.fullAt));clearTimeout(this.ptmr);this.ptmr=setTimeout(()=>this.flush(),wait)},
+ async flush(){const p=this.pend;if(!p||!Cloud.on)return;this.pend=null;const sendFull=p.needF&&(Date.now()-this.fullAt>200000||!this.fullAt||p.needL);
+  const body={email:Cloud.email,token:Cloud.tok,light:p.light};if(sendFull)body.full=p.full;
+  try{const r=await fetch('/api/pub',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));
+   if(r.ok){this.lastLight=p.ls;if(sendFull){this.lastFull=p.fs;this.fullAt=Date.now()}else if(p.needF){this.pend={light:p.light,full:p.full,ls:p.ls,fs:p.fs,needL:false,needF:true};this.ptmr=setTimeout(()=>this.flush(),240000)}
+    if(j.dir&&!this.base){this.base=j.dir;try{localStorage.setItem('vybe_dir',j.dir)}catch(e){}}setTimeout(()=>this.tick(),70000)}}catch(e){this.pend=p;this.ptmr=setTimeout(()=>this.flush(),60000)}},
+ async remove(){if(!Cloud.on)return;try{await fetch('/api/pub',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:Cloud.email,token:Cloud.tok,remove:1})})}catch(e){}}};
+Real.startV=function(){if(this.on||Persist.ready||!Cloud.on||!Cloud.uid||!S.acc)return;this.db=VDB;this.uid=Cloud.uid;this.on=true;const a=S.acc;a.rfw=a.rfw||[];a.rok=a.rok||[];a.rseen=a.rseen||[];a.rlk=a.rlk||[];a.rlkSeen=a.rlkSeen||[];a.rblock=a.rblock||[];
+ this.unsub=this.db.collection('pub').onSnapshot(s=>this.onSnap(s),()=>{this.on=false});this.publishSoon(1500)};
+{const st=VC.start.bind(VC);VC.start=function(){if(!Persist.ready)return;return st()}}
+/* uid dell'account online */
+{const sc=Cloud.setCreds.bind(Cloud);Cloud.setCreds=async function(e,p){await sc(e,p);this.uid=null}}
+{const ap=Cloud.api.bind(Cloud);Cloud.api=async function(a,x){const r=await ap(a,x);if(r&&r.uid&&r.uid!==this.uid){this.uid=r.uid;try{const c=JSON.parse(localStorage.getItem('vybe_cloud')||'{}');c.u=r.uid;localStorage.setItem('vybe_cloud',JSON.stringify(c))}catch(e){}setTimeout(()=>Real.startV(),300)}return r}}
+{const rs=Cloud.resume.bind(Cloud);Cloud.resume=async function(){await rs();if(this.on&&!this.uid){try{const c=JSON.parse(localStorage.getItem('vybe_cloud')||'{}');if(c.u)this.uid=c.u}catch(e){}}}}
+/* salvataggio online meno frequente (limiti del piano gratuito) */
+Cloud.lastPut=0;Cloud.saveSoon=function(){if(!this.on)return;if(this.tmr)return;const wait=Math.max(8000,240000-(Date.now()-this.lastPut));this.tmr=setTimeout(()=>{this.tmr=0;this.save().then(r=>{if(r&&r.status===200)this.lastPut=Date.now()})},wait)};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&Cloud.on&&Cloud.tmr&&Date.now()-Cloud.lastPut>60000){clearTimeout(Cloud.tmr);Cloud.tmr=0;Cloud.save().then(r=>{if(r&&r.status===200)Cloud.lastPut=Date.now()})}});
+{const ea=enterApp;enterApp=function(){ea();if(Cloud.avail())Cloud.resume().then(()=>{if(Cloud.on&&!Cloud.uid)Cloud.api('login');else Real.startV()})}}
+/* profilo completo quando apri una persona */
+{const orr=openReal;openReal=function(id){orr(id);if(Real.db===VDB)VDB.loadFull(id.slice(2))}}
+/* avviso quando qualcuno di nuovo entra su Vybe */
+{const os=Real.onSnap.bind(Real);Real.onSnap=function(s){os(s);const a=S.acc;if(!a)return;const ids=Object.keys(this.docs).filter(u=>u!==this.uid);
+  if(!a.rknown){a.rknown=ids;save();return}const nw=ids.filter(u=>!a.rknown.includes(u));if(!nw.length)return;a.rknown=a.rknown.concat(nw).slice(-500);
+  nw.slice(0,3).forEach(u=>{const w=USERS['r_'+u];if(w&&!a.rblock.includes(u))notify('join',w,null,'è entrato su Vybe 👋 Cercalo e seguilo!')});save()}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
