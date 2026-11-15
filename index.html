@@ -3988,6 +3988,59 @@ function openRestore(){const sh=openSheet(`<div style="padding:8px 18px 22px;dis
 {const sw=showWelcome;showWelcome=function(){sw();if(!$('#wLog')){const n=$('#wNew');if(n)n.insertAdjacentHTML('afterend','<button class="btn soft" id="wLog">Accedi</button>');const l=$('#wLog');if(l)l.onclick=openRestore}else{$('#wLog').textContent='Accedi'}}}
 {const sl=showLogin;showLogin=function(){sl();const f=$('#forgot');if(f&&!$('#lrst'))f.insertAdjacentHTML('afterend','<button class="link" id="lrst" style="font-size:13px">Accedi con un backup da un altro dispositivo</button>');const r=$('#lrst');if(r)r.onclick=openRestore}}
 
+/* ===================== ACCESSO CON EMAIL E PASSWORD (versione Vercel, account online cifrato) ===================== */
+const Cloud={on:false,key:null,tok:null,email:null,last:'',busy:false,tmr:0,ic:{},
+ avail(){return!Persist.ready&&location.protocol==='https:'&&!/claude\.ai|claudeusercontent|anthropic/.test(location.hostname)},
+ async derive(email,pw){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);const bits=new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode('vybe|'+email.trim().toLowerCase()),iterations:150000,hash:'SHA-256'},base,512));return{raw:bits.slice(0,32),tok:[...bits.slice(32)].map(b=>b.toString(16).padStart(2,'0')).join('')}},
+ async setCreds(email,pw){const d=await this.derive(email,pw);this.key=await crypto.subtle.importKey('raw',d.raw,{name:'AES-GCM'},false,['encrypt','decrypt']);this.tok=d.tok;this.email=email.trim().toLowerCase();try{localStorage.setItem('vybe_cloud',JSON.stringify({e:this.email,k:b64e(d.raw),t:d.tok}))}catch(e){}this.on=true;this.last=''},
+ async resume(){if(this.on||!this.avail())return;let c=null;try{c=JSON.parse(localStorage.getItem('vybe_cloud')||'null')}catch(e){}if(!c||!c.k)return;this.key=await crypto.subtle.importKey('raw',b64d(c.k),{name:'AES-GCM'},false,['encrypt','decrypt']);this.tok=c.t;this.email=c.e;this.on=true},
+ forget(){this.on=false;this.key=null;this.tok=null;try{localStorage.removeItem('vybe_cloud')}catch(e){}},
+ async api(action,extra){try{const r=await fetch('/api/account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action,email:this.email,token:this.tok},extra||{}))});let j={};try{j=await r.json()}catch(e){}return Object.assign({status:r.status},j)}catch(e){return{status:0}}},
+ async shrink(u){if(!u||typeof u!=='string')return null;const ck=u.length+'|'+u.slice(-48);if(this.ic[ck]!==undefined)return this.ic[ck];let d=u.startsWith('data:')?u:await toDataURL(u);if(!d)return this.ic[ck]=null;
+  if(d.length>160000){d=await new Promise(res=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,900/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*sc);c.height=Math.round(im.naturalHeight*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};im.onerror=()=>res(d);im.src=d})}return this.ic[ck]=d},
+ async pack(){const a=JSON.parse(JSON.stringify(S.acc));a.avatar=await this.shrink(a.avatar);const own=[];
+  for(const p of a.own||[]){if(p.type==='video'){const pos=await this.shrink(p.poster);if(!pos)continue;p.type='photo';p.img=pos;delete p.video;delete p.url;delete p.poster;own.push(p);continue}if(p.img){p.img=await this.shrink(p.img);if(!p.img)continue}own.push(p)}a.own=own;
+  const st=[];for(const s of a.stories||[]){if(s.video)continue;if(s.img){s.img=await this.shrink(s.img);if(!s.img)continue}st.push(s)}a.stories=st;
+  if(a.shop&&a.shop.my)for(const p of a.shop.my)if(p.img)p.img=await this.shrink(p.img)||undefined;
+  let js=JSON.stringify(a);while(js.length>2800000&&a.own.some(p=>p.img)){const p=[...a.own].reverse().find(p=>p.img);p.img=null;p.type='text';p.t={t:p.caption||'📷',bg:'#2a2440',fg:'#fff'};js=JSON.stringify(a)}return js},
+ async seal(js){const iv=crypto.getRandomValues(new Uint8Array(12));const c=await crypto.subtle.encrypt({name:'AES-GCM',iv},this.key,new TextEncoder().encode(js));return JSON.stringify({iv:b64e(iv),c:b64e(c)})},
+ async open(data){const o=JSON.parse(data);const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(o.iv)},this.key,b64d(o.c));return JSON.parse(new TextDecoder().decode(p))},
+ saveSoon(){if(!this.on)return;if(this.tmr)return;this.tmr=setTimeout(()=>{this.tmr=0;this.save()},6000)},
+ async save(action){if(!this.on||!S.acc||this.busy)return;this.busy=true;try{const js=await this.pack();if(!action&&js===this.last){this.busy=false;return{status:200}}const r=await this.api(action||'save',{data:await this.seal(js)});if(r.status===200){this.last=js;S.cloudErr=0}else if(r.status===413)toast('Account troppo grande per il salvataggio online: elimina qualche foto');else if(r.status===401&&!action){this.forget();toast('Accesso online scaduto: esci e rientra con email e password')}this.busy=false;return r}catch(e){this.busy=false;return{status:0}}}};
+function showCloudLogin(prefill){showAuth();const acc=store.get('vybe_acc');
+ A.innerHTML=`<div class="auth-top"><button class="iconbtn" id="clb">${ic('back')}</button><div style="flex:1"></div></div><div class="auth-body">
+ <div class="logo" style="font-size:44px;align-self:center;margin:14px 0 6px">Vybe</div><h1 class="center" style="font-size:24px">Accedi</h1><p class="sub center">Usa l’email e la password del tuo account Vybe.</p>
+ <label class="fld"><span>Email</span><input class="in" id="ce" type="email" inputmode="email" autocapitalize="none" autocomplete="username" spellcheck="false" value="${esc(prefill||(acc&&acc.email)||'')}"></label>
+ <label class="fld"><span>Password</span><div class="pw"><input class="in" id="cp" type="password" autocomplete="current-password"><button type="button" id="ceye">${ic('eye',20)}</button></div></label>
+ <small class="hint" id="ch"></small><button class="btn" id="cgo">Accedi</button><button class="link" id="cfg">Password dimenticata?</button>
+ <div class="spacer"></div><button class="link" id="cbk" style="font-size:13px">Hai l’account nella versione di Claude? Trasferiscilo con il backup</button><button class="link" id="cnew" style="color:var(--muted);font-weight:500;font-size:13px">Non hai un account? Creane uno</button></div>`;
+ let sh=false;$('#ceye').onclick=()=>{sh=!sh;$('#cp').type=sh?'text':'password';$('#ceye').innerHTML=ic(sh?'eyeoff':'eye',20)};$('#clb').onclick=showWelcome;
+ $('#cbk').onclick=openRestore;$('#cnew').onclick=()=>{D={};goStep(0)};$('#cfg').onclick=()=>confirmSheet('Password dimenticata','Il tuo account online è cifrato con la tua password: per sicurezza nemmeno Vybe può leggerlo o reimpostarla. Se l’hai persa, puoi creare un nuovo account.','Crea nuovo account',()=>{D={};goStep(0)});
+ const h=$('#ch'),btn=$('#cgo');const err=t=>{h.textContent=t;h.className='hint err';btn.disabled=false;btn.textContent='Accedi'};
+ $('#cp').onkeydown=e=>{if(e.key==='Enter')btn.click()};
+ btn.onclick=async()=>{const g=guard();if(Date.now()<g.until)return err(`Troppi tentativi. Riprova tra ${Math.ceil((g.until-Date.now())/1000)}s`);const em=$('#ce').value.trim().toLowerCase(),pw=$('#cp').value;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)||!pw)return err('Inserisci email e password');btn.disabled=true;btn.textContent='Accedo…';
+  const fail=()=>{g.fails++;if(g.fails>=5){g.locks++;g.until=Date.now()+60000*Math.pow(2,g.locks-1);g.fails=0}store.set('vybe_guard',g);err('Email o password sbagliati')};
+  const okLocal=acc&&acc.email&&acc.email.toLowerCase()===em&&(await hash(acc.salt+'|'+pw))===acc.passHash;
+  await Cloud.setCreds(em,pw);const r=await Cloud.api('login');let a=null;
+  if(r.status===200&&r.data){try{a=await Cloud.open(r.data)}catch(e){a=null}}
+  if(a){if(okLocal&&(acc.updated||0)>(a.updated||0))a=acc;Cloud.last=''}
+  else if(r.status===0){if(!okLocal){Cloud.forget();return err('Nessuna connessione: riprova tra poco')}a=acc}
+  else if(okLocal){a=acc;S.acc=a;const rr=await Cloud.save('register');if(rr.status===409){Cloud.forget();return err('Questa email ha già un account online con un’altra password')}}
+  else{Cloud.forget();return fail()}
+  store.set('vybe_guard',{fails:0,until:0,locks:0});a.loggedIn=true;a.updated=Date.now();S.acc=a;store.set('vybe_acc',a);store.sset('vybe_ses','1');toast('Bentornato/a, '+(a.name||a.username).split(' ')[0]+' 💜');enterApp();Cloud.saveSoon()}}
+{const sw=showWelcome;showWelcome=function(){sw();if(Cloud.avail()){const l=$('#wLog');if(l){l.textContent='Accedi';l.onclick=()=>showCloudLogin()}}}}
+{const sl=showLogin;showLogin=function(){if(Cloud.avail())return showCloudLogin();sl()}}
+{const ca=createAccount;createAccount=async function(personal){const em=D.email,pw=D.pass;const r=await ca.apply(this,arguments);
+  if(Cloud.avail()&&em&&pw){await Cloud.setCreds(em,pw);const rr=await Cloud.save('register');if(rr.status===409){Cloud.forget();setTimeout(()=>confirmSheet('Email già registrata','Esiste già un account Vybe con questa email. Vuoi accedere a quello?','Accedi',()=>{S.acc.loggedIn=false;store.del('vybe_acc');closeAll();showCloudLogin(em)}),1500)}else if(rr.status===200)toast('Account salvato online: accedi con email e password da qualsiasi dispositivo')}return r}}
+{const sv=save;save=function(){sv();if(Cloud.on&&S.acc&&S.acc.loggedIn!==false)Cloud.saveSoon()}}
+{const ea=enterApp;enterApp=function(){ea();if(Cloud.avail()){Cloud.resume().then(()=>{if(!Cloud.on&&S.acc&&!S.cloudAsked){S.cloudAsked=1;setTimeout(()=>{const sh=openSheet(`<div style="padding:8px 18px 20px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">☁️ Accedi da qualsiasi telefono</h3><p class="sub" style="margin:0">Salva il tuo account online, cifrato con la tua password. Poi entri ovunque solo con <b>email e password</b>.</p><input class="in" id="cpw" type="password" placeholder="La tua password"><small class="hint" id="cph"></small><button class="btn" id="cgo2">Attiva</button><button class="btn soft" id="cno">Non ora</button></div>`);
+   $('#cno',sh).onclick=()=>closeOv(sh);$('#cgo2',sh).onclick=async()=>{const pw=$('#cpw',sh).value;if((await hash(S.acc.salt+'|'+pw))!==S.acc.passHash){$('#cph',sh).textContent='Password sbagliata';$('#cph',sh).className='hint err';return}$('#cgo2',sh).disabled=true;await Cloud.setCreds(S.acc.email,pw);let rr=await Cloud.save('register');if(rr.status===409)rr=await Cloud.save('save');closeOv(sh);if(rr.status===200)toast('Fatto! Ora accedi con email e password da qualsiasi dispositivo ☁️');else{Cloud.forget();toast(rr.status===401?'Questa email ha già un account online con un’altra password':'Non riesco a salvare online, riprova più tardi')}}},2500)}else if(Cloud.on)Cloud.saveSoon()})}}}
+{const _lo=()=>{if(Cloud.on){Cloud.save().finally(()=>Cloud.forget())}};document.addEventListener('click',e=>{const b=e.target.closest('#lo,#lkOut');if(b&&Cloud.avail())_lo()},true)}
+window.addEventListener('pagehide',()=>{if(Cloud.on&&Cloud.tmr){clearTimeout(Cloud.tmr);Cloud.tmr=0;Cloud.save()}});
+/* ripristino da backup: su Vercel salva anche online */
+{const rb=readBackup;readBackup=async function(text,pw){const acc=await rb(text,pw);if(Cloud.avail()){await Cloud.setCreds(acc.email,pw);const prev=S.acc;S.acc=acc;let rr=await Cloud.save('register');if(rr.status===409)rr=await Cloud.save('save');S.acc=prev;if(rr.status===200)setTimeout(()=>toast('Account salvato online: da ora accedi con email e password ☁️'),1800)}return acc}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
