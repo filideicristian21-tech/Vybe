@@ -1028,7 +1028,7 @@ video.rv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;backg
 .stvc{position:absolute;inset:0;display:grid;place-items:center}.stvc img{max-width:100%;max-height:100%;object-fit:contain}.sttx{font-size:30px;font-weight:800;text-align:center;padding:0 28px;line-height:1.25;word-break:break-word}
 .stnav{position:absolute;inset:80px 0 80px;display:flex;z-index:2}.stnav i{flex:1}.stnav i:first-child{flex:.45}
 .stvf{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));text-align:center;z-index:3;font-size:13px;color:rgba(255,255,255,.8)}.stvf button{padding:9px 16px;border-radius:18px;background:rgba(0,0,0,.45);color:#fff;font-weight:700}
-.vcico{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#22c55e);font-size:16px;box-shadow:0 0 12px rgba(124,58,237,.55)}#chatBtn{position:relative}</style>
+.vcico{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#22c55e);font-size:16px;box-shadow:0 0 12px rgba(124,58,237,.55)}#chatBtn{position:relative}.lkcode{font-size:40px;font-weight:900;letter-spacing:.12em;padding:14px 0;border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.3),rgba(236,72,153,.25));font-variant-numeric:tabular-nums}.lksteps{text-align:left;margin:0 0 10px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--muted)}.lksteps b{color:var(--ink)}.lkin{font-size:24px;letter-spacing:.15em;text-align:center;font-weight:800}</style>
 </head>
 <body>
 <div id="app">
@@ -2687,6 +2687,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="archive"><span class="mi">${ic('archive',22)}</span><div>Archivio storie<small>Le tue storie dopo 24 ore</small></div></button>
  <button data-m="vplus"><span class="mi" style="color:#f0abfc">${ic('crown',22)}</span><div>VYBE+<small>Abbonamento e vantaggi</small></div></button>
  <button data-m="subs"><span class="mi" style="color:#d8b4fe">⭐</span><div>Abbonamenti al canale<small>Standard 3,99 € · Premium Deluxe 20 €</small></div></button>
+ <button data-m="linkdev"><span class="mi">🔢</span><div>Accedi nell’app Vybe<small>Un codice per entrare dall’app vera (Vercel)</small></div></button>
  <button data-m="transfer"><span class="mi">📲</span><div>Trasferisci account<small>Backup cifrato per accedere da un altro dispositivo</small></div></button>
  <button data-m="vchat"><span class="mi">💬</span><div>Vybe Chat<small>Messaggi, gruppi e stati con i tuoi amici</small></div></button>
  <button data-m="shop"><span class="mi">🛍️</span><div>Negozio Vybe<small>Merch dei creator, carrello e ordini</small></div></button>
@@ -2694,7 +2695,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="wallet"><span class="mi" style="color:#fde68a">${ic('gift',22)}</span><div>Saldo e regali<small>Regali delle dirette e prelievo su Giro</small></div></button>
  <button data-m="collabs"><span class="mi">${ic('brief',22)}</span><div>Collaborazioni con brand<small>Campagne e guadagni</small></div></button>
  <button data-m="settings"><span class="mi">${ic('gear',22)}</span><div>Impostazioni e privacy</div></button></div>`);
- $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer})[b.dataset.m]()})}
+ $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer,linkdev:openLinkDevice})[b.dataset.m]()})}
 
 /* ---------- Impostazioni ---------- */
 function openSettings(){const a=S.acc,s=a.settings,teen=S.teen,st=a.status;
@@ -4040,6 +4041,37 @@ function showCloudLogin(prefill){showAuth();const acc=store.get('vybe_acc');
 window.addEventListener('pagehide',()=>{if(Cloud.on&&Cloud.tmr){clearTimeout(Cloud.tmr);Cloud.tmr=0;Cloud.save()}});
 /* ripristino da backup: su Vercel salva anche online */
 {const rb=readBackup;readBackup=async function(text,pw){const acc=await rb(text,pw);if(Cloud.avail()){await Cloud.setCreds(acc.email,pw);const prev=S.acc;S.acc=acc;let rr=await Cloud.save('register');if(rr.status===409)rr=await Cloud.save('save');S.acc=prev;if(rr.status===200)setTimeout(()=>toast('Account salvato online: da ora accedi con email e password ☁️'),1800)}return acc}}
+
+/* ===================== ACCEDI CON UN CODICE (dalla versione Claude all'app) ===================== */
+async function openLinkDevice(){if(!S.acc)return;const code=String(Math.floor(10000000+Math.random()*90000000));
+ const sh=openSheet(`<div style="padding:8px 18px 22px;display:flex;flex-direction:column;gap:12px;text-align:center"><h3 style="font-size:19px">📲 Accedi nell’app Vybe</h3><p class="sub" style="margin:0">Preparo il tuo account…</p><div class="lkcode" id="lkc">· · · · · · · ·</div><div id="lkb"></div></div>`);
+ let res;try{res=await buildBackup(code,t=>{const p=$('.sub',sh);if(p)p.textContent=t})}catch(e){closeOv(sh);return toast('Errore nel preparare il codice')}
+ const txt='VYBECODE:'+res.text;let copied=false;const copy=async()=>{try{await navigator.clipboard.writeText(txt);copied=true;toast('Copiato ✓')}catch(e){copied=false}return copied};await copy();
+ $('#lkc',sh).textContent=code.slice(0,4)+' '+code.slice(4);
+ $('.sub',sh).innerHTML=copied?'✅ Account copiato. Ora nell’app:':'Tocca “Copia” e poi nell’app:';
+ $('#lkb',sh).innerHTML=`<ol class="lksteps"><li>Apri <b>Vybe</b> (vybe-pink-pi.vercel.app)</li><li>Tocca <b>Accedi</b> → <b>Accedi con un codice</b></li><li>Tocca <b>Incolla</b> e scrivi questo codice</li></ol><button class="btn ${copied?'soft':''}" id="lkcp">📋 ${copied?'Copia di nuovo':'Copia'}</button><small class="hint">Il codice vale 30 minuti. Non darlo a nessuno.</small>`;
+ $('#lkcp',sh).onclick=async()=>{if(!(await copy())){const s3=openSheet(`<div style="padding:8px 16px 18px"><b>Seleziona tutto e copia</b><textarea class="ta" style="width:100%;min-height:180px;font-size:10px;margin-top:8px" readonly>${esc(txt.slice(0,600000))}</textarea></div>`);const t=$('textarea',s3);t.focus();t.select()}}}
+async function readCodePack(text,code){const t=String(text||'').trim();const j=t.startsWith('VYBECODE:')?t.slice(9):t;let o;try{o=JSON.parse(j)}catch(e){throw new Error('Non trovo l’account copiato: nella versione di Claude tocca di nuovo “Copia”')}
+ if(!o||o.vybe!=='backup')throw new Error('Non trovo l’account copiato: nella versione di Claude tocca di nuovo “Copia”');if(Date.now()-(+o.t||0)>30*60000)throw new Error('Codice scaduto: generane uno nuovo nella versione di Claude');
+ try{const key=await bkKey(code,b64d(o.salt));const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(o.iv)},key,b64d(o.c));return JSON.parse(new TextDecoder().decode(p))}catch(e){throw new Error('Codice sbagliato')}}
+function openCodeLogin(){let pasted='';
+ const sh=openSheet(`<div style="padding:8px 18px 22px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">🔢 Accedi con un codice</h3>
+ <p class="sub" style="margin:0">Nella versione di Claude apri il profilo → <b>☰</b> → <b>Accedi nell’app Vybe</b>. Ti dà un codice di 8 cifre e copia il tuo account.</p>
+ <button class="btn soft" id="clp">📋 Incolla l’account copiato</button><small class="hint" id="clps"></small><textarea class="ta" id="clt" placeholder="Se “Incolla” non funziona, tieni premuto qui e scegli Incolla" style="width:100%;min-height:54px;margin:0;font-size:11px;display:none"></textarea>
+ <label class="fld"><span>Codice di 8 cifre</span><input class="in lkin" id="clc" inputmode="numeric" maxlength="9" placeholder="1234 5678" autocomplete="one-time-code"></label>
+ <label class="fld"><span>La tua password Vybe</span><input class="in" id="clw" type="password" autocomplete="current-password"></label><small class="hint">Serve per i prossimi accessi con email e password da qualsiasi telefono.</small>
+ <small class="hint" id="clh"></small><button class="btn" id="clgo">Accedi</button></div>`);$('.sheet',sh).style.maxHeight='94%';$('.sheet',sh).style.overflowY='auto';
+ const st=$('#clps',sh),ta=$('#clt',sh);
+ $('#clp',sh).onclick=async()=>{try{pasted=await navigator.clipboard.readText()}catch(e){pasted=''}if(pasted&&pasted.includes('"vybe":"backup"')){st.textContent='✓ Account incollato';st.className='hint';ta.style.display='none'}else{pasted='';st.textContent='Non riesco a leggere gli appunti: incolla qui sotto';st.className='hint err';ta.style.display='';ta.focus()}};
+ $('#clc',sh).oninput=e=>{const v=e.target.value.replace(/\D/g,'').slice(0,8);e.target.value=v.length>4?v.slice(0,4)+' '+v.slice(4):v};
+ $('#clgo',sh).onclick=async()=>{const h=$('#clh',sh),b=$('#clgo',sh),err=t=>{h.textContent=t;h.className='hint err';b.disabled=false;b.textContent='Accedi'};const text=pasted||ta.value,code=$('#clc',sh).value.replace(/\D/g,''),pw=$('#clw',sh).value;
+  if(!text.trim())return err('Prima tocca “Incolla”');if(code.length!==8)return err('Il codice ha 8 cifre');const g=guard();if(Date.now()<g.until)return err('Troppi tentativi, riprova tra poco');
+  b.disabled=true;b.textContent='Accedo…';let acc;try{acc=await readCodePack(text,code)}catch(e){g.fails++;if(g.fails>=5){g.locks++;g.until=Date.now()+60000*Math.pow(2,g.locks-1);g.fails=0}store.set('vybe_guard',g);return err(e.message)}
+  if(!pw||(await hash(acc.salt+'|'+pw))!==acc.passHash)return err('Password sbagliata: è quella del tuo account Vybe');
+  store.set('vybe_guard',{fails:0,until:0,locks:0});acc.loggedIn=true;acc.updated=Date.now();S.acc=acc;store.set('vybe_acc',acc);store.sset('vybe_ses','1');
+  if(Cloud.avail()){await Cloud.setCreds(acc.email,pw);let rr=await Cloud.save('register');if(rr.status===409)rr=await Cloud.save('save');if(rr.status===401){Cloud.forget();setTimeout(()=>toast('Questa email ha già un account online con un’altra password'),2000)}else if(rr.status===200)setTimeout(()=>toast('Da ora accedi anche solo con email e password ☁️'),2200)}
+  closeOv(sh);toast('Bentornato/a, '+(acc.name||acc.username).split(' ')[0]+' 💜');enterApp()}}
+{const cl=showCloudLogin;showCloudLogin=function(pre){cl(pre);const g=$('#cgo');if(g&&!$('#ccode')){g.insertAdjacentHTML('afterend','<button class="btn soft" id="ccode" style="margin-top:8px">🔢 Accedi con un codice</button>');$('#ccode').onclick=openCodeLogin}}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
