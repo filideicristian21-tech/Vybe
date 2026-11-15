@@ -4073,11 +4073,29 @@ function openCodeLogin(){let pasted='';
   closeOv(sh);toast('Bentornato/a, '+(acc.name||acc.username).split(' ')[0]+' 💜');enterApp()}}
 {const cl=showCloudLogin;showCloudLogin=function(pre){cl(pre);const g=$('#cgo');if(g&&!$('#ccode')){g.insertAdjacentHTML('afterend','<button class="btn soft" id="ccode" style="margin-top:8px">🔢 Accedi con un codice</button>');$('#ccode').onclick=openCodeLogin}}}
 
+/* ===================== ACCOUNT SEMPRE SALVATO (IndexedDB + ripristino automatico online) ===================== */
+const IDBS={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{try{const r=indexedDB.open('vybe',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}))},
+ async get(k){try{const db=await this.open();return await new Promise(res=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)})}catch(e){return null}},
+ async set(k,v){try{const db=await this.open();return await new Promise(res=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false)})}catch(e){return false}},
+ async del(k){try{const db=await this.open();const tx=db.transaction('kv','readwrite');tx.objectStore('kv').delete(k)}catch(e){}}};
+let idbT=0;const idbSave=()=>{if(!S.acc)return;try{IDBS.set('acc',JSON.parse(JSON.stringify(S.acc)))}catch(e){}};
+{const sv=save;save=function(){sv();clearTimeout(idbT);idbT=setTimeout(idbSave,800)}}
+window.addEventListener('pagehide',()=>{clearTimeout(idbT);idbSave()});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(idbT);idbSave()}});
+{const w=Persist.wipe;Persist.wipe=async function(){IDBS.del('acc');try{localStorage.removeItem('vybe_cloud')}catch(e){}return w.call(this)}}
+{const ea=enterApp;enterApp=function(){ea();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}idbSave()}}
+async function bootAccount(acc){
+ const ia=await Promise.race([IDBS.get('acc'),new Promise(r=>setTimeout(()=>r(null),2500))]);if(ia&&ia.username&&(!acc||(ia.updated||0)>(acc.updated||0)))acc=ia;
+ if(!Persist.ready&&typeof Cloud!=='undefined'&&Cloud.avail()){try{await Cloud.resume();if(Cloud.on){const r=await Promise.race([Cloud.api('login'),new Promise(res=>setTimeout(()=>res({status:0}),6000))]);
+   if(r.status===200&&r.data){const ca=await Cloud.open(r.data);if(ca&&ca.username&&(!acc||acc.username!==ca.username||(ca.updated||0)>(acc.updated||0))){ca.loggedIn=acc&&acc.username===ca.username?acc.loggedIn:true;if(ca.loggedIn===undefined)ca.loggedIn=true;acc=ca}}
+   else if(r.status===401)Cloud.forget()}}catch(e){}}
+ if(acc){store.set('vybe_acc',acc);IDBS.set('acc',JSON.parse(JSON.stringify(acc)))}return acc}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
  try{await Promise.race([Persist.init(),new Promise(r=>setTimeout(r,4500))]);if(Persist.ready)remote=await Promise.race([Persist.load(),new Promise(r=>setTimeout(()=>r(undefined),6000))])}catch(e){}
  if(remote&&(!acc||(remote.updated||0)>=(acc.updated||0))){acc=remote;store.set('vybe_acc',acc)}
+ try{acc=await bootAccount(acc)}catch(e){}
  const wait=2900-(Date.now()-t0);if(wait>0)await new Promise(r=>setTimeout(r,wait));
  if(acc){S.acc=acc;if(Persist.ready&&remote===null)persistSoon();if(acc.loggedIn!==false){enterApp();if(acc.settings&&acc.settings.autolock)lockScreen()}else showLogin()}else showWelcome()})();
 </script>
