@@ -2687,6 +2687,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="archive"><span class="mi">${ic('archive',22)}</span><div>Archivio storie<small>Le tue storie dopo 24 ore</small></div></button>
  <button data-m="vplus"><span class="mi" style="color:#f0abfc">${ic('crown',22)}</span><div>VYBE+<small>Abbonamento e vantaggi</small></div></button>
  <button data-m="subs"><span class="mi" style="color:#d8b4fe">⭐</span><div>Abbonamenti al canale<small>Standard 3,99 € · Premium Deluxe 20 €</small></div></button>
+ <button data-m="netstat"><span class="mi">☁️</span><div>Stato online<small>Controlla se gli altri ti trovano</small></div></button>
  <button data-m="realmode"><span class="mi">👥</span><div>Solo persone reali<small>Nascondi o mostra i creator virtuali</small></div></button>
  <button data-m="linkdev"><span class="mi">🔢</span><div>Accedi nell’app Vybe<small>Un codice per entrare dall’app vera (Vercel)</small></div></button>
  <button data-m="transfer"><span class="mi">📲</span><div>Trasferisci account<small>Backup cifrato per accedere da un altro dispositivo</small></div></button>
@@ -2696,7 +2697,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="wallet"><span class="mi" style="color:#fde68a">${ic('gift',22)}</span><div>Saldo e regali<small>Regali delle dirette e prelievo su Giro</small></div></button>
  <button data-m="collabs"><span class="mi">${ic('brief',22)}</span><div>Collaborazioni con brand<small>Campagne e guadagni</small></div></button>
  <button data-m="settings"><span class="mi">${ic('gear',22)}</span><div>Impostazioni e privacy</div></button></div>`);
- $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer,linkdev:openLinkDevice,realmode:toggleRealMode})[b.dataset.m]()})}
+ $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer,linkdev:openLinkDevice,realmode:toggleRealMode,netstat:openNetStatus})[b.dataset.m]()})}
 
 /* ---------- Impostazioni ---------- */
 function openSettings(){const a=S.acc,s=a.settings,teen=S.teen,st=a.status;
@@ -4205,6 +4206,30 @@ function regTrack(it){if(!it||!it.id)return;const id='it:'+it.id;S.acc&&(S.acc.i
   $('#pmus',ov).onclick=()=>musicPicker(S.nextTrack,(id)=>{S.nextTrack=id&&id!=='none'?id:null;paint()})}}
 {const ap=afterPublish;afterPublish=function(){if(S.nextTrack&&S.acc.own[0]){S.acc.own[0].track=S.nextTrack;S.nextTrack=null;save()}return ap()}}
 {const ea=enterApp;enterApp=function(){if(S.acc&&S.acc.itunes)for(const k in S.acc.itunes)regTrack(Object.assign({id:k},S.acc.itunes[k]));ea()}}
+
+/* ===================== AFFIDABILITÀ ONLINE: ritenta, avvisa e pannello di stato ===================== */
+VDB.lastStatus=null;VDB.lastAt=0;
+{const fl=VDB.flush.bind(VDB);VDB.flush=async function(){const p=this.pend;const of=window.fetch;let st=null;
+  window.fetch=async function(u,o){const r=await of(u,o);if(String(u).includes('/api/pub')&&o&&o.method==='POST')st=r.status;return r};
+  try{await fl()}finally{window.fetch=of}
+  if(st==null)return;this.lastStatus=st;this.lastAt=Date.now();
+  if(st===401&&p&&!this.retried){this.retried=1;const rr=await Cloud.save('register');if(rr.status===200||rr.status===409){this.pend=p;this.lastLight='';this.lastHard='';return this.flush()}}
+  if(st!==200&&!this.warned){this.warned=1;toast('Non riesco a pubblicare il tuo profilo (errore '+st+'). Riprovo tra poco.')}
+  if(st!==200&&p){this.pend=p;clearTimeout(this.ptmr);this.ptmr=setTimeout(()=>this.flush(),45000)}else if(st===200){this.retried=0;this.warned=0}}}
+function openNetStatus(){const dirN=VDB.dir?Object.keys(VDB.dir).length:0;const me=VDB.dir&&Real.uid&&VDB.dir[Real.uid];
+ const row=(k,v,ok)=>`<div class="trow2" style="padding:8px 0"><div>${k}</div><b style="color:${ok?'#4ade80':'#f87171'}">${v}</b></div>`;
+ const sh=openSheet(`<div style="padding:8px 18px 20px"><h3 style="font-size:19px;margin-bottom:6px">☁️ Stato online</h3>
+ ${row('Account salvato online',Cloud.on?'Sì':'No',Cloud.on)}${row('Profilo visibile agli altri',me?'Sì':'No',!!me)}${row('Persone su Vybe',String(dirN),dirN>0)}
+ ${row('Ultimo invio del profilo',VDB.lastAt?(VDB.lastStatus===200?'ok ':'errore '+VDB.lastStatus+' ')+ago(VDB.lastAt):'—',VDB.lastStatus===200)}
+ <button class="btn" id="nsP" style="margin-top:12px">🔄 Pubblica di nuovo il mio profilo</button><button class="btn soft" id="nsT" style="margin-top:8px">Aggiorna l’elenco delle persone</button>${Cloud.on?'':'<button class="btn soft" id="nsA" style="margin-top:8px">Attiva l’account online</button>'}</div>`);
+ $('#nsP',sh).onclick=async()=>{if(!Cloud.on)return toast('Prima attiva l’account online');if(!Real.on){if(!Cloud.uid)await Cloud.api('login');Real.startV()}Real.last='';VDB.lastLight='';VDB.lastHard='';VDB.lastFull='';VDB.fullAt=0;await Real.publish();await new Promise(r=>setTimeout(r,300));clearTimeout(VDB.ptmr);await VDB.flush();closeOv(sh);toast(VDB.lastStatus===200?'Profilo pubblicato ✓':'Errore '+VDB.lastStatus+': riprova tra poco');setTimeout(()=>VDB.tick(),2000)};
+ $('#nsT',sh).onclick=async()=>{VDB.base=null;VDB.nullT=0;try{localStorage.removeItem('vybe_dir')}catch(e){}await VDB.tick();closeOv(sh);toast('Elenco aggiornato: '+(VDB.dir?Object.keys(VDB.dir).length:0)+' persone')};
+ const na=$('#nsA',sh);if(na)na.onclick=()=>{closeOv(sh);S.cloudAsked=0;enterAppCloudPrompt()}}
+function enterAppCloudPrompt(){if(!Cloud.avail()||Cloud.on||!S.acc)return;const sh=openSheet(`<div style="padding:8px 18px 20px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">☁️ Attiva il tuo account online</h3><p class="sub" style="margin:0">Serve per farti trovare dagli altri e per entrare da qualsiasi telefono con <b>email e password</b>.</p><input class="in" id="cpw3" type="password" placeholder="La tua password"><small class="hint" id="cph3"></small><button class="btn" id="cgo3">Attiva</button></div>`);
+ $('#cgo3',sh).onclick=async()=>{const pw=$('#cpw3',sh).value;if((await hash(S.acc.salt+'|'+pw))!==S.acc.passHash){$('#cph3',sh).textContent='Password sbagliata';$('#cph3',sh).className='hint err';return}$('#cgo3',sh).disabled=true;await Cloud.setCreds(S.acc.email,pw);let rr=await Cloud.save('register');if(rr.status===409)rr=await Cloud.save('save');closeOv(sh);
+  if(rr.status===200){toast('Account online attivo ✓ Ora gli altri ti trovano');setTimeout(()=>{Real.startV()},500)}else{Cloud.forget();toast(rr.status===401?'Questa email ha già un account online con un’altra password':'Errore '+rr.status+': riprova tra poco')}}}
+{const ea=enterApp;enterApp=function(){ea();setTimeout(()=>{if(Cloud.avail()&&!Cloud.on&&S.acc&&!$$('#layer>.ov').length)enterAppCloudPrompt()},9000)}}
+{const cr=Cloud.save.bind(Cloud);Cloud.save=async function(a){const r=await cr(a);if(a==='register'&&r&&r.status!==200&&r.status!==409){setTimeout(()=>toast('Account online non attivato (errore '+r.status+'). Apri ☰ → Stato online per riprovare'),1500)}return r}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
