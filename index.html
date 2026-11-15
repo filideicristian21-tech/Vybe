@@ -4239,6 +4239,14 @@ setInterval(()=>{try{paintCloudBanner()}catch(e){}},5000);
 {const os=openSearch;openSearch=function(){os();if(Real.db===VDB&&Date.now()-(VDB.lastTick||0)>10000)VDB.tick();
   if(Cloud.avail()&&!Cloud.on){const ov=$$('#layer>.ovf').pop();const r=ov&&$('#sres',ov);if(r)r.insertAdjacentHTML('afterbegin','<button class="cloudban" id="sban" style="margin:8px 12px">☁️ <span><b>Attiva l’account online</b><small>Senza, non puoi vedere né trovare le persone su Vybe</small></span></button>');const sb=ov&&$('#sban',ov);if(sb)sb.onclick=()=>enterAppCloudPrompt()}}}
 
+/* ===================== AGGIORNAMENTI PIÙ RAPIDI DI FOLLOWER E PERSONE ===================== */
+{const of=window.fetch.bind(window);VDB.fetchDir=async function(u){try{const r=await of(u,{cache:'no-cache'});return r.ok?await r.json():null}catch(e){return null}}}
+{const tk=VDB.tick.bind(VDB);VDB.tick=async function(){const u=await this.dirUrl();if(u){const d=await this.fetchDir(u);if(d&&typeof d==='object'){this.dir=d}}return tk()}}
+const quickTick=()=>{if(Real.db===VDB&&Date.now()-(VDB.lastTick||0)>12000)VDB.tick()};
+{const sv=switchView;switchView=function(v){sv(v);if(v==='profile'||v==='home'||v==='discover')quickTick()}}
+{const fl=openFollowList;openFollowList=function(u,k){fl(u,k);quickTick()}}
+{const on=openNotifs;openNotifs=function(){on();quickTick()}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
