@@ -1028,7 +1028,7 @@ video.rv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;backg
 .stvc{position:absolute;inset:0;display:grid;place-items:center}.stvc img{max-width:100%;max-height:100%;object-fit:contain}.sttx{font-size:30px;font-weight:800;text-align:center;padding:0 28px;line-height:1.25;word-break:break-word}
 .stnav{position:absolute;inset:80px 0 80px;display:flex;z-index:2}.stnav i{flex:1}.stnav i:first-child{flex:.45}
 .stvf{position:absolute;left:0;right:0;bottom:calc(18px + 0px);text-align:center;z-index:3;font-size:13px;color:rgba(255,255,255,.8)}.stvf button{padding:9px 16px;border-radius:18px;background:rgba(0,0,0,.45);color:#fff;font-weight:700}
-.vcico{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#22c55e);font-size:16px;box-shadow:0 0 12px rgba(124,58,237,.55)}#chatBtn{position:relative}.lkcode{font-size:40px;font-weight:900;letter-spacing:.12em;padding:14px 0;border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.3),rgba(236,72,153,.25));font-variant-numeric:tabular-nums}.lksteps{text-align:left;margin:0 0 10px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--muted)}.lksteps b{color:var(--ink)}.lkin{font-size:24px;letter-spacing:.15em;text-align:center;font-weight:800}html,body{background:#0b0a10!important}#app{top:env(safe-area-inset-top,0px);height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}@media(min-width:520px){#app{top:max(0px,calc((100dvh - 900px)/2));height:min(100dvh,900px)}}</style>
+.vcico{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#22c55e);font-size:16px;box-shadow:0 0 12px rgba(124,58,237,.55)}#chatBtn{position:relative}.lkcode{font-size:40px;font-weight:900;letter-spacing:.12em;padding:14px 0;border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.3),rgba(236,72,153,.25));font-variant-numeric:tabular-nums}.lksteps{text-align:left;margin:0 0 10px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--muted)}.lksteps b{color:var(--ink)}.lkin{font-size:24px;letter-spacing:.15em;text-align:center;font-weight:800}html,body{background:#0b0a10!important}#app{top:env(safe-area-inset-top,0px);height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}@media(min-width:520px){#app{top:max(0px,calc((100dvh - 900px)/2));height:min(100dvh,900px)}}.msrch{display:flex;flex-direction:column;gap:6px;padding:4px 2px 10px;border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:6px}#msr .mcov{width:44px;height:44px;border-radius:8px}</style>
 </head>
 <body>
 <div id="app">
@@ -2687,6 +2687,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="archive"><span class="mi">${ic('archive',22)}</span><div>Archivio storie<small>Le tue storie dopo 24 ore</small></div></button>
  <button data-m="vplus"><span class="mi" style="color:#f0abfc">${ic('crown',22)}</span><div>VYBE+<small>Abbonamento e vantaggi</small></div></button>
  <button data-m="subs"><span class="mi" style="color:#d8b4fe">⭐</span><div>Abbonamenti al canale<small>Standard 3,99 € · Premium Deluxe 20 €</small></div></button>
+ <button data-m="realmode"><span class="mi">👥</span><div>Solo persone reali<small>Nascondi o mostra i creator virtuali</small></div></button>
  <button data-m="linkdev"><span class="mi">🔢</span><div>Accedi nell’app Vybe<small>Un codice per entrare dall’app vera (Vercel)</small></div></button>
  <button data-m="transfer"><span class="mi">📲</span><div>Trasferisci account<small>Backup cifrato per accedere da un altro dispositivo</small></div></button>
  <button data-m="vchat"><span class="mi">💬</span><div>Vybe Chat<small>Messaggi, gruppi e stati con i tuoi amici</small></div></button>
@@ -2695,7 +2696,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="wallet"><span class="mi" style="color:#fde68a">${ic('gift',22)}</span><div>Saldo e regali<small>Regali delle dirette e prelievo su Giro</small></div></button>
  <button data-m="collabs"><span class="mi">${ic('brief',22)}</span><div>Collaborazioni con brand<small>Campagne e guadagni</small></div></button>
  <button data-m="settings"><span class="mi">${ic('gear',22)}</span><div>Impostazioni e privacy</div></button></div>`);
- $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer,linkdev:openLinkDevice})[b.dataset.m]()})}
+ $$('[data-m]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);({studio:openStudio,ai:()=>openAI(),archive:()=>openArchive(),vplus:openVplus,collabs:openCollabs,settings:openSettings,wallet:openWallet,subs:openChannelSubs,shop:()=>openShop(),myshop:openMyShop,vchat:()=>openVChat(),transfer:openTransfer,linkdev:openLinkDevice,realmode:toggleRealMode})[b.dataset.m]()})}
 
 /* ---------- Impostazioni ---------- */
 function openSettings(){const a=S.acc,s=a.settings,teen=S.teen,st=a.status;
@@ -3360,10 +3361,10 @@ function openFollowList(u,kind){const who=u==='me'?ME():USERS[u];if(!who)return;
  $('#ft',ov).onclick=e=>{const b=e.target.closest('[data-k]');if(b){k=b.dataset.k;draw()}};$('#fq',ov).oninput=draw;draw();ov._rrefresh=draw}
 function openSearch(){const ov=openFull(`<div class="fhead" style="border:0"><button class="iconbtn" data-a="close">${ic('back')}</button><div class="sinput" style="flex:1;margin:0 8px 0 0">${ic('search',19)}<input id="sq" placeholder="Cerca persone" autocapitalize="none"></div></div><div class="fbody" id="sres"></div>`);
  const draw=()=>{const q=$('#sq',ov).value.trim().toLowerCase();const m=p=>!q||p.n.toLowerCase().includes(q)||p.u.toLowerCase().includes(q);
-  const RE=Real.list().filter(m),L=(q?USERS:PEOPLE).filter(m).slice(0,60);
-  const ex=S.posts.filter(p=>canSee(p)&&p.type==='photo').slice(0,12);
+  const RE=Real.list().filter(m),L=REALONLY()?[]:(q?USERS:PEOPLE).filter(m).slice(0,60);
+  const ex=(REALONLY()?REALP:S.posts).filter(p=>canSee(p)&&p.type==='photo').slice(0,12);
   const reH=RE.length?RE.map((p,i)=>urowHTML(p,i,`${p.n} · ${fmt(p.fol)} follower`)).join(''):(q?'':`<div class="emptyc" style="padding:16px 20px">${Real.on?'Quando un amico entra in Vybe con il suo account, lo trovi qui.':'Le persone reali appaiono quando l’app è collegata online.'}</div>`);
-  $('#sres',ov).innerHTML=`${RE.length||!q?`<div class="sect">👥 Persone su Vybe</div>${reH}`:''}<div class="sect">${q?'Creator':'Creator suggeriti'}</div>${L.length?L.map((p,i)=>urowHTML(p,i,`@${p.u} · ${fmt(p.fol)} follower`).replace(`<b>${esc(p.u)}`,`<b>${esc(p.n)}`)).join(''):'<div class="emptyc">Nessuno trovato</div>'}
+  $('#sres',ov).innerHTML=`${RE.length||!q?`<div class="sect">👥 Persone su Vybe</div>${reH}`:''}${REALONLY()?'':`<div class="sect">${q?'Creator':'Creator suggeriti'}</div>`}${REALONLY()&&q&&!RE.length?'<div class="emptyc">Nessuna persona con questo nome su Vybe</div>':L.length||REALONLY()?L.map((p,i)=>urowHTML(p,i,`@${p.u} · ${fmt(p.fol)} follower`).replace(`<b>${esc(p.u)}`,`<b>${esc(p.n)}`)).join(''):'<div class="emptyc">Nessuno trovato</div>'}
   ${q?'':`<div class="sect">Esplora</div><div class="pgrid">${ex.map(miniHTML).join('')}</div>`}`;observe($('#sres',ov))};
  $('#sq',ov).oninput=draw;draw();ov._rrefresh=draw;setTimeout(()=>$('#sq',ov).focus(),350)}
 function renderRealFeed(){let el=$('#realfeed');if(!el){const g=$('#grid');if(!g)return;el=document.createElement('div');el.id='realfeed';g.parentNode.insertBefore(el,g)}
@@ -3442,7 +3443,7 @@ function openShop(startCat){let cat=startCat||'all';const z=shopSt();
  const draw=()=>{const q=$('#shq',ov).value.trim().toLowerCase();let L=allProducts().filter(p=>(cat==='all'||p.ty===cat));
   if(q)L=L.filter(p=>{const s=sellerOf(p)||{};return p.n.toLowerCase().includes(q)||(p.tx||'').toLowerCase().includes(q)||(s.n||'').toLowerCase().includes(q)||(s.u||'').toLowerCase().includes(q)});
   const fr=L.filter(p=>isR(p.seller)),best=L.filter(p=>!isR(p.seller)).sort((a,b)=>b.sold-a.sold);
-  const shops=PEOPLE.filter(p=>!isBlocked(p.id)).slice(0,14);
+  const shops=REALONLY()?Real.list().filter(w=>(w.shop||[]).length):PEOPLE.filter(p=>!isBlocked(p.id)).slice(0,14);
   $('#shb',ov).innerHTML=(q||cat!=='all'?'':`<div class="shhero"><div><b>Merch dei tuoi creator preferiti</b><span>Spedizione gratis da 50 € · paghi con il saldo Vybe o Giro</span></div><button id="myS">Apri il tuo negozio</button></div>
    <div class="sect">Negozi dei creator</div><div class="hscroll shops">${shops.map(p=>`<div class="shopc" data-a="shopof" data-u="${p.id}">${avHTML(p,54)}<b>${esc(p.first)}</b><span>${creatorProducts(p.id).length} prodotti</span></div>`).join('')}</div>`)
    +(fr.length?`<div class="sect">👥 Dai tuoi amici</div><div class="pgrid2">${fr.map(pcardHTML).join('')}</div>`:'')
@@ -4138,6 +4139,72 @@ VDB.LIGHT.push('nf','ng','np');
 {const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const n=k=>Math.max(0,Math.min(1e9,Math.floor(+d[k]||0)));o.nf=n('nf');o.ng=n('ng');o.np=n('np');return o}}
 {const os=Real.onSnap.bind(Real);Real.onSnap=function(s){os(s);for(const k in USERS)if(isR(k)){const w=USERS[k];w.fol=Math.max(w.fol||0,w.nf||0)}try{$$('#layer>*').forEach(ov=>{if(ov._rrefresh)ov._rrefresh()})}catch(e){}}}
 {const lf=listFor;listFor=function(u,kind){const r=lf(u,kind);if(isR(u)&&USERS[u]){const w=USERS[u];r.total=Math.max(r.L.length,kind==='followers'?(w.nf||0):(w.ng||0))}return r}}
+
+/* ===================== SOLO PERSONE REALI + PROFILI PRIVATI + CANZONI VERE (anteprime 30 s) ===================== */
+const REALONLY=()=>!!(S.acc&&(!S.acc.settings||S.acc.settings.realOnly!==false));
+function applyRealMode(){const a=S.acc;if(!a)return;a.settings=a.settings||{};
+ if(REALONLY()){if(!a.simStash){a.simStash={followerIds:a.followerIds||[],following:a.following||[],chats:a.chats||[],notifs:(a.notifs||[]).filter(n=>typeof n.u==='number')};a.followerIds=[];a.following=[];a.chats=[];a.notifs=(a.notifs||[]).filter(n=>typeof n.u!=='number');a.followers=0}}
+ else if(a.simStash){const s=a.simStash;a.followerIds=[...new Set([...(a.followerIds||[]),...s.followerIds])];a.following=[...new Set([...(a.following||[]),...s.following])];a.chats=(a.chats||[]).concat(s.chats);a.notifs=(a.notifs||[]).concat(s.notifs).sort((x,y)=>y.time-x.time).slice(0,60);delete a.simStash}}
+/* niente simulazioni in modalità reale */
+{const st=simTick;simTick=function(){if(REALONLY()){try{schedule()}catch(e){}return}return st.apply(this,arguments)}}
+{const cu=catchUp;catchUp=function(){if(REALONLY())return;return cu.apply(this,arguments)}}
+{const sr=shopRate;shopRate=function(){return REALONLY()?0:sr()}}
+{const sc=shopCatchUp;shopCatchUp=function(){if(REALONLY()){shopSt().last=Date.now();return}return sc()}}
+{const ln=liveNow;liveNow=function(){return REALONLY()?[]:ln()}}
+/* i post delle persone reali diventano il feed */
+let REALP=[],REALSIG='';
+function syncRealPosts(){const L=[];if(Real.on)for(const w of Real.list()){if(Real.needOk(Real.docs[w.rid])&&Real.state(w.id)!=='on')continue;(w.posts||[]).forEach((p,i)=>{const id='R'+w.rid.slice(0,14)+'_'+String(p.id).replace(/[^a-z0-9]/gi,'').slice(0,20);let o=S.pmap.get(id);
+  if(!o){o={id,real:true,author:w.id,rid:w.rid,min:0,cm:[],cmCount:0,views:0,shares:0,saves:0,tags:[],emerging:false}}Object.assign(o,{type:p.img?'photo':'text',img:p.img||null,t:p.tx?{t:p.tx.t,bg:p.tx.bg,fg:p.tx.fg}:null,ratio:1.25,caption:p.cap||'',likes:Real.likesOf(w.rid,p.id),ri:i,rpid:p.id,time:p.t||0});S.pmap.set(id,o);L.push(o)})}
+ L.sort((a,b)=>b.time-a.time);REALP=L;const sig=L.map(p=>p.id).join(',');const ch=sig!==REALSIG;REALSIG=sig;return ch}
+{const rb=rankBatch;rankBatch=function(filter,shown,n){if(!REALONLY())return rb(filter,shown,n);return REALP.filter(p=>!shown.has(p.id)&&canSee(p)&&filter(p)).slice(0,n)}}
+{const rg=renderGrid;renderGrid=function(reset){rg(reset);if(REALONLY()){const l=$('#loader');if(l){l.textContent=REALP.length?'Sei in pari ✨ Segui altre persone per vedere più post':'Qui vedrai i post delle persone reali che segui. Cercale con 🔍';l.style.display=''}}}}
+{const rs=renderStories;renderStories=function(){if(!REALONLY())return rs();const keep=S.stories;S.stories=[];try{rs()}finally{S.stories=keep}}}
+{const pa=ACT.post;ACT.post=t=>{const id=t.dataset.id||'';if(id[0]==='R'){const o=S.pmap.get(id);if(o)return openRealPost(o.author,o.ri)}return pa(t)}}
+{const os=Real.onSnap.bind(Real);Real.onSnap=function(s){os(s);if(syncRealPosts()&&REALONLY()&&S.acc){try{if(S.view==='home')renderGrid(true);S.reelN=0;const rs=$('#rscroll');if(rs){rs.innerHTML='';renderReels()}if(S.view==='discover')renderDiscover()}catch(e){}}}}
+/* Esplora con solo persone reali */
+{const rd=renderDiscover;renderDiscover=function(){if(!REALONLY())return rd();const el=$('#discoverScroll');if(!el||!S.acc)return;const sug=suggestions(12),all=Real.list();
+ el.innerHTML=`<header class="top"><div class="logo" style="font-size:28px">Esplora</div><div class="hicons"><button class="iconbtn" data-a="shop" aria-label="Negozio">${BAG()}</button><button class="iconbtn" data-a="search">${ic('search')}</button></div></header>
+ <div class="sinput" data-a="search" style="cursor:pointer;margin:4px 14px 14px">${ic('search',18)}<span style="color:var(--muted)">Cerca persone per nome…</span></div>
+ ${sug.length?`<div class="dsec"><h3>👥 Persone che potresti conoscere</h3><div class="hscroll rsug">${sug.map(w=>`<div class="rsc" data-a="user" data-u="${w.id}">${avHTML(w,58)}<b>${esc(w.first)}</b><span>@${esc(w.u)}</span>${fbtnFor(w)}</div>`).join('')}</div></div>`:''}
+ <div class="dsec"><h3>✨ Dalla community · ${all.length+1} persone su Vybe</h3>${REALP.length?`<div class="pgrid" style="padding:0 2px">${REALP.slice(0,60).map(miniHTML).join('')}</div>`:`<div class="emptyc" style="padding:24px 30px">Ancora nessun post pubblico. Quando i tuoi amici pubblicano, li vedi qui.</div>`}</div><div style="height:90px"></div>`;observe(el)}}
+/* ricerca e suggerimenti solo reali */
+{const sg=suggestions;suggestions=function(n){return REALONLY()?Real.list().filter(p=>Real.state(p.id)==='none'):sg(n)}}
+{const ap=allProducts;allProducts=function(){const L=ap();return REALONLY()?L.filter(p=>isR(p.seller)):L}}
+/* dirette: senza spettatori virtuali */
+{const gl=goLive;goLive=function(){if(!REALONLY())return gl();const sh=openSheet(`<div style="padding:8px 20px 22px;display:flex;flex-direction:column;gap:10px;text-align:center"><div style="font-size:44px">📡</div><h3 style="font-size:19px">Dirette con persone reali</h3><p class="sub" style="margin:0">Le dirette con spettatori veri non sono ancora disponibili (servono server video in tempo reale). Puoi provare la diretta in modalità demo, con spettatori virtuali.</p><button class="btn" id="gld">Prova la demo</button><button class="btn soft" id="glx">Annulla</button></div>`);$('#gld',sh).onclick=()=>{closeOv(sh);gl()};$('#glx',sh).onclick=()=>closeOv(sh)}}
+/* interruttore nel menu */
+function toggleRealMode(){const on=REALONLY();confirmSheet(on?'Mostrare i creator virtuali?':'Solo persone reali?',on?'Rivedrai i creator, le dirette e i follower virtuali (dimostrativi).':'Spariscono creator, dirette e follower virtuali: restano solo le persone vere iscritte a Vybe.',on?'Mostra virtuali':'Solo reali',()=>{S.acc.settings.realOnly=!on;applyRealMode();save();syncRealPosts();S.reelN=0;$('#rscroll').innerHTML='';refreshAll();try{renderDiscover();renderRealFeed()}catch(e){}if(Real.on)Real.publishSoon(500);toast(!on?'Ora vedi solo persone reali 👥':'Creator virtuali di nuovo visibili')})}
+{const ea=enterApp;enterApp=function(){if(S.acc){S.acc.settings=S.acc.settings||{};applyRealMode()}ea();syncRealPosts();if(REALONLY()){try{renderGrid(true);renderStories();S.reelN=0;$('#rscroll').innerHTML='';renderReels()}catch(e){}}}}
+/* profili privati nell'app (Vercel): il contenuto si scarica solo se sei approvato */
+{const t0=VDB.tick.bind(VDB);VDB.fetchFull=async function(id){const e=this.dir&&this.dir[id];if(!e)return null;if(e.pv){if(!Cloud.on)return null;try{const r=await fetch('/api/full',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:Cloud.email,token:Cloud.tok,target:id})});if(!r.ok)return null;const j=await r.json();return j.full||null}catch(e){return null}}
+  const fu=this.fullUrl(id);if(!fu)return null;try{const r=await fetch(fu);return r.ok?await r.json():null}catch(e){return null}};
+ VDB.tick=async function(){this.lastTick=Date.now();const u=await this.dirUrl();let dir=this.dir||{};if(u){try{const r=await fetch(u);if(r.ok)dir=await r.json()}catch(e){}}if(!dir||typeof dir!=='object')dir={};this.dir=dir;this.emit();
+  const want=new Set([...(S.acc&&S.acc.rfw||[])].filter(x=>dir[x]));if(this.view&&dir[this.view])want.add(this.view);let ch=false;
+  for(const id of want){if(id===Real.uid)continue;if(this.fullT[id]&&Date.now()-this.fullT[id]<240000&&(dir[id].ft||0)<=this.fullT[id])continue;const f=await this.fetchFull(id);if(f){this.full[id]=f;this.fullT[id]=Date.now();ch=true}else if(dir[id].pv&&this.full[id]){delete this.full[id];ch=true}}
+  if(ch)this.emit()};
+ VDB.loadFull=async function(uid){this.view=uid;if(this.fullT[uid]&&Date.now()-this.fullT[uid]<60000)return;const f=await this.fetchFull(uid);if(f){this.full[uid]=f;this.fullT[uid]=Date.now();this.emit()}}}
+{const pl=Real.payload.bind(Real);Real.payload=async function(){const d=await pl();d.priv=!!(S.acc.settings.private||S.teen);return d}}
+/* quando accetti una richiesta, chi ti segue vede subito i tuoi contenuti */
+{const ac=Real.accept.bind(Real);Real.accept=function(id){ac(id);if(Real.db===VDB){VDB.lastHard='';Real.publishSoon(200)}toast((USERS[id]||{first:'Ora'}).first+' può vedere i tuoi contenuti ✓')}}
+/* ====== canzoni vere (anteprime di 30 secondi) per storie e video ====== */
+const musicApiOk=()=>location.protocol==='https:'&&!Persist.ready;
+function regTrack(it){if(!it||!it.id)return;const id='it:'+it.id;S.acc&&(S.acc.itunes=S.acc.itunes||{},S.acc.itunes[it.id]={t:it.t,a:it.a,art:it.art,u:it.u});TRACK_MAP[id]={id,title:it.t,artist:it.a,genre:'Anteprima 30 s',c:['#fa2d48','#a855f7'],art:it.art};return id}
+{const st=Music._start.bind(Music);Music._start=function(id){if(id&&id.startsWith('it:')){const i=S.acc&&S.acc.itunes&&S.acc.itunes[id.slice(3)];if(!i||!i.u)return;const a=new Audio(i.u);a.loop=true;a.volume=.9;a.play().catch(()=>{});this.audio=a;return}return st(id)}}
+{const ti=trackInfo;trackInfo=function(id,f){if(id&&id.startsWith('it:')){const i=S.acc&&S.acc.itunes&&S.acc.itunes[id.slice(3)];return i?{title:i.t,artist:i.a,c:['#fa2d48','#a855f7'],art:i.art}:{title:'Canzone',artist:'',c:['#fa2d48','#a855f7']}}return ti(id,f)}}
+{const mp=musicPicker;musicPicker=function(cur,onPick){mp(cur,onPick);const ov=$$('#layer>.ov').pop();if(!ov)return;const body=$('.sbody',ov);if(!body)return;
+ body.insertAdjacentHTML('afterbegin',`<div class="msrch"><div class="sinput" style="margin:0">${ic('search',18)}<input id="msq" placeholder="Cerca una canzone o un artista" autocapitalize="none"></div><small class="hint" id="msh">${musicApiOk()?'Tutte le canzoni, anteprima di 30 secondi':'La ricerca delle canzoni funziona nell’app Vybe (vybe-pink-pi.vercel.app)'}</small><div id="msr"></div></div>`);
+ let tm,au=null,playing=null;const stopP=()=>{if(au){au.pause();au=null}playing=null;$$('#msr .tplay',ov).forEach(x=>x.innerHTML=ic('play2',18,2))};const prevClose=ov.onclose;ov.onclose=()=>{stopP();if(prevClose)prevClose()};
+ $('#msq',ov).oninput=e=>{clearTimeout(tm);const q=e.target.value.trim();if(q.length<2){$('#msr',ov).innerHTML='';return}if(!musicApiOk())return;tm=setTimeout(async()=>{$('#msh',ov).textContent='Cerco…';let L=[];try{const r=await fetch('/api/music?q='+encodeURIComponent(q));const j=await r.json();L=j.results||[]}catch(err){}
+   if(S.teen)L=L.filter(x=>!x.ex);$('#msh',ov).textContent=L.length?`${L.length} canzoni · anteprima 30 s · da Apple Music`:'Nessuna canzone trovata';
+   $('#msr',ov).innerHTML=L.map((x,i)=>`<div class="trk" data-it="${i}"><img class="mcov" src="${esc(x.art)}" alt="" style="object-fit:cover"><div><b>${esc(x.t)}</b><span>${esc(x.a)}${x.ex?' · 🅴':''}</span></div><button class="tplay" data-pp="${i}" aria-label="Ascolta">${ic('play2',18,2)}</button></div>`).join('');
+   $$('#msr .tplay',ov).forEach(b=>b.onclick=ev=>{ev.stopPropagation();Music.stop();const x=L[+b.dataset.pp];if(playing===b.dataset.pp){stopP();return}stopP();au=new Audio(x.u);au.play().catch(()=>{});playing=b.dataset.pp;b.innerHTML=ic('pause',18,2)});
+   $$('#msr [data-it]',ov).forEach(r=>r.onclick=()=>{const x=L[+r.dataset.it];stopP();const id=regTrack(x);save();onPick(id,x.t+' · '+x.a);closeOv(ov)})},420)}}}
+/* musica anche nei post e nei video brevi */
+{const cm=composeMedia;composeMedia=function(m){cm(m);S.nextTrack=null;const ov=$$('#layer>.ovf').pop();if(!ov)return;const cnt=$('#cc',ov);if(!cnt)return;cnt.insertAdjacentHTML('afterend',`<button class="btn soft" id="pmus" style="margin:6px 0 4px">🎵 Aggiungi musica</button>`);
+  const paint=()=>{const i=S.nextTrack&&trackInfo(S.nextTrack);$('#pmus',ov).textContent=i?`🎵 ${i.title}${i.artist?' · '+i.artist:''}`:'🎵 Aggiungi musica'};
+  $('#pmus',ov).onclick=()=>musicPicker(S.nextTrack,(id)=>{S.nextTrack=id&&id!=='none'?id:null;paint()})}}
+{const ap=afterPublish;afterPublish=function(){if(S.nextTrack&&S.acc.own[0]){S.acc.own[0].track=S.nextTrack;S.nextTrack=null;save()}return ap()}}
+{const ea=enterApp;enterApp=function(){if(S.acc&&S.acc.itunes)for(const k in S.acc.itunes)regTrack(Object.assign({id:k},S.acc.itunes[k]));ea()}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
