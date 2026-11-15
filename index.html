@@ -3329,7 +3329,7 @@ function openRealPost(id,i){const w=USERS[id];if(!w)return;const p=w.posts[i];if
 function openReal(id){if(!USERS[id])return toast('Profilo non disponibile');let ov;
  const html=()=>{const w=USERS[id],s=Real.state(id),locked=Real.needOk(Real.docs[w.rid])&&s!=='on',fing=w.fw.filter(u=>Real.docs[u]).length;
   return`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>${w.priv||w.teen?ic('lock',15,2.2)+' ':''}${esc(w.u)}</h2><button class="iconbtn" id="rMore">${ic('more')}</button></div>
-  <div class="fbody"><div class="phead" style="margin-top:6px"><div class="pav"><div class="ring real">${avHTML(w,84)}</div></div><div class="stats"><div><b>${w.posts.length}</b><span>post</span></div><div id="rFol" style="cursor:pointer"><b>${fmt(w.fol)}</b><span>follower</span></div><div id="rFing" style="cursor:pointer"><b>${fing}</b><span>seguiti</span></div></div></div>
+  <div class="fbody"><div class="phead" style="margin-top:6px"><div class="pav"><div class="ring real">${avHTML(w,84)}</div></div><div class="stats"><div><b>${Math.max(w.posts.length,w.np||0)}</b><span>post</span></div><div id="rFol" style="cursor:pointer"><b>${fmt(Math.max(w.fol,w.nf||0))}</b><span>follower</span></div><div id="rFing" style="cursor:pointer"><b>${fmt(Math.max(fing,w.ng||0))}</b><span>seguiti</span></div></div></div>
   <div class="pname">${esc(w.n)} ${RBADGE}</div>${w.bio?`<div class="pbio">${esc(w.bio)}</div>`:''}${w.fw.includes(Real.uid)&&Real.approvedBy(Real.uid,w.rid)?'<div class="pbio" style="color:var(--muted)">Ti segue</div>':''}
   ${(w.shop||[]).length?`<div class="shoplink" data-a="shopof" data-u="${id}">🛍️ Negozio di ${esc(w.first)} · ${w.shop.length} prodotti →</div>`:''}<div class="pbtns">${rbtn(id).replace('class="fbtn','style="'+(s==='none'?'background:var(--acc);color:#fff':'')+'" class="fbtn')}</div>
   ${locked?`<div class="pempty" style="padding:40px 30px"><div class="bigic">${ic('lock',28)}</div><b style="color:var(--ink)">Questo account è privato</b><br>${s==='req'?'Richiesta inviata: aspetta che ti accetti.':'Seguilo per vedere foto e video.'}</div>`:w.posts.length?`<div class="pgrid rgrid">${w.posts.map((p,i)=>realPostHTML(w,p,i)).join('')}</div>`:`<div class="pempty" style="padding:40px 30px"><div class="bigic">${ic('camera',28)}</div><b style="color:var(--ink)">Ancora nessun post</b></div>`}</div>`};
@@ -4131,6 +4131,13 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 {const os=Real.onSnap.bind(Real);Real.onSnap=function(s){os(s);const a=S.acc;if(!a)return;const ids=Object.keys(this.docs).filter(u=>u!==this.uid);
   if(!a.rknown){a.rknown=ids;save();return}const nw=ids.filter(u=>!a.rknown.includes(u));if(!nw.length)return;a.rknown=a.rknown.concat(nw).slice(-500);
   nw.slice(0,3).forEach(u=>{const w=USERS['r_'+u];if(w&&!a.rblock.includes(u))notify('join',w,null,'è entrato su Vybe 👋 Cercalo e seguilo!')});save()}}
+
+/* ===================== CONTEGGI VERI DI FOLLOWER/SEGUITI/POST SUI PROFILI REALI ===================== */
+VDB.LIGHT.push('nf','ng','np');
+{const pl=Real.payload.bind(Real);Real.payload=async function(){const d=await pl(),a=S.acc;d.nf=(a.followerIds||[]).length+Real.myFollowers().length;d.ng=(a.following||[]).length+(a.rfw||[]).length;d.np=(a.own||[]).length;return d}}
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const n=k=>Math.max(0,Math.min(1e9,Math.floor(+d[k]||0)));o.nf=n('nf');o.ng=n('ng');o.np=n('np');return o}}
+{const os=Real.onSnap.bind(Real);Real.onSnap=function(s){os(s);for(const k in USERS)if(isR(k)){const w=USERS[k];w.fol=Math.max(w.fol||0,w.nf||0)}try{$$('#layer>*').forEach(ov=>{if(ov._rrefresh)ov._rrefresh()})}catch(e){}}}
+{const lf=listFor;listFor=function(u,kind){const r=lf(u,kind);if(isR(u)&&USERS[u]){const w=USERS[u];r.total=Math.max(r.L.length,kind==='followers'?(w.nf||0):(w.ng||0))}return r}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
