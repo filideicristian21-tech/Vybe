@@ -4286,6 +4286,31 @@ function bindMuChip(root,mu){const c=root.querySelector('.pmus');if(!c)return;co
 {const ct=composeText;composeText=function(kind){ct(kind);if(kind==='story')return;S.nextTrack=null;const ov=$$('#layer>.ovf').pop();const cnt=ov&&$('#cc',ov);if(!cnt)return;cnt.insertAdjacentHTML('afterend',`<button class="btn soft" id="pmus2" style="margin:6px 0 4px">🎵 Aggiungi musica</button>`);
   const paint=()=>{const i=S.nextTrack&&trackInfo(S.nextTrack);$('#pmus2',ov).textContent=i?`🎵 ${i.title}${i.artist?' · '+i.artist:''}`:'🎵 Aggiungi musica'};$('#pmus2',ov).onclick=()=>musicPicker(S.nextTrack,id=>{S.nextTrack=id&&id!=='none'?id:null;paint()})}}
 
+/* ===================== STORIE DELLE PERSONE REALI (rispettano il profilo privato) ===================== */
+VDB.LIGHT.push('sl');
+const STH={};
+function storyThumb(src,key){if(!src)return Promise.resolve(null);const ck=key+'|'+src.length;if(STH[ck]!==undefined)return Promise.resolve(STH[ck]);
+ return new Promise(res=>{const im=new Image();im.onload=()=>{try{const sc=Math.min(1,360/im.naturalWidth,640/im.naturalHeight),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*sc));c.height=Math.max(1,Math.round(im.naturalHeight*sc));c.getContext('2d').drawImage(im,0,0,c.width,c.height);const u=c.toDataURL('image/jpeg',.6);STH[ck]=u;res(u)}catch(e){STH[ck]=null;res(null)}};im.onerror=()=>{STH[ck]=null;res(null)};im.src=src;setTimeout(()=>res(null),6000)})}
+{const pl=Real.payload.bind(Real);Real.payload=async function(){const d=await pl();const st=[];
+  for(const f of myStories().slice(-8)){const it={t:f.time};if(f.img){const u=await storyThumb(f.img,'s'+f.time);if(!u)continue;it.img=u}else if(f.video&&f.poster){const u=await storyThumb(f.poster,'sv'+f.time);if(!u)continue;it.img=u}else if(f.text){it.tx=String(f.text).slice(0,200);it.bg=f.bg||'#7c3aed'}else if(f.scene){continue}else continue;
+   const mu=f.music&&f.music!=='none'?postMu({track:f.music}):null;if(mu)it.mu={t:mu.t,a:mu.a,art:mu.art||'',u:mu.u||'',syn:mu.syn||''};st.push(it)}
+  d.st=st;d.sl=st.length?st[st.length-1].t:0;const lim=Real.db===VDB?560000:235000;while(JSON.stringify(d).length>lim&&(d.posts.length||d.st.length)){if(d.posts.length>4)d.posts.pop();else if(d.st.length>1)d.st.shift();else if(d.posts.length)d.posts.pop();else d.st.shift()}return d}}
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const now=Date.now();o.sl=+d.sl||0;
+  o.st=(Array.isArray(d.st)?d.st:[]).slice(-10).filter(x=>x&&now-(+x.t||0)<86400000).map(x=>{const f={t:+x.t||0};if(typeof x.img==='string'&&/^data:image\/jpeg;base64,/.test(x.img)&&x.img.length<120000)f.img=x.img;else if(typeof x.tx==='string'){f.tx=x.tx.slice(0,200);f.bg=/^#[0-9a-f]{3,8}$/i.test(x.bg||'')||/^linear-gradient\([#a-z0-9(),.% -]{1,160}\)$/i.test(x.bg||'')?x.bg:'#7c3aed'}else return null;
+   const m=x.mu;if(m&&typeof m==='object'){const okU=typeof m.u==='string'&&/^https:\/\/[a-z0-9.-]+\.(apple|mzstatic)\.com\//.test(m.u);if(okU||TRACK_MAP[m.syn])f.mu={t:String(m.t||'').slice(0,80),a:String(m.a||'').slice(0,80),u:okU?m.u:'',art:typeof m.art==='string'&&/^https:\/\/[a-z0-9.-]+\.mzstatic\.com\//.test(m.art)?m.art:'',syn:TRACK_MAP[m.syn]?m.syn:''}}return f}).filter(Boolean);return o}}
+function realStoryList(){if(!Real.on)return[];return Real.myFollowing().filter(w=>Real.state(w.id)==='on'||(!Real.needOk(Real.docs[w.rid])&&Real.state(w.id)!=='none')).filter(w=>(w.st||[]).length).map(w=>{const frames=w.st.map(f=>({time:f.t,img:f.img,text:f.tx,bg:f.bg,rs:w.rid+'|'+f.t}));let music=null;const mu=(w.st.find(f=>f.mu)||{}).mu;if(mu){if(mu.u){music=regTrack({id:'rs'+w.rid.slice(0,8)+(mu.u.length%9999),t:mu.t,a:mu.a,art:mu.art,u:mu.u})}else if(mu.syn)music=mu.syn}
+  const seen=frames.every(f=>(S.acc.rsSeen||{})[f.rs]);return{who:w,frames,time:frames[frames.length-1].time,ref:{music},real:1,seen}}).sort((a,b)=>(a.seen-b.seen)||(b.time-a.time))}
+function markRealStory(fr){if(!fr||!fr.rs)return;const a=S.acc;a.rsSeen=a.rsSeen||{};if(a.rsSeen[fr.rs])return;a.rsSeen[fr.rs]=1;const k=Object.keys(a.rsSeen);if(k.length>400)k.slice(0,100).forEach(x=>delete a.rsSeen[x]);save()}
+/* anelli nella barra delle storie: tocchi e vedi la storia (non più il profilo) */
+{const rs=renderStories;renderStories=function(){rs();const box=$('#stories');if(!box||!Real.on)return;const L=realStoryList();
+  L.forEach((it,i)=>{const el=box.querySelector(`.st[data-u="${it.who.id}"]`);let node=el;if(!node){box.insertAdjacentHTML('beforeend',`<div class="st" data-u="${it.who.id}" style="cursor:pointer"><div class="ringw"><div class="ring real">${avHTML(it.who,68)}</div></div><div class="nm">${esc(it.who.first)}</div></div>`);node=box.lastElementChild}
+   node.removeAttribute('data-a');node.dataset.rsi=i;const r=node.querySelector('.ring');if(r){r.classList.add('real');r.classList.toggle('seen',it.seen);r.classList.add('hasst')}});
+  box.querySelectorAll('.st[data-rsi]').forEach(n=>{n.onclick=e=>{e.stopPropagation();const L2=realStoryList();const i=L2.findIndex(x=>x.who.id===n.dataset.u);if(i>=0)openStory(i,L2);else openReal(n.dataset.u)}});
+  const first=box.querySelector('.st');[...box.querySelectorAll('.st[data-rsi]')].reverse().forEach(n=>{if(first&&n!==first)first.after(n)})}}
+/* segna come viste */
+{const os=openStory;openStory=function(start,list){os(start,list);if(!list||!list.length||!list[0].real)return;const ov=$$('#layer>.ovf').pop();if(!ov)return;let lastK='';const t=setInterval(()=>{if(!ov.isConnected){clearInterval(t);renderStories();return}const img=$('#sm img',ov),tx=$('#sm .stext',ov);const k=(img&&img.src.slice(-40))||(tx&&tx.textContent)||'';if(k&&k!==lastK){lastK=k;for(const it of list)for(const f of it.frames){if((f.img&&img&&img.src===f.img)||(f.text&&tx&&tx.textContent.replace(/\s+/g,'')===String(f.text).replace(/\s+/g,'')))markRealStory(f)}}},400)}}
+{const os2=Real.onSnap.bind(Real);Real.onSnap=function(s){os2(s);try{renderStories()}catch(e){}}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
