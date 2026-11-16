@@ -4451,10 +4451,11 @@ VC.canMsg=function(u){try{return VC.contacts().includes(u)}catch(e){return false
 
 /* v33: link nei messaggi della chat — si toccano, Vybe chiede conferma e apre la pagina */
 function vcLinkify(h){return h.replace(/\b((?:https?:\/\/|www\.)[^\s<]+)/gi,m=>{let u=m,tail='';while(/[.,;:!?)\]]$/.test(u)){tail=u.slice(-1)+tail;u=u.slice(0,-1)}const href=/^www\./i.test(u)?'https://'+u:u;return `<a class="wlink" href="${href}" data-href="${href}" rel="noopener noreferrer" target="_blank">${u}</a>${tail}`})}
-function openLinkAsk(url){let U;try{U=new URL(url.replace(/&amp;/g,'&'))}catch(e){return toast('Link non valido')}if(!/^https?:$/.test(U.protocol))return toast('Link non valido');
+function vlog(ev,d){try{const b=JSON.stringify(Object.assign({ev,u:(S.acc&&S.acc.username)||'',ua:navigator.userAgent.slice(0,140),v:(APPV.cur||'').slice(0,7)},d||{}));if(navigator.sendBeacon)navigator.sendBeacon('/api/log',new Blob([b],{type:'application/json'}));else fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:b,keepalive:true})}catch(e){}}
+function openLinkAsk(url){vlog('lk_ask',{sa:!!navigator.standalone});let U;try{U=new URL(url.replace(/&amp;/g,'&'))}catch(e){return toast('Link non valido')}if(!/^https?:$/.test(U.protocol))return toast('Link non valido');
  const host=U.hostname.replace(/^www\./,'');const ic=/instagram\.com$/.test(host)?'📸':/tiktok\.com$/.test(host)?'🎵':/youtu(\.be|be\.com)$/.test(host)?'▶️':'🔗';
  const sh=openSheet(`<div style="padding:6px 20px 24px"><div style="font-size:40px;text-align:center">${ic}</div><h3 style="margin:6px 0 4px;text-align:center">Vuoi aprire il link?</h3><p style="margin:0 0 4px;text-align:center;font-weight:700">${esc(host)}</p><p style="margin:0 0 18px;text-align:center;color:var(--mute);font-size:13px;word-break:break-all">${esc(U.href.slice(0,160))}</p><a class="btn" id="lkgo" href="${esc(U.href)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%;box-sizing:border-box">Apri</a><button class="btn soft" id="lkcp" style="width:100%;margin-top:10px">📋 Copia link</button><button class="btn soft" id="lkno" style="width:100%;margin-top:10px">Annulla</button><p style="margin:12px 0 0;text-align:center;color:var(--mute);font-size:12px">Apri solo i link di persone di cui ti fidi.</p></div>`);
- $('#lkgo',sh).addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const href=U.href;try{save()}catch(x){}if(navigator.standalone){location.href=href;return}let w=null;try{w=window.open(href,'_blank')}catch(x){}if(w){try{w.opener=null}catch(x){}}else{try{location.assign(href)}catch(x){}}setTimeout(()=>closeOv(sh),300)});
+ $('#lkgo',sh).addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const href=U.href;try{save()}catch(x){}const t0=Date.now();let hid=false;const vh=()=>{if(document.visibilityState==='hidden')hid=true};document.addEventListener('visibilitychange',vh);setTimeout(()=>{document.removeEventListener('visibilitychange',vh);vlog('lk_res',{hid,ms:Date.now()-t0,url:location.href.slice(0,60)})},2500);vlog('lk_go',{sa:!!navigator.standalone,host:U.hostname});if(navigator.standalone){location.href=href;return}let w=null;try{w=window.open(href,'_blank')}catch(x){vlog('lk_err',{e:String(x).slice(0,120)})}vlog('lk_w',{w:!!w});if(w){try{w.opener=null}catch(x){}}else{try{location.assign(href)}catch(x){}}setTimeout(()=>closeOv(sh),300)});
  $('#lkcp',sh).onclick=async()=>{let ok=false;try{await navigator.clipboard.writeText(U.href);ok=true}catch(x){try{const t=document.createElement('textarea');t.value=U.href;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();ok=document.execCommand('copy');t.remove()}catch(y){}}toast(ok?'Link copiato: incollalo in Safari o Instagram':'Non sono riuscito a copiarlo');if(ok)closeOv(sh)};$('#lkno',sh).onclick=()=>closeOv(sh)}
 let _lkT=0,_lkS=null;const _lkGo=a=>{if(Date.now()-_lkT<800)return;_lkT=Date.now();openLinkAsk(a.dataset.href||a.href)};
 document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('a.wlink');if(!a)return;e.preventDefault();e.stopPropagation();_lkGo(a)},true);
@@ -4485,6 +4486,75 @@ async function storyLinkToChat(url){if(!VC.on){try{await VC.start()}catch(e){}}i
    ch.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();openLinkAsk(ch.dataset.u)})},250);
   return r}}
 (function(){const st=document.createElement('style');st.textContent='.stlink{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 18px;border-radius:16px;border:0;background:rgba(255,255,255,.92);color:#111;font-weight:800;font-size:15px;box-shadow:0 6px 24px rgba(0,0,0,.35);cursor:pointer;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stlink small{font-weight:600;font-size:11px;color:#555}.stk.lnk{font-size:16px;background:#fff;color:#0369a1;padding:7px 12px;border-radius:12px;font-weight:800;white-space:nowrap}';document.head.appendChild(st)})();
+
+/* v36: VYBE 3D — animazioni 3D in tutta l'app (rispetta "Riduci movimento" dell'iPhone) */
+(function(){
+ const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;if(RM)return;
+ const st=document.createElement('style');st.textContent=`
+ @keyframes v3card{from{opacity:0;transform:perspective(900px) rotateX(32deg) translateY(46px) scale(.9)}to{opacity:1;transform:none}}
+ @keyframes v3sheet{0%{transform:perspective(900px) rotateX(-38deg) translateY(55%) scale(.92);opacity:.2}70%{transform:perspective(900px) rotateX(4deg) translateY(-2%)}100%{transform:none;opacity:1}}
+ @keyframes v3full{from{transform:perspective(1300px) rotateY(-24deg) translateX(28%) scale(.94);opacity:.25}to{transform:none;opacity:1}}
+ @keyframes v3story{0%{transform:perspective(1100px) rotateY(75deg) rotateZ(-5deg) scale(.45);opacity:0}65%{transform:perspective(1100px) rotateY(-6deg) scale(1.02);opacity:1}100%{transform:none}}
+ @keyframes v3cube{from{transform:perspective(1000px) rotateY(88deg);transform-origin:left center;filter:brightness(.4)}to{transform:perspective(1000px) rotateY(0);transform-origin:left center;filter:none}}
+ @keyframes v3logo{0%,100%{transform:perspective(500px) rotateY(-14deg) rotateX(4deg)}50%{transform:perspective(500px) rotateY(14deg) rotateX(-4deg)}}
+ @keyframes v3spin{from{transform:perspective(500px) rotateY(0)}to{transform:perspective(500px) rotateY(720deg)}}
+ @keyframes v3flip{0%{transform:perspective(300px) rotateY(0) scale(1)}50%{transform:perspective(300px) rotateY(180deg) scale(1.25)}100%{transform:perspective(300px) rotateY(360deg) scale(1)}}
+ @keyframes v3bub{from{opacity:0;transform:perspective(600px) rotateX(-70deg) scale(.6);transform-origin:bottom}to{opacity:1;transform:none;transform-origin:bottom}}
+ @keyframes v3heart{0%{opacity:0;transform:translate(-50%,-50%) perspective(400px) rotateY(0) scale(.2)}15%{opacity:1;transform:translate(-50%,-50%) perspective(400px) rotateY(40deg) scale(1.3)}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) perspective(400px) rotateY(var(--ry)) rotateX(var(--rx)) scale(.7)}}
+ @keyframes v3wave{from{opacity:.9;transform:translate(-50%,-50%) perspective(400px) rotateX(60deg) scale(.2)}to{opacity:0;transform:translate(-50%,-50%) perspective(400px) rotateX(60deg) scale(3.2)}}
+ @keyframes v3glow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+ .v3pre{opacity:0}
+ .v3in{animation:v3card .75s cubic-bezier(.2,.9,.3,1.15) both}
+ .ov.open .sheet{animation:v3sheet .55s cubic-bezier(.2,.9,.3,1) both}
+ .ovf.open:not(:has(.story)){animation:v3full .5s cubic-bezier(.2,.9,.3,1) both}
+ .ovf.open .story{animation:v3story .65s cubic-bezier(.2,.9,.3,1) both}
+ .story.v3cube{animation:v3cube .55s cubic-bezier(.3,.8,.3,1) both}
+ .logo{display:inline-block;transform-style:preserve-3d;animation:v3logo 6s ease-in-out infinite;text-shadow:0 1px 0 #c084fc,0 2px 0 #a855f7,0 3px 0 #9333ea,0 4px 0 #7e22ce,0 6px 14px rgba(168,85,247,.55)}
+ .logo.v3spin{animation:v3spin 1s cubic-bezier(.3,.8,.3,1)}
+ #nav button.v3flip{animation:v3flip .5s cubic-bezier(.3,.8,.3,1)}
+ .vb.v3bub{animation:v3bub .45s cubic-bezier(.2,.9,.3,1.2) both}
+ .v3tilt{transition:transform .12s ease-out!important;transform:perspective(700px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) scale(1.03)!important;z-index:2}
+ .v3tilt::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.35),transparent 55%);mix-blend-mode:overlay}
+ .v3h{position:fixed;z-index:9999;pointer-events:none;font-size:var(--fs,34px);animation:v3heart 1.1s cubic-bezier(.2,.8,.3,1) forwards;filter:drop-shadow(0 6px 12px rgba(236,72,153,.6))}
+ .v3w{position:fixed;z-index:9998;pointer-events:none;width:70px;height:70px;border-radius:50%;border:4px solid #ec4899;animation:v3wave .7s ease-out forwards}
+ .pubbtn,.btn:not(.soft):not(.red){background-size:220% 220%!important;animation:v3glow 5s ease infinite}
+ `;document.head.appendChild(st);
+
+ /* card 3D quando entrano nello schermo */
+ const seen=new WeakSet();
+ const io='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const el=e.target;io.unobserve(el);el.classList.remove('v3pre');el.style.animationDelay=(Math.random()*.12).toFixed(2)+'s';el.classList.add('v3in');setTimeout(()=>{el.classList.remove('v3in');el.style.animationDelay=''},1100)}}),{rootMargin:'0px 0px -6% 0px'}):null;
+ const prep=el=>{if(seen.has(el)||!io)return;seen.add(el);const r=el.getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0)return;el.classList.add('v3pre');io.observe(el)};
+ const scan=root=>{(root.querySelectorAll?root:document).querySelectorAll('.card,.rfc').forEach(prep)};
+ /* bolle della chat che arrivano in 3D (solo le nuove) */
+ const bseen=new Set();let bfirst=true;
+ const bub=el=>{const id=el.dataset&&el.dataset.m;if(!id)return;if(bseen.has(id))return;bseen.add(id);if(bfirst)return;el.classList.add('v3bub')};
+ new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes){if(n.nodeType!==1)continue;if(n.matches('.card,.rfc'))prep(n);else if(n.querySelector&&n.querySelector('.card,.rfc'))scan(n);
+   if(n.matches('.vb'))bub(n);else if(n.querySelectorAll)n.querySelectorAll('.vb').forEach(bub)}}).observe(document.body,{childList:true,subtree:true});
+ setInterval(()=>{if(!document.querySelector('.wac'))bfirst=true;else if(bfirst)setTimeout(()=>{bfirst=false},700)},300);
+
+ /* inclinazione 3D seguendo il dito sulle foto */
+ let tl=null;
+ const tiltOn=(el,x,y)=>{const r=el.getBoundingClientRect();const px=(x-r.left)/r.width,py=(y-r.top)/r.height;el.style.setProperty('--ry',((px-.5)*16).toFixed(1)+'deg');el.style.setProperty('--rx',((.5-py)*16).toFixed(1)+'deg');el.style.setProperty('--gx',(px*100).toFixed(0)+'%');el.style.setProperty('--gy',(py*100).toFixed(0)+'%')};
+ document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('.card,.rfc,.rpimg');if(!el)return;tl=el;el.classList.add('v3tilt');tiltOn(el,e.clientX,e.clientY)},{passive:true});
+ document.addEventListener('pointermove',e=>{if(tl)tiltOn(tl,e.clientX,e.clientY)},{passive:true});
+ const tOff=()=>{if(!tl)return;const el=tl;tl=null;el.classList.remove('v3tilt')};['pointerup','pointercancel','scroll'].forEach(t=>document.addEventListener(t,tOff,{passive:true,capture:true}));
+
+ /* esplosione di cuori 3D sui mi piace */
+ window.v3burst=(x,y,emo)=>{const w=document.createElement('div');w.className='v3w';w.style.left=x+'px';w.style.top=y+'px';document.body.appendChild(w);setTimeout(()=>w.remove(),800);
+  for(let i=0;i<9;i++){const h=document.createElement('div');h.className='v3h';h.textContent=emo||(['❤️','💖','💜','✨','💗'][i%5]);const a=Math.random()*Math.PI*2,d=60+Math.random()*90;
+   h.style.left=x+'px';h.style.top=y+'px';h.style.setProperty('--dx',(Math.cos(a)*d).toFixed(0)+'px');h.style.setProperty('--dy',(Math.sin(a)*d-80).toFixed(0)+'px');h.style.setProperty('--ry',(Math.random()*720-360).toFixed(0)+'deg');h.style.setProperty('--rx',(Math.random()*360-180).toFixed(0)+'deg');h.style.setProperty('--fs',(22+Math.random()*22).toFixed(0)+'px');h.style.animationDelay=(i*.03).toFixed(2)+'s';document.body.appendChild(h);setTimeout(()=>h.remove(),1400)}};
+ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-a="like"],#sl,.likebtn');if(!b)return;const r=b.getBoundingClientRect();setTimeout(()=>{const on=b.classList.contains('on')||b.classList.contains('liked')||/fill|red|#ef4444|ec4899/.test(b.innerHTML);if(on||b.id==='sl')v3burst(r.left+r.width/2,r.top+r.height/2)},30)},true);
+ document.addEventListener('dblclick',e=>{const el=e.target.closest&&e.target.closest('.rpimg,.pimg,.dmedia,.card img');if(el)v3burst(e.clientX,e.clientY)},true);
+
+ /* logo che gira in 3D al tocco, icone della barra che fanno il flip */
+ document.addEventListener('click',e=>{const lg=e.target.closest&&e.target.closest('.logo');if(lg){lg.classList.remove('v3spin');void lg.offsetWidth;lg.classList.add('v3spin');setTimeout(()=>lg.classList.remove('v3spin'),1050)}
+  const nb=e.target.closest&&e.target.closest('#nav button');if(nb){nb.classList.remove('v3flip');void nb.offsetWidth;nb.classList.add('v3flip');setTimeout(()=>nb.classList.remove('v3flip'),550)}},true);
+
+ /* storie: effetto cubo quando passi alla persona successiva */
+ setInterval(()=>{const s=document.querySelector('.ovf.open .story');if(!s)return;const n=s.querySelector('.shead b,.sname,b');const k=n?n.textContent:'';if(s._v3k===undefined){s._v3k=k;return}if(k!==s._v3k){s._v3k=k;s.classList.remove('v3cube');void s.offsetWidth;s.classList.add('v3cube');setTimeout(()=>s.classList.remove('v3cube'),600)}},120);
+ scan(document);
+})();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
