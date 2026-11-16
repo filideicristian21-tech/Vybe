@@ -4356,11 +4356,13 @@ let TOPSONGS=null;
   const esc=e=>{if(e.key==='Escape'){close();document.removeEventListener('keydown',esc)}};document.addEventListener('keydown',esc);
   const pc=ov.onclose;ov.onclose=()=>{S.storyOpen=false;document.removeEventListener('keydown',esc);if(pc)pc()}}}
 /* aggiornamento automatico: quando torni nell'app e c'è una versione nuova, si aggiorna da sola */
-const APPV={cur:null,chk:0};try{APPV.cur=localStorage.getItem('vybe_sha')}catch(e){}
-async function checkAppUpdate(force){if(location.protocol!=='https:'||Persist.ready)return;if(!force&&Date.now()-APPV.chk<120000)return;APPV.chk=Date.now();
- try{const r=await fetch('https://api.github.com/repos/filideicristian21-tech/Vybe/commits/main',{headers:{Accept:'application/vnd.github.sha'},cache:'no-store'});if(!r.ok)return;const sha=(await r.text()).trim();if(!/^[0-9a-f]{40}$/.test(sha))return;
+const APPV={cur:(()=>{try{return localStorage.getItem('vybe_sha')}catch(e){return null}})(),chk:0};try{APPV.cur=localStorage.getItem('vybe_sha')}catch(e){}
+async function checkAppUpdate(force){if(location.protocol!=='https:'||Persist.ready)return;if(!force&&Date.now()-APPV.chk<45000)return;APPV.chk=Date.now();
+ try{let sha=null;try{const r=await fetch('/api/ver',{cache:'no-store'});if(r.ok)sha=(await r.json()).sha}catch(e){}
+  if(!sha){const r=await fetch('https://api.github.com/repos/filideicristian21-tech/Vybe/commits/main',{headers:{Accept:'application/vnd.github.sha'},cache:'no-store'});if(r.ok)sha=(await r.text()).trim()}
+  if(!sha||!/^[0-9a-f]{40}$/.test(sha))return;
   if(!APPV.cur){APPV.cur=sha;try{localStorage.setItem('vybe_sha',sha)}catch(e){}return}
-  if(sha!==APPV.cur){if(document.querySelector('#layer textarea:focus,#layer input:focus'))return;try{save();if(Cloud.on&&Cloud.tmr){clearTimeout(Cloud.tmr);Cloud.tmr=0;await Cloud.save()}}catch(e){}try{localStorage.setItem('vybe_sha',sha)}catch(e){}toast('Aggiorno Vybe alla nuova versione…');setTimeout(()=>location.reload(),700)}}catch(e){}}
+  if(sha!==APPV.cur){if(document.querySelector('#layer textarea:focus,#layer input:focus'))return;try{const lr=+localStorage.getItem('vybe_rl')||0;if(Date.now()-lr<120000)return;localStorage.setItem('vybe_rl',Date.now())}catch(e){}try{save();if(Cloud.on&&Cloud.tmr){clearTimeout(Cloud.tmr);Cloud.tmr=0;await Cloud.save()}}catch(e){}toast('Aggiorno Vybe alla nuova versione…');setTimeout(()=>location.reload(),700)}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkAppUpdate()});setInterval(()=>{if(document.visibilityState==='visible'&&!S.storyOpen&&!$$('#layer>*').length)checkAppUpdate()},600000);
 {const ea=enterApp;enterApp=function(){ea();setTimeout(()=>checkAppUpdate(true),4000)}}
 
@@ -4455,6 +4457,9 @@ function openLinkAsk(url){let U;try{U=new URL(url.replace(/&amp;/g,'&'))}catch(e
  $('#lkgo',sh).addEventListener('click',()=>setTimeout(()=>closeOv(sh),300));$('#lkno',sh).onclick=()=>closeOv(sh)}
 document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('a.wlink');if(!a)return;e.preventDefault();e.stopPropagation();openLinkAsk(a.dataset.href||a.href)},true);
 (function(){const st=document.createElement('style');st.textContent='a.wlink{color:#7dd3fc;text-decoration:underline;word-break:break-all;-webkit-touch-callout:default}';document.head.appendChild(st)})();
+
+/* v33b: versione dell'app visibile in "Stato online" */
+{const ons=openNetStatus;openNetStatus=function(){const r=ons.apply(this,arguments);try{const sh=$$('#layer>.ov').pop();const v=(APPV.cur||(()=>{try{return localStorage.getItem('vybe_sha')}catch(e){return ''}})()||'').slice(0,7);if(sh&&v&&!$('.appver',sh))$('.sheet',sh).insertAdjacentHTML('beforeend',`<p class="appver" style="text-align:center;color:var(--mute);font-size:12px;margin:4px 0 16px">Versione app: ${esc(v)}</p>`)}catch(e){}return r}}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
