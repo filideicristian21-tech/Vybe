@@ -4308,7 +4308,7 @@ function markRealStory(fr){if(!fr||!fr.rs)return;const a=S.acc;a.rsSeen=a.rsSeen
   box.querySelectorAll('.st[data-rsi]').forEach(n=>{n.onclick=e=>{e.stopPropagation();const L2=realStoryList();const i=L2.findIndex(x=>x.who.id===n.dataset.u);if(i>=0)openStory(i,L2);else openReal(n.dataset.u)}});
   const first=box.querySelector('.st');[...box.querySelectorAll('.st[data-rsi]')].reverse().forEach(n=>{if(first&&n!==first)first.after(n)})}}
 /* segna come viste */
-{const os=openStory;openStory=function(start,list){os(start,list);if(!list||!list.length||!list[0].real)return;const ov=$$('#layer>.ovf').pop();if(!ov)return;let lastK='';const t=setInterval(()=>{if(!ov.isConnected){clearInterval(t);renderStories();return}const img=$('#sm img',ov),tx=$('#sm .stext',ov);const k=(img&&img.src.slice(-40))||(tx&&tx.textContent)||'';if(k&&k!==lastK){lastK=k;for(const it of list)for(const f of it.frames){if((f.img&&img&&img.src===f.img)||(f.text&&tx&&tx.textContent.replace(/\s+/g,'')===String(f.text).replace(/\s+/g,'')))markRealStory(f)}}},400)}}
+{const os=openStory;openStory=function(start,list){os(start,list);if(!list||!list.length||!list.some(x=>x.real))return;const ov=$$('#layer>.ovf').pop();if(!ov)return;let lastK='';const t=setInterval(()=>{if(!ov.isConnected){clearInterval(t);renderStories();return}const img=$('#sm img',ov),tx=$('#sm .stext',ov);const k=(img&&img.src.slice(-40))||(tx&&tx.textContent)||'';if(k&&k!==lastK){lastK=k;for(const it of list){if(!it.real)continue;for(const f of it.frames){if((f.img&&img&&img.src===f.img)||(f.text&&tx&&tx.textContent.replace(/\s+/g,'')===String(f.text).replace(/\s+/g,'')))markRealStory(f)}}}},400)}}
 {const os2=Real.onSnap.bind(Real);Real.onSnap=function(s){os2(s);try{renderStories()}catch(e){}}}
 
 /* ===================== STORIE: APRI DAL PROFILO, MI PIACE E RISPOSTE PRIVATE + CANZONI DI TENDENZA ===================== */
@@ -4320,8 +4320,8 @@ function openStoryOf(id){const L=realStoryList();const i=L.findIndex(x=>x.who.id
 {const orr=openReal;openReal=function(id){orr(id);const ov=$$('#layer>.ovf').pop();if(!ov)return;const bind=()=>{const r=ov.querySelector('.pav .ring');if(!r)return;const has=realStoryList().some(x=>x.who.id===id);r.classList.toggle('hasst',has);r.style.cursor=has?'pointer':'';r.onclick=has?()=>openStoryOf(id):null};bind();const rr=ov._rrefresh;ov._rrefresh=()=>{if(rr)rr();bind()}}}
 {const ACTu=ACT.user;ACT.user=t=>{const u=t.dataset.u;if(isR(u)&&t.closest('#stories')&&openStoryOf(u))return;return ACTu(t)}}
 /* nel visore: mi piace, reazioni e risposte arrivano davvero alla persona */
-{const os=openStory;openStory=function(start,list){os(start,list);if(!list||!list.length||!list[0].real)return;const ov=$$('#layer>.ovf').pop();if(!ov)return;
-  const cur=()=>{const img=$('#sm img',ov),tx=$('#sm .stext',ov);for(const it of list)for(const f of it.frames){if((f.img&&img&&img.src===f.img)||(f.text&&tx&&tx.textContent.replace(/\s+/g,'')===String(f.text).replace(/\s+/g,'')))return{it,f}}return null};
+{const os=openStory;openStory=function(start,list){os(start,list);if(!list||!list.length||!list.some(x=>x.real))return;const ov=$$('#layer>.ovf').pop();if(!ov)return;
+  const cur=()=>{const img=$('#sm img',ov),tx=$('#sm .stext',ov);for(const it of list){if(!it.real)continue;for(const f of it.frames){if((f.img&&img&&img.src===f.img)||(f.text&&tx&&tx.textContent.replace(/\s+/g,'')===String(f.text).replace(/\s+/g,'')))return{it,f}}}return null};
   ov.addEventListener('click',async e=>{const c=cur();if(!c)return;const uid=c.it.who.rid;
    const em=e.target.closest('#rx [data-e]');if(em){e.stopImmediatePropagation();const fl=document.createElement('div');fl.className='flyemo';fl.textContent=em.dataset.e;fl.style.left=(30+R()*40)+'%';$('.story',ov).appendChild(fl);setTimeout(()=>fl.remove(),1700);if(await storySend(uid,'react',c.f.time,em.dataset.e))toast('Reazione inviata a '+c.it.who.first);return}
    const lk=e.target.closest('#sl');if(lk){e.stopImmediatePropagation();const k=uid+'|'+c.f.time;S.acc.rsLiked=S.acc.rsLiked||{};if(S.acc.rsLiked[k]){toast('Ti piace già ❤️');lk.classList.add('liked');return}lk.classList.add('liked');burst($('.story',ov));if(await storySend(uid,'like',c.f.time,'')){S.acc.rsLiked[k]=1;save()}return}
@@ -4373,6 +4373,15 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 .rpx{position:absolute;right:12px;top:50%;transform:translateY(-55%);width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:22px;line-height:38px;display:grid;place-items:center;cursor:pointer}
 .rpx:active{background:rgba(255,255,255,.22)}`;document.head.appendChild(st)})();
 {const orp2=openRealPost;openRealPost=function(id,i){orp2(id,i);const sh=$$('#layer>.ov').pop();if(!sh||!$('.rpost',sh))return;const row=$('.rpost .urow',sh);if(row&&!$('.rpx',row)){row.insertAdjacentHTML('beforeend','<button class="rpx" aria-label="Chiudi">✕</button>');$('.rpx',row).onclick=e=>{e.stopPropagation();closeOv(sh)}}}}
+
+/* v31: virtual people removed for good — stories only me + real people; real-only mode can't be turned off */
+(function(){const st=document.createElement('style');st.textContent='[data-m="realmode"]{display:none!important}';document.head.appendChild(st)})();
+function forceReal(){if(S.acc&&S.acc.settings&&S.acc.settings.realOnly===false){delete S.acc.settings.realOnly;try{applyRealMode()}catch(e){}try{syncRealPosts();S.reelN=0;const r=$('#rscroll');if(r)r.innerHTML='';refreshAll()}catch(e){}try{save()}catch(e){}}}
+toggleRealMode=function(){forceReal();toast('Su Vybe ci sono solo persone reali 👥')};
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{forceReal()}catch(e){}return r}}
+storyList=function(){const l=[];const mine=myStories();if(mine.length)l.push({mine:true,who:ME(),frames:mine,time:mine[mine.length-1].time});let R=[];try{R=realStoryList().filter(x=>!isBlocked(x.who.id))}catch(e){}return l.concat(R)};
+{const os=openStory;openStory=function(start,list){if(!list)list=storyList();return os(start,list)}}
+setTimeout(()=>{try{forceReal()}catch(e){}},1500);
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
