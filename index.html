@@ -3783,7 +3783,7 @@ function openVChat(tab){if(!S.acc)return;S.acc.vc=S.acc.vc||{mute:{},arch:{},wal
   if(T==='chat'){const{R,archN}=rowsChat();
    box.innerHTML=`<div class="wasearch">${ic('search',18)}<input id="waq" placeholder="Chiedi a Vybe o cerca" autocapitalize="none" value="${esc(keepQ)}"></div><div class="wachips" id="wach">${[['all','Tutte'],['unread','Da leggere'],['grp','Gruppi'],['arch','Archiviate'+(archN?' '+archN:'')]].map(([k,n])=>`<button data-c="${k}" class="${chip===k?'on':''}">${n}</button>`).join('')}</div>
    ${!VC.on?`<div class="wainfo">🔒 Le chat con gli amici reali si attivano quando Vybe è collegata online.</div>`:''}
-   ${R.length?R.map(rowHTML).join(''):`<div class="emptyc">${chip==='arch'?'Nessuna chat archiviata':'Nessuna chat. Tocca ＋ per scrivere a un amico.'}</div>`}
+   ${chip==='all'&&!keepQ?vcPeopleHTML():''}   ${R.length?R.map(rowHTML).join(''):`<div class="emptyc">${chip==='arch'?'Nessuna chat archiviata':'Nessuna chat. Tocca ＋ per scrivere a un amico.'}</div>`}
    <div class="wae2e">🔒 I tuoi messaggi personali con gli amici reali sono <b>crittografati end-to-end</b></div><div style="height:90px"></div>`;
    const qi=$('#waq',box);qi.oninput=()=>{const p=qi.selectionStart;draw();const n=$('#waq',ov);n.focus();n.setSelectionRange(p,p)};
    $('#wach',box).onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;chip=b.dataset.c;draw()};bindRows(box)}
@@ -3895,7 +3895,7 @@ function vcNewChat(){const L=VC.on?Real.list():[];const sim=PEOPLE.filter(p=>isF
  const sh=openSheet(`<div class="shead">Nuova chat</div><div class="sbody"><div class="urow" id="ncg"><span class="av" style="width:44px;height:44px;display:grid;place-items:center;background:linear-gradient(135deg,#7c3aed,#22c55e)">👥</span><div><b>Nuovo gruppo</b><span>Con i tuoi amici reali</span></div></div>
  <div class="sect" style="padding-left:4px">👥 Amici su Vybe</div>${L.length?L.map(w=>{const ok=VC.canMsg(w.rid);return`<div class="urow ${ok?'':'dim'}" data-u="${w.rid}" data-ok="${ok?1:0}">${avHTML(w,44)}<div><b>${esc(w.n)} ${RBADGE}</b><span>${ok?esc(VC.pres(w.rid)||'@'+w.u):'Dovete seguirvi a vicenda'}</span></div></div>`}).join(''):'<div class="emptyc" style="padding:14px">Nessun amico reale ancora. Invitali su Vybe!</div>'}
  ${sim.length?`<div class="sect" style="padding-left:4px">Creator che segui</div>${sim.map(p=>`<div class="urow" data-s="${p.id}">${avHTML(p,44)}<div><b>${esc(p.n)}${p.v?VT:''}</b><span>@${esc(p.u)}</span></div></div>`).join('')}`:''}</div>`);$('.sheet',sh).style.maxHeight='86%';
- $('#ncg',sh).onclick=()=>{closeOv(sh);vcNewGroup()};$$('[data-u]',sh).forEach(e=>e.onclick=()=>{if(e.dataset.ok!=='1')return toast(S.teen?'Account Teen: potete scrivervi solo se vi seguite a vicenda':'Questa persona ha un account Teen: dovete seguirvi a vicenda');closeOv(sh);const cid='d:'+e.dataset.u;if(!VC.mine['d_'+e.dataset.u]){VC.doc('d_'+e.dataset.u,{k:'d',m:[VC.me,e.dataset.u],t0:Date.now()})}openVConv(cid)});
+ $('#ncg',sh).onclick=()=>{closeOv(sh);vcNewGroup()};$$('[data-u]',sh).forEach(e=>e.onclick=()=>{if(e.dataset.ok!=='1')return toast('Potete scrivervi in privato solo se vi seguite a vicenda');closeOv(sh);const cid='d:'+e.dataset.u;if(!VC.mine['d_'+e.dataset.u]){VC.doc('d_'+e.dataset.u,{k:'d',m:[VC.me,e.dataset.u],t0:Date.now()})}openVConv(cid)});
  $$('[data-s]',sh).forEach(e=>e.onclick=()=>{closeOv(sh);openChat(+e.dataset.s)})}
 function vcNewGroup(){if(!VC.on||!VC.ready)return toast('Le chat con gli amici reali non sono ancora collegate');const L=Real.list().filter(w=>VC.canMsg(w.rid));const sel=new Set();let photo=null;
  const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>Nuovo gruppo</h2></div><div class="fbody" style="padding:10px 14px">
@@ -4383,6 +4383,69 @@ storyList=function(){const l=[];const mine=myStories();if(mine.length)l.push({mi
 {const os=openStory;openStory=function(start,list){if(!list)list=storyList();return os(start,list)}}
 setTimeout(()=>{try{forceReal()}catch(e){}},1500);
 
+/* v32: VYBE CHAT nell'app vera (Vercel) — stesso motore cifrato end-to-end, sincronizzato con /api/chat (Redis) */
+const CDB={sid:null,state:'idle',w:{},ver:{},timer:0,busy:false,authP:null,warned:0,
+ isV(){return typeof VDB!=='undefined'&&Real.db===VDB},
+ key(){return 'vybe_csid_'+(Real.uid||'')},
+ async call(o,retry){const sid=this.sid||(this.sid=(()=>{try{return localStorage.getItem(this.key())}catch(e){return null}})());
+  if(!sid&&o.op!=='auth'){if(!await this.auth())throw{code:'auth'};return this.call(o,true)}
+  const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:this.sid},o))});
+  if(r.status===503){this.state='nodb';throw{code:'nodb'}}
+  if(r.status===401&&!retry&&o.op!=='auth'){this.sid=null;try{localStorage.removeItem(this.key())}catch(e){}if(!await this.auth())throw{code:'auth'};return this.call(o,true)}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||('http'+r.status),status:r.status};this.state='ok';return j},
+ auth(){if(this.authP)return this.authP;return this.authP=(async()=>{try{if(!Cloud.email||!Cloud.tok)return false;
+   const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'auth',email:Cloud.email,token:Cloud.tok})});
+   if(r.status===503){this.state='nodb';return false}const j=await r.json().catch(()=>({}));if(!r.ok||!j.sid)return false;this.sid=j.sid;try{localStorage.setItem(this.key(),j.sid)}catch(e){}this.state='ok';return true}
+   catch(e){return false}finally{setTimeout(()=>{this.authP=null},50)}})()},
+ snap(d){const docs=Object.keys(d||{}).map(id=>({id,exists:true,data:()=>d[id]}));return{docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:{fromCache:false}}},
+ watch(u,cb,err){this.w[u]={cb,err};if(this.ver[u]===undefined)this.ver[u]=-1;this.kick(80);return()=>{delete this.w[u]}},
+ fast(){return !!(VC.open||document.querySelector('.wa'))},
+ kick(ms){clearTimeout(this.timer);this.timer=setTimeout(()=>this.sync(),ms==null?0:ms)},
+ async sync(){if(this.busy){this.kick(400);return}const us=Object.keys(this.w);if(!us.length)return;this.busy=true;let next=this.fast()?2500:20000;
+  try{const w={};us.forEach(u=>w[u]=this.ver[u]===undefined?-1:this.ver[u]);const j=await this.call({op:'sync',w});
+   for(const u in (j.docs||{})){this.ver[u]=j.v[u];const x=this.w[u];if(x)try{x.cb(this.snap(j.docs[u]))}catch(e){}}
+   for(const u in (j.v||{}))if(!(j.docs||{})[u])this.ver[u]=j.v[u]}
+  catch(e){if(e&&e.code==='nodb')next=60000;else next=Math.min(next,8000)}
+  finally{this.busy=false}
+  if(document.visibilityState!=='hidden')this.kick(next)},
+ collection(path){const u=String(path).split('/')[1];return{where:()=>({onSnapshot:(cb,err)=>this.watch(u,cb,err)}),onSnapshot:(cb,err)=>this.watch(u,cb,err)}},
+ doc(path){const p=String(path).split('/');
+  if(p[0]==='data'&&p[3]==='chatkey')return{get:async()=>({exists:!!(S.acc&&S.acc.chatkey),data:()=>S.acc&&S.acc.chatkey}),set:async k=>{if(S.acc){S.acc.chatkey=k;try{save()}catch(e){}}}};
+  if(p[0]==='chat'&&p[2]==='c')return{set:async d=>{try{await this.call({op:'put',id:p[3],d});this.kick(this.fast()?300:1500)}catch(e){
+     if(e&&e.status===403){if(Date.now()-this.warned>8000){this.warned=Date.now();toast('Messaggio non inviato: potete scrivervi solo se vi seguite a vicenda')}return}
+     if(e&&e.code==='nodb'){toast('Vybe Chat non è ancora attiva');return}await new Promise(r=>setTimeout(r,4000));throw e}},
+   get:async()=>({exists:false,data:()=>undefined}),delete:async()=>{try{await this.call({op:'put',id:p[3],d:null})}catch(e){}}};
+  if(p[0]==='chat'&&p[2]==='i')return{set:async d=>{await this.call({op:'img_put',id:p[3],d})},get:async()=>{const j=await this.call({op:'img_get',o:p[1],id:p[3]});return{exists:!!j.d,data:()=>j.d}}};
+  return{get:async()=>({exists:false,data:()=>undefined}),set:async()=>{}}}
+};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&CDB.isV())CDB.kick(100)});
+/* avvio del motore chat anche senza il database di Claude */
+{const vs=VC.start.bind(VC);VC.start=async function(){if(!CDB.isV())return vs();
+  if(this.on||this._starting||!Real.on||!Real.uid||!this.cs()||!S.acc)return;this._starting=true;
+  try{if(!await CDB.auth()){return}
+   this.db=CDB;this.me=Real.uid;this.on=true;
+   try{await this.initKeys()}catch(e){this.on=false;return}
+   const a=S.acc;a.vc=a.vc||{mute:{},arch:{},wall:{},hid:{},seen:{}};
+   this.subOwn();this.syncSubs();Real.publishSoon(400);
+   document.addEventListener('visibilitychange',()=>this.presence(document.visibilityState==='visible'));window.addEventListener('pagehide',()=>this.presence(false));
+   setInterval(()=>{if(this.open||$('.wa'))this.emit()},15000)}
+  finally{this._starting=false}}}
+/* in chat privata solo chi vi seguite a vicenda */
+VC.contacts=function(){return Real.list().filter(w=>{const u=w.rid;if((S.acc.rblock||[]).includes(u))return false;const d=Real.docs[u]||{};const iF=Real.state(w.id)==='on',tF=(d.fw||[]).includes(this.me)&&Real.approvedBy(this.me,u);return iF&&tF}).map(w=>w.rid)};
+{const ov=openVChat;openVChat=function(tab){if(CDB.isV()&&!VC.on){VC.start().then(()=>{if(VC.on){ov(tab);CDB.kick(0)}else{
+   const nodb=CDB.state==='nodb';const sh=openSheet(`<div style="padding:10px 22px 26px;text-align:center"><div style="font-size:44px">💬</div><h3 style="margin:6px 0">Vybe Chat</h3><p style="color:var(--mute);line-height:1.45;margin:0 0 16px">${nodb?'La chat si sta attivando. Riprova tra poco.':'Per usare la chat serve il tuo account online. Controlla la connessione e riprova.'}</p><button class="btn" id="vcok" style="width:100%">Ok</button></div>`);$('#vcok',sh).onclick=()=>closeOv(sh)}});return}
+  const r=ov(tab);if(CDB.isV())CDB.kick(0);return r}}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{if(CDB.isV()&&!VC.on)VC.start()},2500);return r}}
+setTimeout(()=>{try{if(CDB.isV()&&!VC.on&&S.acc)VC.start()}catch(e){}},4000);
+
+
+/* v32b: in cima alla chat, le persone con cui puoi scrivere (vi seguite a vicenda) */
+function vcPeopleHTML(){if(!VC.on)return'';let L=[];try{L=VC.contacts().map(u=>({u,w:USERS['r_'+u]})).filter(x=>x.w)}catch(e){}
+ if(!L.length)return`<div class="vcpp-empty">👥 Qui compariranno le persone che segui e che ti seguono: con loro puoi scrivere in privato.</div>`;
+ return`<div class="vcpp-t">Scrivi a</div><div class="vcpp">${L.map(x=>`<button data-pu="${x.u}">${avHTML(x.w,54)}<span>${esc(x.w.first||x.w.u)}</span></button>`).join('')}</div>`}
+document.addEventListener('click',e=>{const b=e.target.closest('.vcpp [data-pu]');if(!b)return;e.stopPropagation();const u=b.dataset.pu;if(!VC.ready)return toast('Chat in collegamento, riprova tra un attimo');if(!VC.mine['d_'+u])VC.doc('d_'+u,{k:'d',m:[VC.me,u],t0:Date.now()});openVConv('d:'+u)},true);
+(function(){const st=document.createElement('style');st.textContent='.vcpp-t{font-size:13px;font-weight:700;color:var(--mute);margin:10px 16px 6px}.vcpp{display:flex;gap:14px;overflow-x:auto;padding:4px 16px 12px;scrollbar-width:none}.vcpp::-webkit-scrollbar{display:none}.vcpp button{background:none;border:0;color:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px;flex:none;cursor:pointer;font:inherit}.vcpp span{font-size:12px;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vcpp-empty{margin:10px 16px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.05);font-size:13px;color:var(--mute);line-height:1.4}';document.head.appendChild(st)})();
+VC.canMsg=function(u){try{return VC.contacts().includes(u)}catch(e){return false}};
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
