@@ -4911,6 +4911,9 @@ new MutationObserver(()=>{const w=document.querySelector('.welcome');if(w&&!w.qu
 
 
 deleteAccount=function(){openDeleteAccount()};
+
+/* v41: le finestre che salgono dal basso si possono scorrere quando sono lunghe (es. menu ☰) */
+(function(){const st=document.createElement('style');st.textContent='.ov .sheet{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom,0px)}.ov .sheet>*{flex-shrink:0}.ov .sheet>.rpost{flex-shrink:1}';document.head.appendChild(st)})();
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
