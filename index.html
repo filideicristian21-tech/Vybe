@@ -2414,7 +2414,7 @@ function openStory(start,listOverride){const list=listOverride||storyList();if(!
   $('#sh',ov).innerHTML=`${avHTML(s.who,34)}<span>${esc(s.hl?s.hl.name:s.mine?'La tua storia':s.who.u)} <small>${ago(f.time||s.time)}</small></span><span class="sp"></span>${info||f.video?`<button class="iconbtn" id="smute">${ic(Music.muted?'mute':'vol',22,2)}</button>`:''}${s.mine?`<button class="iconbtn" id="sDel">${ic('trash',22)}</button>`:''}<button class="iconbtn" id="sx">${ic('x',26)}</button>`;
   const m=$('#sm',ov),kb=(ui+fi)%2?'kb2':'';
   if(f.video){m.innerHTML=`<video src="${f.video}" playsinline autoplay ${Music.muted||info?'muted':''}></video>`;vid=$('video',m);vid.play&&vid.play().catch(()=>{vid.muted=true;vid.play().catch(()=>{})})}
-  else if(f.img)m.innerHTML=`<img class="${kb}" src="${f.img}" alt="">`;else if(f.scene)m.innerHTML=`<img class="${kb}" src="${sceneURL(f.scene,f.seed,432,768)}" alt="">`;else m.innerHTML=`<div class="stext" style="--bg:${f.bg}"><div>${words(f.text)}</div></div>`;
+  else if(f.img){const u=String(f.img).replace(/'/g,'%27');m.innerHTML=`<div class="sbgb" style="background-image:url('${u}')"></div><img class="sfit" src="${f.img}" alt="">`;try{stFit(m)}catch(e){}}else if(f.scene)m.innerHTML=`<img class="${kb}" src="${sceneURL(f.scene,f.seed,432,768)}" alt="">`;else m.innerHTML=`<div class="stext" style="--bg:${f.bg}"><div>${words(f.text)}</div></div>`;
   $('#sk',ov).innerHTML=stkHTML(f.stk);
   $('#mst',ov).innerHTML=info?`<div class="msticker ${Music.muted?'paused':''}"><span class="mcov" style="background:linear-gradient(135deg,${info.c[0]},${info.c[1]})">${ic('music',15,2)}</span><div><b>${esc(info.title)}</b><span>${esc(info.artist)}</span></div><div class="eq"><i></i><i></i><i></i><i></i></div></div>`:'';
   Music.set(f.video&&!info?null:mid);
@@ -5094,6 +5094,20 @@ const fitR=r=>Math.min(1.6,Math.max(.5,r));
 {const rr=renderRealFeed;renderRealFeed=function(){const x=rr.apply(this,arguments);try{$$('#realfeed .rfc[data-ru]').forEach(c=>{const w=USERS[c.dataset.ru],p=w&&w.posts[+c.dataset.ri],im=c.querySelector('img');if(!p||!im)return;
   const fit=r=>{c.style.flexBasis=Math.round(Math.min(300,Math.max(104,190/r)))+'px'};
   if(p.r)fit(p.r);else im.addEventListener('load',()=>{if(im.naturalWidth&&!p.hd)fit(im.naturalHeight/im.naturalWidth)},{once:true});if(p.hd)im.src=p.hd})}catch(e){}return x}}
+
+/* v45: storie nitide (HD) e foto intere nelle storie (niente zoom/taglio) */
+HD.syncSt=async function(){if(!S.acc||!(typeof CDB!=='undefined'&&CDB.isV&&CDB.isV()))return false;let ch=false;const t0=Date.now()-86400000;
+ for(const f of (S.acc.stories||[])){if(f.time<t0||f.hd||(f.hdTry||0)>=3||!f.img||f.video)continue;
+  const orig=PICKHD.get(f.img);if(!orig&&!/^data:image\//.test(f.img))continue;const im=orig||await this.loadSrc(f.img);if(!im){f.hdTry=(f.hdTry||0)+1;continue}
+  try{const r=await this.up(im);if(r){f.hd=r.url;f.hw=r.w;f.hh=r.h;ch=true}else f.hdTry=(f.hdTry||0)+1}catch(e){f.hdTry=(f.hdTry||0)+1;if(e&&(e.code==='nodb'||e.code==='auth'))break}}
+ return ch};
+{const sy=HD.sync.bind(HD);HD.sync=async function(){await sy();if(this.busy2)return;this.busy2=true;let ch=false;try{ch=await this.syncSt()}finally{this.busy2=false}if(ch){save();try{Real.publishSoon(300)}catch(e){}}}}
+{const pl=Real.payload;Real.payload=async function(){const d=await pl.apply(this,arguments);(d.st||[]).forEach(x=>{const f=(S.acc.stories||[]).find(s=>s.time===x.t);if(!f||!f.hd||!HDRX.test(f.hd))return;x.hd=f.hd;if(f.hw&&f.hh)x.r=Math.round(f.hh/f.hw*1000)/1000});return d}}
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const src=Array.isArray(d&&d.st)?d.st:[];(o.st||[]).forEach(f=>{const x=src.find(y=>y&&+y.t===f.t);if(!x)return;if(f.img&&typeof x.hd==='string'&&HDRX.test(x.hd))f.hd=x.hd;const r=+x.r;if(r>=.3&&r<=3)f.r=r});return o}}
+{const rl=realStoryList;realStoryList=function(){const L=rl.apply(this,arguments);L.forEach(s=>{(s.frames||[]).forEach((fr,i)=>{const f=(s.who.st||[])[i];if(f&&f.t===fr.time&&f.hd){fr.img=f.hd}})});return L}}
+function stFit(m){const im=m&&m.querySelector(':scope>img.sfit');if(!im)return;const go=()=>{const r=im.naturalHeight/im.naturalWidth;if(r>=1.55&&r<=2.3)im.classList.add('sfill')};if(im.complete&&im.naturalWidth)go();else im.addEventListener('load',go,{once:true})}
+(function(){const st=document.createElement('style');st.textContent=`.smedia .sbgb{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(30px) brightness(.55) saturate(1.2)}
+.smedia img.sfit{position:relative;z-index:1;object-fit:contain;animation:none!important}.smedia img.sfit.sfill{object-fit:cover}`;document.head.appendChild(st)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
