@@ -2272,7 +2272,7 @@ function pickMedia(kind='any'){return new Promise(res=>{const inp=$('#filePick')
   const im=await loadImgFile(f);
   if(Assets.ready){const e=encodeImg(im,1440,.82);const blob=await new Promise(r=>e.c.toBlob(r,'image/jpeg',.82));const url=blob?await Assets.put(blob,'image/jpeg'):null;if(url)return res({kind:'image',url,w:e.w,h:e.h})}
   let m=900,q=.74,e;for(let k=0;k<6;k++){e=encodeImg(im,m,q);if(e.url.length<230000)break;q=Math.max(.45,q-.1);m=Math.round(m*.85)}
-  return res({kind:'image',url:e.url,w:e.w,h:e.h})}catch(err){toast('Impossibile leggere il file');res(null)}};inp.click()})}
+  try{PICKHD.set(e.url,im)}catch(_){}return res({kind:'image',url:e.url,w:e.w,h:e.h})}catch(err){toast('Impossibile leggere il file');res(null)}};inp.click()})}
 function pickImage(max){return pickMedia('image')}
 
 /* ---------- Reels ---------- */
@@ -3301,7 +3301,7 @@ const Real={db:null,uid:null,on:false,ro:false,docs:{},first:true,thumbs:{},tmr:
   if(this.first){this.first=false;this.publishSoon(300)}},
  publishSoon(ms=2500){if(!this.on||this.ro)return;if(this.tmr&&ms>=1000)return;clearTimeout(this.tmr);this.tmr=setTimeout(()=>{this.tmr=0;this.publish()},ms)},
  thumb(src,w,key){if(!src)return Promise.resolve(null);const ck=key+'|'+src.length+'|'+src.slice(-40);if(this.thumbs[ck]!==undefined)return Promise.resolve(this.thumbs[ck]);
-  return new Promise(res=>{const im=new Image();im.onload=()=>{try{const sc=Math.min(1,w/im.naturalWidth),cw=Math.max(1,Math.round(im.naturalWidth*sc)),chh=Math.max(1,Math.min(Math.round(im.naturalHeight*sc),Math.round(w*1.6)));const c=document.createElement('canvas');c.width=cw;c.height=chh;c.getContext('2d').drawImage(im,0,0,cw,Math.round(im.naturalHeight*sc));const u=c.toDataURL('image/jpeg',.62);this.thumbs[ck]=u;res(u)}catch(e){this.thumbs[ck]=null;res(null)}};im.onerror=()=>{this.thumbs[ck]=null;res(null)};im.src=src;setTimeout(()=>res(null),6000)})},
+  return new Promise(res=>{const im=new Image();if(/^https?:/.test(src))im.crossOrigin='anonymous';im.onload=()=>{try{const sc=Math.min(1,w/im.naturalWidth),cw=Math.max(1,Math.round(im.naturalWidth*sc)),chh=Math.max(1,Math.min(Math.round(im.naturalHeight*sc),Math.round(w*1.6)));const c=document.createElement('canvas');c.width=cw;c.height=chh;c.getContext('2d').drawImage(im,0,0,cw,Math.round(im.naturalHeight*sc));const u=c.toDataURL('image/jpeg',.62);this.thumbs[ck]=u;res(u)}catch(e){this.thumbs[ck]=null;res(null)}};im.onerror=()=>{this.thumbs[ck]=null;res(null)};im.src=src;setTimeout(()=>res(null),6000)})},
  async payload(){const a=S.acc,me=ME();const posts=[];
   for(const p of a.own){if(posts.length>=30)break;if(p.type==='text'&&p.t){posts.push({id:p.id,cap:(p.caption||'').slice(0,200),t:p.time,ty:'text',tx:{t:String(p.t.t||'').slice(0,300),bg:p.t.plain?'#26222f':p.t.bg,fg:p.t.fg||'#fff'}});continue}
    const src=p.img||p.poster;if(!src)continue;const img=await this.thumb(src,220,'q'+p.id);if(img)posts.push({id:p.id,cap:(p.caption||'').slice(0,200),t:p.time,ty:p.type==='video'?'video':'photo',img})}
@@ -3326,7 +3326,7 @@ const RBADGE='<span class="rbadge">reale</span>';
 function realPostHTML(w,p,i){return`<div data-rp="${i}" class="rpm">${p.img?`<img src="${p.img}" alt="">`:`<div class="mt" style="background:${p.tx.bg};color:${p.tx.fg}">${esc(p.tx.t.slice(0,70))}</div>`}${p.ty==='video'?`<span class="rpv">${ic('film',14,2)}</span>`:''}</div>`}
 function openRealPost(id,i){const w=USERS[id];if(!w)return;const p=w.posts[i];if(!p)return;const k=w.rid+'/'+p.id;
  const sh=openSheet(`<div class="rpost"><div class="urow" style="padding:4px 14px 10px">${avHTML(w,38)}<div><b>${esc(w.u)} ${RBADGE}</b><span>${ago(p.t)}</span></div></div>
- ${p.img?`<img class="rpimg" src="${p.img}" alt="">`:`<div class="tbig" style="background:${p.tx.bg};color:${p.tx.fg};min-height:260px">${esc(p.tx.t)}</div>`}
+ ${p.img?`<img class="rpimg" src="${p.hd||p.img}" alt="">`:`<div class="tbig" style="background:${p.tx.bg};color:${p.tx.fg};min-height:260px">${esc(p.tx.t)}</div>`}
  <div class="rpact"><button id="rl">${ic('heart',24)}</button><b id="rlc"></b></div>${p.cap?`<div class="rpcap"><b>${esc(w.u)}</b> ${esc(p.cap)}</div>`:''}${p.ty==='video'?'<div class="rpcap hint">Anteprima del video</div>':''}</div>`);
  const draw=()=>{const on=S.acc.rlk.includes(k),n=Real.likesOf(w.rid,p.id);$('#rl',sh).classList.toggle('on',on);$('#rlc',sh).textContent=n?fmt(n)+(n===1?' mi piace':' mi piace'):'Metti il primo mi piace'};draw();sh._rrefresh=draw;
  $('#rl',sh).onclick=()=>{const on=Real.like(id,p.id);draw();if(on){$('#rl',sh).animate([{transform:'scale(1)'},{transform:'scale(1.35)'},{transform:'scale(1)'}],{duration:350})}}}
@@ -5050,6 +5050,45 @@ function postMuOf(p){if(!p)return null;if(p.real){const w=USERS[p.author],rp=w&&
 {const snd=ACT.sound;ACT.sound=function(t){const r=S.actReel,p=r&&getPost(r.dataset.id),mu=postMuOf(p);if(!mu||(r&&r.querySelector('video.rv')))return snd(t);
  S.sound=!S.sound;try{Music.unlock()}catch(e){}Music.stop();if(S.sound)playPostMusic(mu);else stopPostMusic();updateSound();toast(S.sound?'Audio attivo 🔊':'Audio disattivato')}}
 {const sv=switchView;switchView=function(v){if(v!=='reels'){try{stopPostMusic()}catch(e){}}return sv.apply(this,arguments)}}
+
+/* v44: foto nitide come fatte dal telefono + foto intere (orizzontali/verticali) senza zoom */
+var PICKHD=new Map();
+const HDRX=/^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/[A-Za-z0-9\/_.-]+\.jpg$/;
+const HD={busy:false,
+ enc(im,max,q){const W=im.naturalWidth||im.width,Hh=im.naturalHeight||im.height,sc=Math.min(1,max/Math.max(W,Hh)),c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(Hh*sc);const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(im,0,0,c.width,c.height);return{d:c.toDataURL('image/jpeg',q),w:c.width,h:c.height}},
+ async up(im){let m=2048,q=.88,e;for(let k=0;k<5;k++){e=this.enc(im,m,q);if(e.d.length<2900000)break;m=Math.round(m*.85);q=Math.max(.78,q-.03)}
+  const j=await CDB.call({op:'pimg',data:e.d.slice(e.d.indexOf(',')+1)});return j&&HDRX.test(j.url||'')?{url:j.url,w:e.w,h:e.h}:null},
+ loadSrc(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src;setTimeout(()=>r(null),8000)})},
+ async sync(){if(this.busy||!S.acc||!(typeof CDB!=='undefined'&&CDB.isV&&CDB.isV()))return;this.busy=true;let ch=false;
+  try{for(const p of (S.acc.own||[]).slice(0,30)){if(p.hd||p.hdTry>=3||p.type!=='photo'||!p.img)continue;
+    const orig=PICKHD.get(p.img);if(!orig&&!/^data:image\//.test(p.img))continue;
+    const im=orig||await this.loadSrc(p.img);if(!im){p.hdTry=(p.hdTry||0)+1;continue}
+    try{const r=await this.up(im);if(r){p.hd=r.url;p.hw=r.w;p.hh=r.h;ch=true;PICKHD.delete(p.img)}else p.hdTry=(p.hdTry||0)+1}catch(e){p.hdTry=(p.hdTry||0)+1;if(e&&(e.code==='nodb'||e.code==='auth'))break}}}
+  finally{this.busy=false}
+  if(ch){save();try{Real.publishSoon(300)}catch(e){}}}};
+{const sv=save;save=function(){const r=sv.apply(this,arguments);clearTimeout(HD.t);HD.t=setTimeout(()=>HD.sync(),700);return r}}
+setTimeout(()=>HD.sync(),6000);
+/* invio: aggiungo foto HD e proporzioni reali */
+{const pl=Real.payload;Real.payload=async function(){const d=await pl.apply(this,arguments);(d.posts||[]).forEach(x=>{const p=S.acc.own.find(o=>o.id===x.id);if(!p)return;if(p.hd&&HDRX.test(p.hd))x.hd=p.hd;
+  const r=p.hw&&p.hh?p.hh/p.hw:p.ratio;if(r&&isFinite(r))x.r=Math.round(Math.min(2,Math.max(.4,r))*1000)/1000});return d}}
+/* ricezione: tengo hd e proporzioni */
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const src=Array.isArray(d&&d.posts)?d.posts:[];
+  (o.posts||[]).forEach(p=>{const s=src.find(x=>x&&String(x.id||'').slice(0,40)===p.id);if(!s)return;if(typeof s.hd==='string'&&HDRX.test(s.hd))p.hd=s.hd;const r=+s.r;if(r>=.4&&r<=2)p.r=r});return o}}
+const fitR=r=>Math.min(1.6,Math.max(.5,r));
+{const sr=syncRealPosts;syncRealPosts=function(){const ch=sr.apply(this,arguments);for(const o of REALP){const w=USERS[o.author],rp=w&&w.posts&&w.posts[o.ri];if(!rp||!rp.img)continue;
+  if(rp.hd)o.img=rp.hd;if(rp.r){o.ratio=fitR(rp.r);o._rk=1}else if(!o._rk&&!o._probe){o._probe=1;const im=new Image();im.onload=()=>{if(im.naturalWidth&&im.naturalHeight<Math.round(im.naturalWidth*1.6)-2){o.ratio=fitR(im.naturalHeight/im.naturalWidth);o._rk=1;
+     $$('[data-id="'+o.id+'"] img.ph').forEach(e=>{e.style.aspectRatio=String(1/o.ratio)})}};im.src=rp.img}}return ch}}
+/* Video: foto intera con sfondo sfocato, niente zoom */
+{const rh=reelHTML;reelHTML=function(p){const h=rh.apply(this,arguments);if(!p||p.type!=='photo'||!p.img)return h;const u=String(p.img).replace(/"/g,'&quot;');
+  return h.replace(`<img src="${p.img}" alt="">`,`<div class="rfbg" style="background-image:url('${u}')"></div><img class="rfit" src="${u}" alt="">`)}}
+(function(){const st=document.createElement('style');st.textContent=`.reel .dbl>img.rfit{object-fit:contain;animation:none!important;z-index:1}
+.reel .rfbg{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(28px) brightness(.55) saturate(1.2);transform:scale(1.1)}
+.card img.ph{image-rendering:auto}`;document.head.appendChild(st)})();
+
+/* "Dai tuoi amici": la scheda prende la forma della foto (niente zoom) e usa la foto HD */
+{const rr=renderRealFeed;renderRealFeed=function(){const x=rr.apply(this,arguments);try{$$('#realfeed .rfc[data-ru]').forEach(c=>{const w=USERS[c.dataset.ru],p=w&&w.posts[+c.dataset.ri],im=c.querySelector('img');if(!p||!im)return;
+  const fit=r=>{c.style.flexBasis=Math.round(Math.min(300,Math.max(104,190/r)))+'px'};
+  if(p.r)fit(p.r);else im.addEventListener('load',()=>{if(im.naturalWidth&&!p.hd)fit(im.naturalHeight/im.naturalWidth)},{once:true});if(p.hd)im.src=p.hd})}catch(e){}return x}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
