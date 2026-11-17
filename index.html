@@ -5038,6 +5038,17 @@ ACT.golive=()=>goLive();
 .lvsound{position:absolute;left:50%;top:52%;transform:translateX(-50%);z-index:6;padding:12px 18px;border-radius:999px;border:0;background:#fff;color:#111;font:800 14px inherit}
 .lvgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 14px}.lvgrid button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border-radius:14px;border:0;background:rgba(255,255,255,.06);color:inherit;cursor:pointer}.lvgrid span{font-size:30px}.lvgrid b{font-size:12px}.lvgrid small{font-size:11px;color:var(--muted)}`;document.head.appendChild(st)})();
 
+/* v43: nei Video ogni post suona la SUA canzone (non sempre la stessa) */
+function postMuOf(p){if(!p)return null;if(p.real){const w=USERS[p.author],rp=w&&w.posts&&w.posts[p.ri];return rp&&rp.mu||null}if(p.mine&&typeof postMu==='function')return postMu(p);return p.mu||null}
+{const rh=reelHTML;reelHTML=function(p){const h=rh.apply(this,arguments);const mu=postMuOf(p);if(!mu){if(REALONLY()&&p&&(p.real||p.mine)&&p.type!=='video')return h.replace(/<div class="rmus">[\s\S]*?<\/div><\/div>/,'');return h}const mt=esc((mu.t||'Canzone')+(mu.a?' · '+mu.a:''));
+ return h.replace(/<div class="mq"><span>[^<]*<\/span><span>[^<]*<\/span><\/div>/,`<div class="mq"><span>${mt}</span><span>${mt}</span></div>`).replace(/<span class="dc" style="background:[^"]*"><\/span>/,mu.art?`<span class="dc" style="background:url('${esc(mu.art)}') center/cover"></span>`:'$&')}}
+{const lr=leaveReel;leaveReel=function(){try{stopPostMusic()}catch(e){}return lr.apply(this,arguments)}}
+{const er=enterReel;enterReel=function(r){try{stopPostMusic()}catch(e){}const p=getPost(r.dataset.id),mu=postMuOf(p);
+ if(!r.querySelector('video.rv')&&(mu||(REALONLY()&&(p&&(p.real||p.mine))))){S.actReel=r;r.classList.add('act');S.actStart=Date.now();Music.stop();if(mu&&S.sound&&!S.storyOpen)playPostMusic(mu);return}return er.apply(this,arguments)}}
+{const snd=ACT.sound;ACT.sound=function(t){const r=S.actReel,p=r&&getPost(r.dataset.id),mu=postMuOf(p);if(!mu||(r&&r.querySelector('video.rv')))return snd(t);
+ S.sound=!S.sound;try{Music.unlock()}catch(e){}Music.stop();if(S.sound)playPostMusic(mu);else stopPostMusic();updateSound();toast(S.sound?'Audio attivo 🔊':'Audio disattivato')}}
+{const sv=switchView;switchView=function(v){if(v!=='reels'){try{stopPostMusic()}catch(e){}}return sv.apply(this,arguments)}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
