@@ -2028,7 +2028,7 @@ function renderProfile(){if(!S.acc)return;const me=ME(),a=S.acc;const mine=mySto
  <div class="pbtns"><button data-a="editprofile">Modifica profilo</button><button data-a="shareprofile">Condividi profilo</button></div>
  <div class="ptabs"><button data-a="ptab" data-v="posts" class="${S.ptab==='posts'?'on':''}">${ic('grid',23)}</button><button data-a="ptab" data-v="saved" class="${S.ptab==='saved'?'on':''}">${ic('save',23)}</button></div>
  <div class="pgrid">${list.length?list.map(miniHTML).join(''):S.ptab==='saved'?`<div class="pempty"><div class="bigic">${ic('save',30)}</div><b style="color:var(--ink)">Niente di salvato</b><br>Tocca il segnalibro su un post per ritrovarlo qui.</div>`:`<div class="pempty"><div class="bigic">${ic('camera',30)}</div><b style="color:var(--ink);font-size:17px">Condividi la tua prima foto</b><br>Quando pubblichi, i post appaiono qui.<br><button class="btn" data-a="create" style="margin-top:14px;height:46px;width:auto;padding:0 22px;font-size:14px">Crea un post</button></div>`}</div>`;
- observe($('#profileScroll'));const pc=$('#profileScroll .pcover');if(pc)mountSpace(pc,'grid',{cy:.62,zoom:.6,dim:.95})}
+ observe($('#profileScroll'));const pc=$('#profileScroll .pcover');if(pc)mountMyCover(pc)}
 function editProfile(){const a=S.acc;const ov=openSheet(`<div class="shead">Modifica profilo</div><div style="padding:16px 18px 22px;display:flex;flex-direction:column;gap:12px">
  <label class="fld"><span>Nome</span><input class="in" id="en" maxlength="40" value="${esc(a.name)}"></label>
  <label class="fld"><span>Bio</span><textarea class="in" id="eb" maxlength="150" style="height:90px;padding:12px 16px;resize:none">${esc(a.bio)}</textarea></label>
@@ -2680,7 +2680,7 @@ function renderProfile(){if(!S.acc)return;const me=ME(),a=S.acc;const mine=mySto
  <div class="hls"><div class="hl" data-a="newhl"><div class="hc add">${ic('plus',22)}</div><span>Nuova</span></div>${a.highlights.map(h=>{const f=allS.find(s=>s.time===h.keys[0]);return`<div class="hl" data-a="hl" data-id="${h.id}"><div class="hc">${f?(f.img?`<img src="${f.img}">`:f.video?`<video src="${f.video}" muted preload="metadata"></video>`:f.scene?`<img src="${sceneURL(f.scene,f.seed,120,120)}">`:`<span style="background:${f.bg||'#7c3aed'}">Aa</span>`):'<span style="background:#2a2440">✦</span>'}</div><span>${esc(h.name)}</span></div>`}).join('')}</div>
  <div class="ptabs"><button data-a="ptab" data-v="posts" class="${S.ptab==='posts'?'on':''}">${ic('grid',23)}</button><button data-a="ptab" data-v="videos" class="${S.ptab==='videos'?'on':''}">${ic('film',23)}</button><button data-a="ptab" data-v="saved" class="${S.ptab==='saved'?'on':''}">${ic('save',23)}</button></div>
  <div class="pgrid">${list.length?list.map(miniHTML).join(''):S.ptab==='saved'?`<div class="pempty"><div class="bigic">${ic('save',30)}</div><b style="color:var(--ink)">Niente di salvato</b><br>Tocca il segnalibro su un post per ritrovarlo qui.</div>`:`<div class="pempty"><div class="bigic">${ic(S.ptab==='videos'?'film':'camera',30)}</div><b style="color:var(--ink);font-size:17px">${S.ptab==='videos'?'Nessun video ancora':'Condividi la tua prima foto'}</b><br>Quando pubblichi, i contenuti appaiono qui.<br><button class="btn" data-a="create" style="margin-top:14px;height:46px;width:auto;padding:0 22px;font-size:14px">Crea</button></div>`}</div>`;
- observe($('#profileScroll'));const pc=$('#profileScroll .pcover');if(pc)mountSpace(pc,'grid',{cy:.62,zoom:.6,dim:.95})}
+ observe($('#profileScroll'));const pc=$('#profileScroll .pcover');if(pc)mountMyCover(pc)}
 function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="studio"><span class="mi">${ic('chart',22)}</span><div>Creator Studio<small>Statistiche, crescita e contenuti</small></div></button>
  <button data-m="ai"><span class="mi" style="color:#d8b4fe">${ic('wand',22)}</span><div>Vybe AI<small>Idee, didascalie, hashtag e analisi</small></div></button>
@@ -4631,6 +4631,99 @@ openStudio=function(){let range=7,tab='ov',D=null,err='';
  $('#stb',ov).onclick=e=>{const t=e.target.closest('[data-t]');if(!t)return;tab=t.dataset.t;draw()};
  draw();load()};
 ACT.studio=()=>openStudio();
+
+
+/* v38: COPERTINA 3D — scegli tra tanti modelli 3D animati o metti una tua foto; la vedono anche gli altri */
+const COVERS=[['grid','Spazio-tempo'],['galaxy','Galassia'],['planet','Pianeta'],['aurora','Aurora'],['synth','Tramonto neon'],['tunnel','Tunnel'],['hyper','Iperspazio'],['nebula','Nebulosa']];
+function mountCover(host,m,o={}){
+ if(m==='photo'&&o.img)return photoCover(host,o.img);
+ if(!m||m==='grid'||!COVERS.some(c=>c[0]===m))return mountSpace(host,'grid',Object.assign({cy:.62,zoom:.6,dim:.95},o.grid||{}));
+ const cv=document.createElement('canvas');cv.className='space';host.prepend(cv);const x=cv.getContext('2d'),dpr=Math.min(2,window.devicePixelRatio||1);
+ let W=1,H=1,raf,last=performance.now(),t=0,alive=true;const size=()=>{const r=host.getBoundingClientRect();W=Math.max(1,r.width);H=Math.max(1,r.height);cv.width=W*dpr;cv.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)};size();
+ let ro=null;try{ro=new ResizeObserver(size);ro.observe(host)}catch(e){}
+ const Rr=Math.random,stars=Array.from({length:160},()=>({x:Rr(),y:Rr(),s:Rr()*1.4+.3,tw:Rr()*6}));
+ const bgStars=(dim=1)=>{for(const s of stars){x.fillStyle=`rgba(255,255,255,${(.25+.6*Math.abs(Math.sin(t*1.2+s.tw)))*dim})`;x.fillRect(s.x*W,s.y*H,s.s,s.s)}};
+ const glow=(cx,cy,r,c1,c2)=>{const g=x.createRadialGradient(cx,cy,0,cx,cy,r);g.addColorStop(0,c1);g.addColorStop(1,c2);x.fillStyle=g;x.beginPath();x.arc(cx,cy,r,0,7);x.fill()};
+ let P=[];
+ if(m==='galaxy')P=Array.from({length:900},()=>{const arm=Math.floor(Rr()*3),r=Math.pow(Rr(),.7)*1.15,a=arm*2.094+r*3.4+(Rr()-.5)*.55;return{r,a,y:(Rr()-.5)*.08*(1.2-r),h:260+r*90+Rr()*30,s:Rr()}});
+ if(m==='planet')P=Array.from({length:520},()=>({a:Rr()*6.283,r:1.25+Rr()*.55,y:(Rr()-.5)*.03,h:Rr()}));
+ if(m==='tunnel')P=Array.from({length:22},(_,i)=>({z:i/22}));
+ if(m==='hyper'||m==='nebula')P=Array.from({length:m==='hyper'?420:260},()=>({x:(Rr()-.5)*2.4,y:(Rr()-.5)*2.4,z:.05+Rr()*.95,h:Rr()}));
+ const D={
+  galaxy(dt){x.fillStyle='#04020c';x.fillRect(0,0,W,H);bgStars(.7);const rot=t*.18,tilt=1.15,f=Math.min(W*.55,H*1.35),cx=W/2,cy=H*.55;
+   glow(cx,cy,f*.42,'rgba(244,114,182,.55)','rgba(124,58,237,0)');
+   for(const p of P){const a=p.a+rot*(1.3-p.r*.5),X=Math.cos(a)*p.r,Z=Math.sin(a)*p.r,Y=p.y;const y2=Y*Math.cos(tilt)-Z*Math.sin(tilt),z2=Y*Math.sin(tilt)+Z*Math.cos(tilt)+3;
+    const sx=cx+X*f/z2*2.2,sy=cy-y2*f/z2*2.2,sz=Math.max(.5,2.2/z2*(1.4-p.r*.5));x.fillStyle=`hsla(${p.h},95%,${70+p.s*20}%,${.35+.55*(1-p.r/1.3)})`;x.fillRect(sx,sy,sz,sz)}
+   glow(cx,cy,f*.09,'rgba(255,250,255,1)','rgba(244,114,182,0)')},
+  planet(dt){x.fillStyle='#03020a';x.fillRect(0,0,W,H);bgStars(.8);const cx=W*.5,cy=H*.58,R=Math.min(H*.42,W*.2),tilt=.32,rot=t*.25;
+   const ring=(front)=>{for(const p of P){const a=p.a+rot,X=Math.cos(a)*p.r,Z=Math.sin(a)*p.r;if((Z>0)!==front)continue;const sx=cx+X*R,sy=cy+(Z*Math.sin(tilt)+p.y)*R;x.fillStyle=`hsla(${280+p.h*60},90%,75%,${front?.85:.45})`;x.fillRect(sx,sy,1.6,1.6)}};
+   ring(false);const g=x.createRadialGradient(cx-R*.4,cy-R*.4,R*.1,cx,cy,R);g.addColorStop(0,'#f0abfc');g.addColorStop(.45,'#9333ea');g.addColorStop(1,'#1e0a3c');x.fillStyle=g;x.beginPath();x.arc(cx,cy,R,0,7);x.fill();
+   x.save();x.beginPath();x.arc(cx,cy,R,0,7);x.clip();for(let i=0;i<5;i++){x.strokeStyle=`rgba(255,255,255,${.06+i*.015})`;x.lineWidth=R*.08;x.beginPath();const yy=cy-R+R*(.35+i*.33)+Math.sin(t*.6+i)*2;x.moveTo(cx-R,yy);x.bezierCurveTo(cx-R*.3,yy-6,cx+R*.3,yy+6,cx+R,yy);x.stroke()}x.restore();
+   ring(true);const ma=t*.7,mx=cx+Math.cos(ma)*R*2.3,my=cy+Math.sin(ma)*R*.55;if(Math.sin(ma)>-2){x.fillStyle='#e9d5ff';x.beginPath();x.arc(mx,my,R*.12,0,7);x.fill()}},
+  aurora(dt){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#020617');g.addColorStop(1,'#0b1028');x.fillStyle=g;x.fillRect(0,0,W,H);bgStars(.9);
+   x.globalCompositeOperation='lighter';for(let k=0;k<3;k++){const col=[[34,211,238],[52,211,153],[192,132,252]][k];for(let i=0;i<W;i+=3){const n=Math.sin(i*.012+t*.7+k*2)+Math.sin(i*.031-t*.45+k)*.6,top=H*(.18+k*.08)+n*H*.09,len=H*(.35+.15*Math.sin(i*.02+t+k));const gg=x.createLinearGradient(0,top,0,top+len);gg.addColorStop(0,`rgba(${col},0)`);gg.addColorStop(.3,`rgba(${col},${.22-k*.04})`);gg.addColorStop(1,`rgba(${col},0)`);x.fillStyle=gg;x.fillRect(i,top,3,len)}}
+   x.globalCompositeOperation='source-over';x.fillStyle='#05040c';x.beginPath();x.moveTo(0,H);for(let i=0;i<=W;i+=W/14)x.lineTo(i,H*(.78+.12*Math.abs(Math.sin(i*.013+1.7))));x.lineTo(W,H);x.fill()},
+  synth(dt){const g=x.createLinearGradient(0,0,0,H*.6);g.addColorStop(0,'#12002a');g.addColorStop(1,'#5b0e6b');x.fillStyle=g;x.fillRect(0,0,W,H);bgStars(.6);
+   const hz=H*.6,sr=Math.min(W*.2,H*.42),sx=W/2;const sg=x.createLinearGradient(0,hz-sr,0,hz);sg.addColorStop(0,'#fde047');sg.addColorStop(1,'#ec4899');x.save();x.beginPath();x.arc(sx,hz,sr,Math.PI,0);x.clip();x.fillStyle=sg;x.fillRect(sx-sr,hz-sr,sr*2,sr);
+   x.fillStyle='#5b0e6b';for(let i=0;i<6;i++){const yy=hz-sr*.08-i*sr*.14+((t*8)%(sr*.14));x.fillRect(sx-sr,yy,sr*2,1.5+i*.6)}x.restore();
+   x.fillStyle='#1a0530';x.beginPath();x.moveTo(0,hz);for(let i=0;i<=W;i+=W/10)x.lineTo(i,hz-Math.abs(Math.sin(i*.02+3))*H*.13);x.lineTo(W,hz);x.fill();
+   x.fillStyle='#0a0118';x.fillRect(0,hz,W,H-hz);x.strokeStyle='rgba(236,72,153,.85)';x.lineWidth=1;const sp=(t*.6)%1;
+   for(let i=0;i<14;i++){const z=(i+1-sp)/14,yy=hz+(H-hz)*Math.pow(1-z,2.2)*1;if(yy<hz)continue;x.globalAlpha=Math.min(1,(yy-hz)/(H-hz)*1.8);x.beginPath();x.moveTo(0,yy);x.lineTo(W,yy);x.stroke()}
+   x.globalAlpha=1;for(let i=-12;i<=12;i++){x.beginPath();x.moveTo(sx+i*W*.02,hz);x.lineTo(sx+i*W*.22,H);x.stroke()}},
+  tunnel(dt){x.fillStyle='rgba(3,1,10,.35)';x.fillRect(0,0,W,H);const cx=W/2+Math.sin(t*.7)*W*.06,cy=H/2+Math.cos(t*.5)*H*.08;
+   for(const p of P){p.z-=dt*.22;if(p.z<=0)p.z+=1;const s=1/(p.z*3.2+.15),r=Math.min(W,H)*.25*s;const hue=(t*40+p.z*300)%360;x.strokeStyle=`hsla(${hue},95%,65%,${Math.min(1,(1-p.z)*1.3)})`;x.lineWidth=Math.max(.6,2.6*s*.4);x.beginPath();
+    for(let k=0;k<=6;k++){const a=k/6*6.283+t*.4+p.z*2;const px=cx+Math.cos(a)*r*1.6,py=cy+Math.sin(a)*r;k?x.lineTo(px,py):x.moveTo(px,py)}x.stroke()}},
+  hyper(dt){x.fillStyle='rgba(3,1,10,.32)';x.fillRect(0,0,W,H);glow(W/2,H/2,W*.45,'rgba(124,58,237,.18)','rgba(0,0,0,0)');const f=W*.5;
+   for(const s of P){const pz=s.z;s.z-=1.1*dt;if(s.z<=.02){s.z=1;s.x=(Rr()-.5)*2.4;s.y=(Rr()-.5)*2.4;continue}const x1=W/2+s.x/pz*f,y1=H/2+s.y/pz*f,x2=W/2+s.x/s.z*f,y2=H/2+s.y/s.z*f;x.strokeStyle=`hsla(${250+s.h*90},95%,${72+s.h*18}%,${Math.min(1,(1-s.z)*1.4)})`;x.lineWidth=Math.max(.6,(1-s.z)*2.4);x.beginPath();x.moveTo(x1,y1);x.lineTo(x2,y2);x.stroke()}},
+  nebula(dt){x.fillStyle='#04020c';x.fillRect(0,0,W,H);x.globalCompositeOperation='lighter';
+   for(let k=0;k<5;k++){const a=t*.15+k*1.3,cx=W*(.5+.3*Math.cos(a*1.1+k)),cy=H*(.5+.3*Math.sin(a*.9+k*2)),r=Math.max(W,H)*(.28+.06*Math.sin(t*.5+k));const c=[['236,72,153'],['124,58,237'],['34,211,238'],['250,204,21'],['168,85,247']][k];glow(cx,cy,r,`rgba(${c},.28)`,`rgba(${c},0)`)}
+   x.globalCompositeOperation='source-over';const f=W*.5;for(const s of P){s.z-=.06*dt;if(s.z<=.05)s.z=1;const px=W/2+s.x/s.z*f*.5,py=H/2+s.y/s.z*f*.5,sz=Math.max(.5,(1-s.z)*2.4);x.fillStyle=`rgba(255,255,255,${(1-s.z)*.9})`;x.fillRect(px,py,sz,sz)}}
+ };
+ const fn=D[m];function frame(now){if(!alive)return;if(!cv.isConnected){stop();return}const dt=Math.min(.05,(now-last)/1000);last=now;if(cv.offsetWidth){t+=dt;try{fn(dt)}catch(e){}}raf=requestAnimationFrame(frame)}
+ function stop(){alive=false;cancelAnimationFrame(raf);if(ro)ro.disconnect();cv.remove()}raf=requestAnimationFrame(frame);return{stop}}
+function photoCover(host,img){const w=document.createElement('div');w.className='pccov';w.innerHTML=`<img src="${img}" alt=""><canvas></canvas>`;host.prepend(w);
+ const cv=w.querySelector('canvas'),x=cv.getContext('2d'),dpr=Math.min(2,window.devicePixelRatio||1);let W=1,H=1,t=0,last=performance.now(),raf,alive=true;
+ const size=()=>{const r=host.getBoundingClientRect();W=Math.max(1,r.width);H=Math.max(1,r.height);cv.width=W*dpr;cv.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)};size();
+ const sp=Array.from({length:40},()=>({x:Math.random(),y:Math.random(),s:Math.random()*1.6+.5,tw:Math.random()*6,v:.01+Math.random()*.03}));
+ const fr=now=>{if(!alive)return;if(!w.isConnected){alive=false;return}const dt=Math.min(.05,(now-last)/1000);last=now;t+=dt;x.clearRect(0,0,W,H);
+  for(const p of sp){p.y-=p.v*dt;if(p.y<0)p.y=1;const a=.3+.7*Math.abs(Math.sin(t*1.5+p.tw));x.fillStyle=`rgba(255,255,255,${a})`;x.beginPath();x.arc(p.x*W,p.y*H,p.s,0,7);x.fill()}raf=requestAnimationFrame(fr)};raf=requestAnimationFrame(fr);
+ host.addEventListener('pointermove',e=>{const r=host.getBoundingClientRect();w.style.setProperty('--tx',(((e.clientX-r.left)/r.width-.5)*10).toFixed(1)+'deg');w.style.setProperty('--ty',(((e.clientY-r.top)/r.height-.5)*-10).toFixed(1)+'deg')});
+ host.addEventListener('pointerleave',()=>{w.style.removeProperty('--tx');w.style.removeProperty('--ty')});
+ return{stop(){alive=false;cancelAnimationFrame(raf);w.remove()}}}
+function myCover(){const c=(S.acc&&S.acc.cover)||{m:'grid'};return c.m==='photo'&&!c.img?{m:'grid'}:c}
+function mountMyCover(pc){if(!pc||pc._cv)return;pc._cv=1;const c=myCover();mountCover(pc,c.m,{img:c.img});
+ if(!pc.querySelector('.pcedit')){pc.insertAdjacentHTML('beforeend',`<button class="pcedit" aria-label="Cambia copertina">${ic('camera',14,2)} Copertina</button>`);pc.querySelector('.pcedit').onclick=e=>{e.stopPropagation();openCoverPicker()}}
+ pc.style.cursor='pointer';pc.onclick=()=>openCoverPicker()}
+function coverRefresh(){const pc=$('#profileScroll .pcover');if(!pc)return;pc.querySelectorAll('canvas.space,.pccov').forEach(n=>n.remove());pc._cv=0;mountMyCover(pc);try{Real.publishSoon(800)}catch(e){}}
+function shrinkImg(src,maxW,q){return new Promise(res=>{const im=new Image();im.onload=()=>{const k=Math.min(1,maxW/im.naturalWidth),c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',q))};im.onerror=()=>res(null);im.src=src})}
+function openCoverPicker(){const cur=myCover();const sh=openSheet(`<div class="shead">✨ Copertina 3D</div><div class="cvgrid">${COVERS.map(([k,n])=>`<button class="cvopt ${cur.m===k?'on':''}" data-cv="${k}"><div class="cvprev"></div><span>${n}</span></button>`).join('')}<button class="cvopt ${cur.m==='photo'?'on':''}" data-cv="photo"><div class="cvprev cvph">${cur.img?`<img src="${cur.img}">`:'📷'}</div><span>La tua foto</span></button></div><input type="file" id="cvfile" accept="image/*" hidden><p class="cvnote">La copertina la vedono anche le persone che aprono il tuo profilo.</p>`);
+ $$('.cvopt[data-cv]',sh).forEach(b=>{const k=b.dataset.cv;if(k!=='photo')mountCover($('.cvprev',b),k,{grid:{cy:.6,zoom:.5,dim:.95}})});
+ sh.addEventListener('click',async e=>{const b=e.target.closest('.cvopt');if(!b)return;const k=b.dataset.cv;
+  if(k==='photo'){$('#cvfile',sh).click();return}S.acc.cover={m:k};save();$$('.cvopt',sh).forEach(o=>o.classList.toggle('on',o===b));coverRefresh();toast('Copertina aggiornata ✨')});
+ $('#cvfile',sh).onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(!/^image\//.test(f.type))return toast('Scegli una foto');
+  const url=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=()=>r(null);fr.readAsDataURL(f)});if(!url)return toast('Non riesco a leggere la foto');
+  const img=await shrinkImg(url,1100,.82),thumb=await shrinkImg(url,640,.6);if(!img)return toast('Non riesco a leggere la foto');
+  S.acc.cover={m:'photo',img,thumb};save();coverRefresh();closeOv(sh);toast('La tua foto è la nuova copertina 📸')}}
+/* la copertina va anche nel profilo pubblico */
+{const pl=Real.payload;Real.payload=async function(){const d=await pl.apply(this,arguments);try{const c=myCover();d.cvm=c.m;if(c.m==='photo'&&c.thumb&&c.thumb.length<160000)d.cvi=c.thumb}catch(e){}return d}}
+{const orl=openReal;openReal=function(id){const r=orl.apply(this,arguments);const ov=$$('#layer>.ovf').pop();if(!ov)return r;
+ const tick=setInterval(()=>{if(!ov.isConnected){clearInterval(tick);return}const w=USERS[id];if(!w)return;const d=Real.docs[w.rid]||{};const m=COVERS.some(c=>c[0]===d.cvm)||d.cvm==='photo'?d.cvm:'grid';
+  const img=typeof d.cvi==='string'&&/^data:image\/(jpeg|png|webp);base64,/.test(d.cvi)?d.cvi:null;const sig=m+(img?img.length:0);
+  let pc=$('.rcover',ov);const ph=$('.fbody .phead',ov);if(!pc&&ph){ph.insertAdjacentHTML('beforebegin','<div class="pcover rcover"></div>');pc=$('.rcover',ov)}
+  if(pc&&pc._sig!==sig){pc.querySelectorAll('canvas.space,.pccov').forEach(n=>n.remove());pc._sig=sig;mountCover(pc,m==='photo'&&!img?'grid':m,{img})}},400);
+ return r}}
+(function(){const st=document.createElement('style');st.textContent=`
+.pcover{position:relative}.pcedit{position:absolute;right:10px;bottom:10px;z-index:3;display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:999px;border:0;background:rgba(0,0,0,.45);color:#fff;font:700 12px/1 inherit;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer}
+.pccov{position:absolute;inset:0;perspective:600px;overflow:hidden;border-radius:inherit}.pccov img{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;transform:rotateX(var(--ty,0deg)) rotateY(var(--tx,0deg)) scale(1.04);transition:transform .25s ease-out;animation:pcfloat 9s ease-in-out infinite}
+.pccov canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+@keyframes pcfloat{0%,100%{translate:0 0;scale:1}50%{translate:-2% 1.5%;scale:1.05}}
+.rcover{margin:6px 12px 0}
+.cvgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 16px 4px;max-height:62vh;overflow:auto}
+.cvopt{border:2px solid transparent;border-radius:18px;background:rgba(255,255,255,.04);padding:6px;color:inherit;font:600 13px inherit;cursor:pointer;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.cvopt.on{border-color:#c084fc;box-shadow:0 0 0 3px rgba(192,132,252,.25)}
+.cvprev{position:relative;height:74px;border-radius:13px;overflow:hidden;background:#05030f;display:grid;place-items:center;font-size:28px}.cvprev canvas{position:absolute;inset:0;width:100%;height:100%}
+.cvph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cvnote{text-align:center;color:var(--muted);font-size:12px;margin:10px 16px 18px}`;document.head.appendChild(st)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
