@@ -1519,7 +1519,7 @@ function stData(){
   const okN=/^[A-Za-zÀ-ÿ'’ ]{2,}$/.test(nv)&&nv.split(/\s+/).length>=2&&!isBad(nv);
   $('#hName').textContent=nv&&!okN?'Scrivi nome e cognome (solo lettere)':'';$('#hName').className='hint'+(nv&&!okN?' err':'');n.classList.toggle('bad',!!nv&&!okN);n.classList.toggle('good',okN);
   let okU=/^[a-z0-9._]{3,20}$/.test(uv)&&!/^[._]|[._]$/.test(uv)&&!/\.\./.test(uv),msg='3–20 caratteri: lettere minuscole, numeri, punto e trattino basso',cls='hint';
-  if(uv){if(!okU){msg='Formato non valido';cls='hint err'}else if(taken.includes(uv)){okU=false;msg='@'+uv+' è già in uso';cls='hint err'}else if(isBad(uv)){okU=false;msg='Questo nome utente non è permesso';cls='hint err'}else{msg='@'+uv+' è disponibile ✓';cls='hint ok'}}
+  if(uv){if(!okU){msg='Formato non valido';cls='hint err'}else if(taken.includes(uv)||(window.TAKENR&&TAKENR.list.includes(uv))){okU=false;msg='@'+uv+' è già in uso';cls='hint err'}else if(isBad(uv)){okU=false;msg='Questo nome utente non è permesso';cls='hint err'}else{msg='@'+uv+' è disponibile ✓';cls='hint ok'}}
   $('#hUser').textContent=msg;$('#hUser').className=cls;u.classList.toggle('bad',!!uv&&!okU);u.classList.toggle('good',okU);
   const okM=/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(mv);$('#hMail').textContent=mv&&!okM?'Email non valida':'';$('#hMail').className='hint'+(mv&&!okM?' err':'');m.classList.toggle('bad',!!mv&&!okM);m.classList.toggle('good',okM);
   nx.disabled=!(okN&&okU&&okM)}
@@ -5182,7 +5182,7 @@ const CALL={cur:null,seen:{},ice:LIVE.ice,
   if(c.role==='b'&&!c.local)B.innerHTML=btn('cDec','red',ic('phone',30,2),'Rifiuta')+(c.v?btn('cAcA','',ic('phone',28,2),'Solo audio'):'')+btn('cAcc','green',c.v?ic('video',30,2):ic('phone',30,2),'Rispondi');
   else B.innerHTML=btn('cMic',c.mic?'':'on',ic(c.mic?'mic':'micoff',26,2),c.mic?'Microfono':'Muto')+(c.v?btn('cCam',c.cam?'':'on',ic(c.cam?'video':'vidoff',26,2),c.cam?'Video':'Video off')+btn('cFlip','',ic('flip',26,2),'Gira'):'')+btn('cEnd','red',ic('phone',30,2),'Chiudi');
   const on=(id,f)=>{const b=$('#'+id,el);if(b)b.onclick=f};on('cDec',()=>this.decline());on('cAcc',()=>this.accept(true));on('cAcA',()=>this.accept(false));on('cMic',()=>this.toggleMic());on('cCam',()=>this.toggleCam());on('cFlip',()=>this.flip());on('cEnd',()=>this.hang())}};
-setInterval(()=>CALL.poll(),4000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>CALL.poll(),300)});
+setInterval(()=>CALL.poll(),12000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>CALL.poll(),300)});
 {const nt=NOTIF.notify.bind(NOTIF);NOTIF.notify=function(o){if(CALL._silent&&o&&o.kind==='msg')return;return nt(o)}}
 {const ng=notifGo;notifGo=function(u){try{const U=new URL(u,location.href);if(U.searchParams.get('n')==='call'){[400,1500,3000,6000].forEach(t=>setTimeout(()=>CALL.poll(),t));return}}catch(e){}return ng(u)}}
 try{const q=new URLSearchParams(location.search);if(q.get('n')==='call'){[1500,3000,5000,8000,12000].forEach(t=>setTimeout(()=>CALL.poll(),t))}}catch(e){}
@@ -5350,7 +5350,7 @@ const SCHED={
    closeOv(sh);const inp=$('#wct');if(inp&&pre&&inp.value.trim()===pre.trim()){inp.value='';inp.dispatchEvent(new Event('input'))}toast('🌙 Programmato: arriverà '+this.when(at))}}};
 setInterval(()=>SCHED.fill(),30*60000);setTimeout(()=>SCHED.fill(),12000);
 /* ogni telefono con Vybe aperta aiuta a consegnare in orario le notifiche dei messaggi programmati */
-setInterval(()=>{if(CDB.isV()&&document.visibilityState==='visible')fetch('/api/sched',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"op":"tick"}'}).catch(()=>{})},45000);
+setInterval(()=>{if(CDB.isV()&&document.visibilityState==='visible')fetch('/api/sched',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"op":"tick"}'}).catch(()=>{})},120000);
 /* chi riceve non vede i messaggi prima dell'ora giusta */
 {const cv=VC.conv.bind(VC);VC.conv=function(cid){const c=cv(cid);if(!c||!c.msgs)return c;const now=Date.now()+2000;const before=c.msgs.length;const hid=c.msgs.filter(m=>m.from!==this.me&&m.t>now).length;
   if(hid){c.msgs=c.msgs.filter(m=>!(m.from!==this.me&&m.t>now));c.unread=Math.max(0,(c.unread||0)-hid);c.last=c.msgs.length?c.msgs[c.msgs.length-1].t:c.last}return c}}
@@ -5468,6 +5468,36 @@ function vcGCallHTML(m,k){return`<div class="wcall" data-gcr="${esc(String(k.rid
 .gt{position:relative;border-radius:18px;overflow:hidden;background:#15121d;display:grid;place-items:center}.gt video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}.gt video.mir{transform:scaleX(-1)}
 .gt.nov video{opacity:0}.gt .gav{position:relative;z-index:0}.gt:not(.nov) .gav{display:none}.gt .gn{position:absolute;left:10px;bottom:9px;z-index:2;font-size:13px;font-weight:700;background:rgba(0,0,0,.45);padding:4px 9px;border-radius:10px}
 .gt.me{outline:2px solid rgba(192,132,252,.6)}`;document.head.appendChild(s)})();
+
+/* v51: correzioni per chi entra per la prima volta (bug trovati nel controllo) */
+/* 1) errore nascosto con account nuovi: lista chat vecchia mancante */
+{const cl=chatList;chatList=function(){if(!S.acc)return[];if(!Array.isArray(S.acc.chats))S.acc.chats=[];try{return cl()}catch(e){return[]}}}
+/* 2) un solo avviso per le notifiche (quello nuovo, più chiaro) */
+notifNudge=function(){};
+/* 3) nomi utente: controllo anche sulle persone vere già iscritte */
+var TAKENR={list:[],async load(){try{const u=await VDB.dirUrl();if(!u)return;const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now());if(!r.ok)return;const d=await r.json();
+  this.list=Object.values(d||{}).map(e=>String(e&&e.u||'').toLowerCase()).filter(Boolean);}catch(e){}}};
+TAKENR.load();
+{const sd=stData;stData=function(){const r=sd.apply(this,arguments);TAKENR.load().then(()=>{const u=$('#fUser');if(u)u.dispatchEvent(new Event('input'))});return r}}
+/* se il server dice che il nome è già usato da un'altra persona, chiedo di cambiarlo */
+{const fl=VDB.flush.bind(VDB);VDB.flush=async function(){const r=await fl.apply(this,arguments);if(this.lastStatus===409&&!this._utk){this._utk=1;
+  const sh=openSheet(`<div style="padding:8px 20px 22px;display:flex;flex-direction:column;gap:10px"><b style="font-size:19px">Nome utente già usato</b><p class="sub" style="margin:0">@${esc((S.acc&&S.acc.username)||'')} è già di un’altra persona su Vybe. Scegline uno diverso così gli amici ti trovano senza confusione.</p><button class="btn" id="utkE">Cambia nome utente</button></div>`);
+  $('#utkE',sh).onclick=()=>{closeOv(sh);try{editProfile()}catch(e){}};setTimeout(()=>{this._utk=0},600000)}return r}}
+/* 4) Home: niente scheda "Pubblicità" e niente post doppi */
+try{const k=TABS2.findIndex(x=>x[0]==='ads');if(k>=0)TABS2.splice(k,1);if(S.tab==='ads')S.tab='all'}catch(e){}
+{const rr=renderRealFeed;renderRealFeed=function(){const x=rr.apply(this,arguments);try{if(REALONLY()){const f=$('#realfeed');if(f){f.innerHTML='';f.style.display='none'}}}catch(e){}return x}}
+/* 5) barra delle storie: solo storie vere (e dirette), non cerchi finti che aprono il profilo */
+{const rs=renderStories;renderStories=function(){const x=rs.apply(this,arguments);try{if(REALONLY())$$('#stories .st[data-a="user"]').forEach(e=>{if(!e.querySelector('.rlive'))e.remove()})}catch(e){}return x}}
+/* 6) Video vuoti: spiego cosa succede */
+{const rv=renderReels;renderReels=function(){const x=rv.apply(this,arguments);try{const box=$('#rscroll');if(box&&REALONLY()&&!box.querySelector('.reel')&&!box.querySelector('.rempty'))box.insertAdjacentHTML('beforeend',`<div class="rempty"><div style="font-size:46px">🎬</div><b>Ancora nessun video</b><span>Qui vedrai i video e le foto delle persone che segui. Pubblica il primo con il tasto <b>+</b> oppure cerca i tuoi amici.</span><button class="btn" data-a="search" style="width:auto;padding:12px 22px">🔍 Cerca amici</button></div>`)}catch(e){}return x}}
+/* 7) via le funzioni che nell'app vera non funzionano */
+(function(){const st=document.createElement('style');st.textContent=`#c6{display:none!important}.rempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:30px;color:var(--ink)}.rempty span{opacity:.75;font-size:14.5px;line-height:1.45;max-width:300px}
+.welcome .collage .badge:first-of-type{display:none}`;document.head.appendChild(st)})();
+{const mo=new MutationObserver(()=>{const q=document.getElementById('waq');if(q&&q.placeholder==='Chiedi a Vybe o cerca')q.placeholder='Cerca nelle chat';
+  const w=document.querySelector('.welcome p.sub');if(w&&/pubblicità dei creator/.test(w.textContent))w.textContent='Foto, video, storie con musica, chat, chiamate e dirette con amici e famiglia. Dai 12 anni in su, con contenuti adatti alla tua età.';
+  const bd=document.querySelector('.welcome .collage .badge');if(bd&&/2,4k/.test(bd.textContent))bd.remove()});mo.observe(document.documentElement,{childList:true,subtree:true})}
+/* 8) il riquadro del codice email sparisce appena il codice è giusto (non copre più le schermate dopo) */
+{const sc=stCode;stCode=function(){const r=sc.apply(this,arguments);const t=setInterval(()=>{if(!$('#otp')){clearInterval(t);const b=document.getElementById('mailbanner');if(b)b.classList.remove('show')}},300);return r}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
