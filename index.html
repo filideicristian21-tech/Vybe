@@ -4555,6 +4555,83 @@ async function storyLinkToChat(url){if(!VC.on){try{await VC.start()}catch(e){}}i
  scan(document);
 })();
 
+
+/* v37: niente abbonati, niente VYBE+, niente persone virtuali; Creator Studio con numeri veri */
+(function(){const st=document.createElement('style');st.textContent='[data-m="vplus"],[data-m="subs"],[data-m="wallet"],[data-m="collabs"],[data-a="vplus"],[data-a="chsubs"],[data-a="collabs"],[data-a="exportStats"],.vbadge2,#uSub{display:none!important}.rsw{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line,rgba(255,255,255,.06))}.rsw b{flex:1;font-size:14px}.rsw span{color:var(--muted);font-size:13px}.stnote2{margin:6px 14px 14px;padding:10px 12px;border-radius:12px;background:rgba(168,85,247,.10);color:var(--muted);font-size:12.5px;line-height:1.4}';document.head.appendChild(st)})();
+vplusActive=function(){return false};
+openVplus=function(){};openChannelSubs=function(){};openCollabs=function(){};
+['vplus','chsubs','collabs'].forEach(k=>{if(ACT[k])ACT[k]=()=>{}});
+{const ap=allProducts;allProducts=function(){return ap().filter(p=>typeof p.seller!=='number')}}
+function v37clean(){const a=S.acc;if(!a||a.v37)return;a.v37=1;
+ delete a.chsubs;a.vplus=null;a.collabs={};a.stats={};delete a.simStash;a.followerIds=[];a.followers=0;
+ a.following=(a.following||[]).filter(x=>typeof x!=='number');a.notifs=(a.notifs||[]).filter(n=>typeof n.u!=='number');
+ a.chats=(a.chats||[]).filter(c=>c.type!=='group'&&typeof c.u!=='number');
+ (a.own||[]).forEach(p=>{p.views=0;p.shares=0;p.saves=0;p.likes=0;p.cm=(p.cm||[]).filter(c=>c&&typeof c.u!=='number'&&typeof c.a!=='number');p.cmCount=p.cm.length});
+ const w=wallet();w.bal=0;w.tot=0;w.hist=[];try{save()}catch(e){}}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{v37clean()}catch(e){}setTimeout(fsnapDaily,5000);return r}}
+setTimeout(()=>{try{v37clean()}catch(e){}},1200);
+
+/* ---- conteggio reale delle visualizzazioni (app vera) ---- */
+const pk=id=>'p'+String(id).replace(/[^A-Za-z0-9_.-]/g,'').slice(0,40);
+const VQ={q:[],sent:new Set(),t:0,
+ add(o,k){if(!CDB.isV()||!o||!k||o===Real.uid)return;const key=o+'|'+k;if(this.sent.has(key))return;this.sent.add(key);this.q.push([o,k]);clearTimeout(this.t);this.t=setTimeout(()=>this.flush(),2500)},
+ async flush(){if(!this.q.length)return;const L=this.q.splice(0,40);try{await CDB.call({op:'views',L})}catch(e){L.forEach(x=>this.sent.delete(x[0]+'|'+x[1]))}if(this.q.length)this.t=setTimeout(()=>this.flush(),1500)}};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')VQ.flush()});
+{const orp=openRealPost;openRealPost=function(id,i){const r=orp.apply(this,arguments);try{const w=USERS[id],p=w&&w.posts[i];if(p)VQ.add(w.rid,pk(p.id))}catch(e){}return r}}
+{const mrs=markRealStory;markRealStory=function(fr){try{if(fr&&fr.rs){const [o,t]=String(fr.rs).split('|');VQ.add(o,'s'+String(t).replace(/\D/g,'').slice(0,16))}}catch(e){}return mrs.apply(this,arguments)}}
+{const rl=Real.like;Real.like=function(id,pid){const on=rl.apply(this,arguments);try{if(CDB.isV())CDB.call({op:'likeev',o:id.slice(2),k:String(pid),on}).catch(()=>{})}catch(e){}return on}}
+/* un post reale visto nel feed per almeno 1 secondo conta come visualizzazione */
+(function(){if(!('IntersectionObserver' in window))return;const tm=new Map();
+ const io=new IntersectionObserver(es=>es.forEach(e=>{const el=e.target,id=el.dataset.id;if(e.isIntersecting&&e.intersectionRatio>=.55){if(!tm.has(el))tm.set(el,setTimeout(()=>{tm.delete(el);const o=S.pmap.get(id);if(o&&o.rid)VQ.add(o.rid,pk(o.rpid))},1000))}else if(tm.has(el)){clearTimeout(tm.get(el));tm.delete(el)}}),{threshold:[0,.55]});
+ const watch=el=>{if(el._v37)return;el._v37=1;io.observe(el)};
+ new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes){if(n.nodeType!==1)continue;if(n.matches('[data-id^="R"]'))watch(n);n.querySelectorAll&&n.querySelectorAll('[data-id^="R"]').forEach(watch)}}).observe(document.body,{childList:true,subtree:true});
+ document.querySelectorAll('[data-id^="R"]').forEach(watch)})();
+async function fsnapDaily(){if(!CDB.isV()||!Real.on)return;const k='vybe_fsnap_'+Real.uid,d=dayKey();try{if(localStorage.getItem(k)===d)return}catch(e){}
+ try{await CDB.call({op:'fsnap',n:Real.myFollowers().length});localStorage.setItem(k,d)}catch(e){}}
+
+/* ---- Creator Studio reale ---- */
+function rName(uid){const d=Real.docs[uid]||{};return{u:d.u||'utente',n:d.n||d.u||'Utente'}}
+function likersOf(pid){const k=Real.uid+'/'+pid;return Object.keys(Real.docs).filter(f=>(Real.docs[f].lk||[]).includes(k))}
+function peopleSheet(title,uids,empty){const sh=openSheet(`<div class="shead">${title}</div><div style="max-height:60vh;overflow:auto;padding-bottom:16px">${uids.length?uids.map(u=>{const w=USERS['r_'+u],n=rName(u);return`<div class="urow" data-ru="${u}" style="padding:8px 16px;cursor:pointer">${w?avHTML(w,40):''}<div><b>${esc(n.u)}</b><span>${esc(n.n)}</span></div></div>`}).join(''):`<div class="emptyc">${empty}</div>`}</div>`);
+ $$('[data-ru]',sh).forEach(r=>r.onclick=()=>{closeOv(sh);openReal('r_'+r.dataset.ru)})}
+openStudio=function(){let range=7,tab='ov',D=null,err='';
+ const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>Creator Studio</h2><span style="width:40px"></span></div><div class="ftabs" id="stb"></div><div class="fbody" id="sbd"></div>`);
+ const isV=CDB.isV();
+ const load=async()=>{if(!isV)return;try{await fsnapDaily()}catch(e){}try{D=await CDB.call({op:'stats'});err=''}catch(e){err=e&&e.code==='nodb'?'nodb':'net'}draw()};
+ const days=n=>{const L=[];for(let i=n-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);L.push({k:dayKey(d),lab:d.getDate()+'/'+(d.getMonth()+1)})}return L};
+ const sum=(m,L)=>L.reduce((s,x)=>s+((m||{})[x.k]||0),0);
+ const draw=()=>{if(!ov.isConnected)return;$('#stb',ov).innerHTML=[['ov','Panoramica'],['ct','Contenuti'],['au','Pubblico']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('');
+  const b=$('#sbd',ov),own=S.acc.own||[],fol=Real.on?Real.myFollowers():[],fing=Real.on?Real.myFollowing():[];
+  const likesTot=own.reduce((s,p)=>s+(Real.on?Real.likesOf(Real.uid,p.id):0),0);
+  const wait=isV&&!D&&!err?'<div class="emptyc">Carico i tuoi numeri…</div>':'';
+  const vtxt=n=>isV&&D?fmt(n):'—';
+  if(tab==='ov'){const L=days(range),P=days(range*2).slice(0,range);const vd=D&&D.vd,ld=D&&D.ld,vds=D&&D.vds,fh=D&&D.fh||{};
+   let last=null;const B=L.map(x=>{if(fh[x.k]!=null)last=fh[x.k];return{lab:x.lab,v:(vd||{})[x.k]||0,l:(ld||{})[x.k]||0,f:last==null?0:last}});
+   const fk=Object.keys(fh).sort(),fStart=fk.find(k=>k>=L[0].k);const fGain=fStart!=null?fol.length-fh[fStart]:0;
+   b.innerHTML=`<div class="chips" style="padding-top:12px">${[[7,'7 giorni'],[28,'28 giorni'],[90,'90 giorni']].map(([d,l])=>`<button data-r="${d}" class="${range===d?'on':''}">${l}</button>`).join('')}</div>${wait}
+   <div class="kpis"><div class="kpi" data-k="fol" style="cursor:pointer"><span>${ic('user',14,2)} Follower</span><b>${fmt(fol.length)}</b>${fStart!=null&&fGain?`<i class="${fGain>0?'up':''}">${fGain>0?'+':''}${fGain} nel periodo</i>`:'<i style="color:var(--muted)">persone reali</i>'}</div>
+   <div class="kpi"><span>${ic('eye',14,2)} Visualizzazioni</span><b>${vtxt(sum(vd,L))}</b>${D?delta(sum(vd,L),sum(vd,P)):''}</div>
+   <div class="kpi"><span>${ic('heart',14,2)} Mi piace ricevuti</span><b>${fmt(likesTot)}</b><i style="color:var(--muted)">${D?'+'+sum(ld,L)+' nel periodo':'su tutti i post'}</i></div>
+   <div class="kpi"><span>${ic('story',14,2)} Visualizzazioni storie</span><b>${vtxt(sum(vds,L))}</b>${D?delta(sum(vds,L),sum(vds,P)):''}</div></div>
+   ${isV?`<div class="chartbox"><h4>Visualizzazioni <span>${range} giorni</span></h4>${lineChart(B,'v','#a855f7')}</div>
+   ${(()=>{const F=L.map((x,i)=>({...B[i],k:x.k})).filter(x=>fk.length&&x.k>=fk[0]);return F.length>=2?`<div class="chartbox"><h4>Follower <span>totale giorno per giorno</span></h4>${lineChart(F,'f','#ec4899')}</div>`:`<div class="chartbox"><h4>Follower <span>da oggi</span></h4><div class="stnote2" style="margin:8px 0 0">Oggi hai <b style="color:var(--ink)">${fol.length}</b> follower. Da domani qui vedi il grafico di come crescono, giorno per giorno.</div></div>`})()}
+   <div class="chartbox"><h4>Mi piace ricevuti <span>al giorno</span></h4>${barChart(B,'l','#22d3ee')}</div>`:''}
+   <div class="stnote2">✅ Qui ci sono solo numeri veri: le persone reali che ti seguono, chi ha visto i tuoi post e le tue storie e i mi piace che ricevi. ${isV?'Visualizzazioni e grafici si contano da quando hai questa versione di Vybe, quindi all’inizio sono bassi: crescono man mano che gli altri guardano i tuoi contenuti.':'Le visualizzazioni si contano nell’app vera (quella aperta dalla schermata Home).'}${err==='net'?' ⚠️ Non riesco a caricare le visualizzazioni: controlla la connessione.':''}</div>`;
+   $$('[data-r]',b).forEach(x=>x.onclick=()=>{range=+x.dataset.r;draw()});const kf=$('[data-k="fol"]',b);if(kf)kf.onclick=()=>peopleSheet('I tuoi follower',fol.map(w=>w.rid),'Nessun follower ancora')}
+  else if(tab==='ct'){const vt=(D&&D.vt)||{};const L=own.map(p=>({p,v:vt[pk(p.id)]||0,l:Real.on?Real.likesOf(Real.uid,p.id):0})).sort((x,y)=>(y.v-x.v)||(y.l-x.l));
+   const SL=(typeof myStories==='function'?myStories():[]).slice().reverse();
+   b.innerHTML=wait+(SL.length?`<div class="sect">Le tue storie di oggi</div>${SL.map(f=>`<div class="crow" data-s="${f.time}"><span class="th">${f.img?`<img src="${f.img}">`:`<span class="mt" style="background:${f.bg||'#7c3aed'}">${esc(String(f.text||'').slice(0,20))}</span>`}</span><div class="i"><b>Storia · ${ago(f.time)}</b><span><span>${ic('eye',12,2)} ${vtxt(vt['s'+f.time]||0)} visualizzazioni</span></span></div><span class="stage s1">${isV?'Chi l’ha vista ›':''}</span></div>`).join('')}`:'')
+   +(L.length?`<div class="sect">I tuoi post</div>${L.map(({p,v,l})=>`<div class="crow" data-p="${p.id}"><span class="th">${p.img?`<img src="${p.img}">`:p.type==='video'?`<img src="${p.poster||''}">`:`<span class="mt" style="background:${p.t?p.t.bg:'#2a2440'}">${esc((p.caption||(p.t&&p.t.t)||'').slice(0,30))}</span>`}</span><div class="i"><b>${esc((p.caption||(p.t&&p.t.t)||'Post').slice(0,60))}</b><span><span>${ic('eye',12,2)} ${vtxt(v)}</span><span>${ic('heart',12,2)} ${fmt(l)}</span><span>${ago(p.time)}</span></span></div><span class="stage s2">Mi piace ›</span></div>`).join('')}`:`<div class="pempty"><div class="bigic">${ic('chart',28)}</div><b style="color:var(--ink)">Ancora nessun post</b><br>Pubblica un post o una storia per vedere chi li guarda.</div>`);
+   $$('[data-p]',b).forEach(r=>r.onclick=()=>peopleSheet('❤️ Mi piace',likersOf(r.dataset.p),'Ancora nessun mi piace'));
+   $$('[data-s]',b).forEach(r=>r.onclick=async()=>{if(!isV)return;try{const j=await CDB.call({op:'viewers',k:'s'+r.dataset.s});peopleSheet('👁 Chi ha visto la storia',j.L||[],'Nessuno l’ha ancora vista')}catch(e){toast('Non riesco a caricare chi l’ha vista')}})}
+  else{const mutual=fol.filter(w=>Real.state(w.id)==='on');
+   b.innerHTML=`<div class="kpis" style="padding-top:12px"><div class="kpi"><span>Follower</span><b>${fol.length}</b></div><div class="kpi"><span>Seguiti</span><b>${fing.length}</b></div><div class="kpi"><span>Vi seguite a vicenda</span><b>${mutual.length}</b></div><div class="kpi"><span>Post pubblicati</span><b>${own.length}</b></div></div>
+   <div class="sect">Chi ti segue</div>${fol.length?fol.map(w=>`<div class="rsw" data-ru="${w.rid}" style="cursor:pointer">${avHTML(w,40)}<b>${esc(w.u)}</b><span>${Real.state(w.id)==='on'?'vi seguite':'ti segue'}</span></div>`).join(''):'<div class="emptyc">Ancora nessun follower. Condividi il tuo nome utente con amici e parenti!</div>'}<div style="height:24px"></div>`;
+   $$('[data-ru]',b).forEach(r=>r.onclick=()=>openReal('r_'+r.dataset.ru))}};
+ $('#stb',ov).onclick=e=>{const t=e.target.closest('[data-t]');if(!t)return;tab=t.dataset.t;draw()};
+ draw();load()};
+ACT.studio=()=>openStudio();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
