@@ -4725,6 +4725,73 @@ function openCoverPicker(){const cur=myCover();const sh=openSheet(`<div class="s
 .cvph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .cvnote{text-align:center;color:var(--muted);font-size:12px;margin:10px 16px 18px}`;document.head.appendChild(st)})();
 
+
+/* v39: BLOCCO APP — Face ID (passkey del telefono) + PIN o password prima di entrare */
+const FID={
+ key(){return 'vybe_fid_'+((S.acc&&S.acc.username)||'')},
+ id(){try{return localStorage.getItem(this.key())}catch(e){return null}},
+ ok(){return !!(window.PublicKeyCredential&&navigator.credentials&&window.isSecureContext)},
+ b64(buf){return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')},
+ unb64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0))},
+ async avail(){if(!this.ok())return false;try{return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()}catch(e){return false}},
+ async enroll(){const a=S.acc,uid=new TextEncoder().encode(String(Real.uid||a.username).slice(0,60));
+  const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'Vybe',id:location.hostname},user:{id:uid,name:a.username,displayName:a.name||a.username},
+   pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,attestation:'none'}});
+  if(!c)throw new Error('no');localStorage.setItem(this.key(),this.b64(c.rawId));return true},
+ async check(){const id=this.id();if(!id)return false;const r=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rpId:location.hostname,allowCredentials:[{type:'public-key',id:this.unb64(id),transports:['internal','hybrid']}],userVerification:'required',timeout:60000}});
+  return !!(r&&this.b64(r.rawId)===id)},
+ off(){try{localStorage.removeItem(this.key())}catch(e){}}};
+function lockCfg(){const s=S.acc.settings;return{on:!!s.autolock,type:s.lockType==='pass'&&s.lockPass?'pass':'pin',fid:!!FID.id()}}
+lockScreen=function(){if(S.locked||!S.acc)return;const acc=S.acc,cf=lockCfg();if(cf.type==='pin'&&!acc.pinHash&&!cf.fid)return;S.locked=true;let fails=0;
+ const el=document.createElement('div');el.className='lockscreen';
+ const done=()=>{el.remove();S.locked=false;S.last=Date.now();S.startTs=S.startTs||Date.now();store.sset('vybe_ses','1')};
+ const fail=(msg,k)=>{fails++;if(fails>=5){el.remove();S.locked=false;S.acc.loggedIn=false;save();closeAll();toast('Troppi tentativi sbagliati: accedi di nuovo');showLogin();return}msg(`${cf.type==='pass'?'Password sbagliata':'PIN sbagliato'}. Tentativi rimasti: ${5-fails}`)};
+ el.innerHTML=`${avHTML(ME(),80)}<h2>Ciao ${esc((acc.name||acc.username).split(' ')[0])}</h2><p>Vybe è bloccata 🔒</p>
+  ${cf.fid?`<button class="fidbtn" id="lkFid"><span class="fidic">${FIDSVG}</span>Sblocca con Face ID</button>`:''}
+  ${cf.type==='pass'?`<div class="lkpass"><input id="lkPw" type="password" autocomplete="current-password" placeholder="Password di sblocco" enterkeyhint="go"><button class="btn" id="lkGo">Sblocca</button><small id="lkMsg"></small></div>`:(acc.pinHash?`<p style="margin-top:6px;opacity:.75">${cf.fid?'oppure inserisci il PIN':'Inserisci il PIN'}</p>${keypadHTML()}`:'')}
+  <div class="spacer" style="flex:1"></div><button class="link" id="lkOut" style="color:var(--muted);font-weight:500">Non sei tu? Esci</button>`;
+ $('#app').appendChild(el);mountSpace(el,'grid',{cy:.13,zoom:.55,dim:.7});
+ if(cf.type==='pass'){const inp=$('#lkPw',el),msg=t=>{const m=$('#lkMsg',el);m.textContent=t;m.style.color='#fca5a5';inp.value='';inp.classList.remove('shake');void inp.offsetWidth;inp.classList.add('shake')};
+  const go=async()=>{const v=inp.value;if(!v)return;if((await hash(acc.salt+'|lp|'+v))===acc.settings.lockPass)done();else fail(msg)};$('#lkGo',el).onclick=go;inp.onkeydown=e=>{if(e.key==='Enter')go()}}
+ else if(acc.pinHash)bindKeypad(el,async(v,k)=>{if((await hash(acc.salt+'|pin|'+v))===acc.pinHash)done();else{fail(t=>{k.msg(t,'err');k.clear(true)})}});
+ const fb=$('#lkFid',el);if(fb){const tryF=async()=>{fb.disabled=true;try{if(await FID.check())done()}catch(e){if(e&&e.name==='InvalidStateError'){}}fb.disabled=false};fb.onclick=tryF;setTimeout(()=>{if(el.isConnected)tryF()},450)}
+ $('#lkOut',el).onclick=()=>{el.remove();S.locked=false;S.acc.loggedIn=false;save();closeAll();showLogin()}};
+const FIDSVG='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4.5h-1M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>';
+/* blocco all'apertura dell'app (anche quando entri dal cloud) */
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{if(S.acc&&S.acc.settings&&S.acc.settings.autolock&&store.sget('vybe_ses')!=='1')setTimeout(()=>lockScreen(),60)}catch(e){}return r}}
+/* impostazioni: Face ID e codice */
+function openLockSettings(){const a=S.acc,s=a.settings;let fav=false;
+ const ov=openSheet(`<div class="shead">🔒 Face ID e codice</div><div id="lsb" style="padding:4px 16px 20px"></div>`);
+ const draw=()=>{const cf=lockCfg();$('#lsb',ov).innerHTML=`
+  <div class="lsrow"><div><b>Blocca Vybe quando la apri</b><small>Chiede Face ID o il codice ogni volta che apri l’app e dopo 1 minuto fuori</small></div><button class="sw ${cf.on?'on':''}" id="lsOn"></button></div>
+  <div class="lsrow"><div><b>Sblocca con Face ID</b><small>${fav?'Usa il riconoscimento del viso di questo iPhone':'Non disponibile su questo dispositivo o browser'}</small></div><button class="sw ${cf.fid?'on':''}" id="lsFid" ${fav||cf.fid?'':'disabled style="opacity:.4"'}></button></div>
+  <div class="lsh">Codice di sblocco</div>
+  <div class="seg2"><button data-t="pin" class="${cf.type==='pin'?'on':''}">PIN a 6 cifre</button><button data-t="pass" class="${cf.type==='pass'?'on':''}">Password</button></div>
+  <button class="btn soft" id="lsPw" style="width:100%;margin-top:10px">${s.lockPass?'Cambia password di sblocco':'Imposta una password di sblocco'}</button>
+  <p class="lsnote">Face ID resta su questo telefono: Vybe non vede mai il tuo viso. Se Face ID non funziona puoi sempre entrare con ${cf.type==='pass'?'la password':'il PIN'}.</p>
+  <button class="btn" id="lsTest" style="width:100%;margin-top:6px">🔒 Prova il blocco adesso</button>`;
+  $('#lsOn',ov).onclick=()=>{s.autolock=!s.autolock;save();store.sset('vybe_ses','1');draw();toast(s.autolock?'Vybe si bloccherà quando la apri 🔒':'Blocco disattivato')};
+  $('#lsFid',ov).onclick=async()=>{if(lockCfg().fid){FID.off();draw();return toast('Face ID disattivato')}
+   try{await FID.enroll();if(!s.autolock){s.autolock=true;save();store.sset('vybe_ses','1')}draw();toast('Face ID attivato ✅')}catch(e){toast(e&&e.name==='NotAllowedError'?'Face ID annullato':'Non sono riuscito ad attivare Face ID')}};
+  $$('.seg2 button',ov).forEach(b=>b.onclick=()=>{if(b.dataset.t==='pass'&&!s.lockPass)return setPass(()=>{s.lockType='pass';save();draw()});s.lockType=b.dataset.t;save();draw();toast(b.dataset.t==='pass'?'Userai la password per sbloccare':'Userai il PIN per sbloccare')});
+  $('#lsPw',ov).onclick=()=>setPass(()=>{s.lockType='pass';save();draw()});
+  $('#lsTest',ov).onclick=()=>{closeAll();lockScreen()}};
+ const setPass=cb=>{const sh=openSheet(`<div style="padding:8px 18px 22px;display:flex;flex-direction:column;gap:10px"><h3>Password di sblocco</h3><input class="in" id="p1" type="password" autocomplete="new-password" placeholder="Nuova password (almeno 4 caratteri)"><input class="in" id="p2" type="password" autocomplete="new-password" placeholder="Ripeti la password"><small id="pm" style="color:#fca5a5;min-height:16px"></small><button class="btn" id="pok">Salva password</button></div>`);
+  setTimeout(()=>$('#p1',sh).focus(),300);$('#pok',sh).onclick=async()=>{const p1=$('#p1',sh).value,p2=$('#p2',sh).value;if(p1.length<4)return $('#pm',sh).textContent='Almeno 4 caratteri';if(p1!==p2)return $('#pm',sh).textContent='Le due password non sono uguali';
+   s.lockPass=await hash(a.salt+'|lp|'+p1);save();closeOv(sh);toast('Password di sblocco salvata 🔐');cb&&cb()}};
+ FID.avail().then(v=>{fav=v;draw()});draw()}
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const m=$$('#layer>.ov').pop();const menu=m&&$('.menu',m);if(menu&&!$('[data-m="lock"]',menu)){menu.insertAdjacentHTML('afterbegin',`<button data-m="lock"><span class="mi">🔒</span><div>Face ID e codice<small>Blocca Vybe con Face ID, PIN o password</small></div></button>`);$('[data-m="lock"]',menu).addEventListener('click',e=>{e.stopPropagation();closeOv(m);openLockSettings()},true)}}catch(e){}return r}}
+(function(){const st=document.createElement('style');st.textContent=`
+.fidbtn{display:flex;align-items:center;gap:10px;margin:18px 0 4px;padding:14px 22px;border-radius:18px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font:700 16px inherit;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:relative;z-index:1}
+.fidbtn:disabled{opacity:.6}.fidic{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#ec4899)}
+.lkpass{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px;margin-top:16px;position:relative;z-index:1}.lkpass input{padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);color:#fff;font-size:16px;text-align:center}
+.lkpass small{text-align:center;min-height:16px}.shake{animation:shk .35s}@keyframes shk{0%,100%{transform:none}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.lockscreen>*:not(canvas){position:relative;z-index:1}
+.lsrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}.lsrow>div{flex:1;display:flex;flex-direction:column;gap:3px}.lsrow small{color:var(--muted);font-size:12.5px;line-height:1.35}
+.lsh{margin:16px 0 8px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:14px;background:rgba(255,255,255,.06)}.seg2 button{padding:10px;border-radius:11px;border:0;background:none;color:inherit;font:700 14px inherit;cursor:pointer}.seg2 button.on{background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff}
+.lsnote{color:var(--muted);font-size:12.5px;line-height:1.4;margin:12px 0 8px}`;document.head.appendChild(st)})();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
