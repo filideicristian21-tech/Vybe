@@ -3825,6 +3825,7 @@ function openVConv(cid){const c0=VC.conv(cid);if(!c0)return toast('Chat non disp
    if(p.im)body+=`<div class="wim" data-img="${m.from}|${esc(p.im.id)}|${m.v}" style="aspect-ratio:${Math.max(.6,Math.min(1.8,(p.im.w||1)/(p.im.h||1)))}"><span class="wld"></span></div>`;
    if(p.sh){const s=p.sh;if(s.k==='prod'){const pr={ty:PTYPES[s.ty]?s.ty:'tee',col:/^#[0-9a-f]{6}$/i.test(s.col||'')?s.col:'#111114',tx:String(s.tx||'').slice(0,14),em:PEMO.includes(s.em)?s.em:''};body+=`<div class="wsh" data-prod="${esc(s.id||'')}" data-sr="${esc(s.sr||'')}"><img src="${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?s.img:prodImg(pr,240)}" alt=""><div><b>${esc(String(s.n||'').slice(0,40))}</b><span>🛍️ ${eur(+s.price||0)} · Negozio Vybe</span></div></div>`}
     else body+=`<div class="wsh" data-post="${esc(s.id||'')}">${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?`<img src="${s.img}" alt="">`:`<div class="wshx">${esc(String(s.cap||'').slice(0,60))}</div>`}<div><b>Post di @${esc(String(s.u||'').slice(0,30))}</b><span>${esc(String(s.cap||'').slice(0,80))}</span></div></div>`}
+   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);
    if(p.tx)body+=`<div class="wtx">${vcLinkify(esc(p.tx))}</div>`}
   const rx=c.rx[m.id]||[];const agg={};rx.forEach(r=>agg[r.e]=(agg[r.e]||0)+1);
   return h+`<div class="wrow ${mine?'me':''} ${first?'first':''}"><div class="vb ${mine?'me':''} ${p&&p.im&&!p.tx?'imgonly':''}" data-m="${m.id}">${c.kind==='g'&&!mine&&first?`<div class="wsn" style="color:${ucol(m.from)}">${esc(uName(m.from))}</div>`:''}${body}<span class="wmeta">${vcHM(m.t)} ${vcTicks(c,m)}</span></div>${rx.length?`<div class="wrx">${Object.entries(agg).map(([e,n])=>e+(n>1?n:'')).join(' ')}</div>`:''}</div>`};
@@ -5108,6 +5109,158 @@ HD.syncSt=async function(){if(!S.acc||!(typeof CDB!=='undefined'&&CDB.isV&&CDB.i
 function stFit(m){const im=m&&m.querySelector(':scope>img.sfit');if(!im)return;const go=()=>{const r=im.naturalHeight/im.naturalWidth;if(r>=1.55&&r<=2.3)im.classList.add('sfill')};if(im.complete&&im.naturalWidth)go();else im.addEventListener('load',go,{once:true})}
 (function(){const st=document.createElement('style');st.textContent=`.smedia .sbgb{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(30px) brightness(.55) saturate(1.2)}
 .smedia img.sfit{position:relative;z-index:1;object-fit:contain;animation:none!important}.smedia img.sfit.sfill{object-fit:cover}`;document.head.appendChild(st)})();
+
+/* v46: Vybe Chat — chiamate e videochiamate vere, note vocali, "Visualizzato" */
+I.phone='<path d="M21 16.4v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 1.1 3.6 2 2 0 0 1 3.1 1.4h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.1 9.2a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>';
+I.mic='<rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7"/>';
+I.micoff='<path d="M3 3l18 18M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5.5a3 3 0 0 0-5.7-1.3M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3.5M8.5 21.5h7"/>';
+I.flip='<path d="M20 7h-3.2l-1.6-2.2a1 1 0 0 0-.8-.4H9.6a1 1 0 0 0-.8.4L7.2 7H4a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 19h16a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 20 7z"/><path d="M9 13.5a3 3 0 0 0 5.6 1.2M15 12.5a3 3 0 0 0-5.6-1.2M14.6 15.8v-1.3h-1.3M9.4 10.2v1.3h1.3"/>';
+I.vidoff='<path d="M3 3l18 18M15.5 15.5V17a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 17V7A1.5 1.5 0 0 1 4 5.5h1.5M9.5 5.5H14A1.5 1.5 0 0 1 15.5 7v4.5l6-3.5v8"/>';
+async function vapi(path,o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
+ const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:CDB.sid},o))});
+ if(r.status===401&&!retry){CDB.sid=null;try{localStorage.removeItem(CDB.key())}catch(e){}if(!await CDB.auth())throw{code:'auth'};return vapi(path,o,true)}
+ if(r.status===503)throw{code:'nodb'};const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status,status:r.status};return j}
+const fmtDur=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+
+/* ---------- suoni di chiamata (squillo / attesa) ---------- */
+const RING={ctx:null,t:null,start(kind){this.stop();try{this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();this.ctx.resume&&this.ctx.resume()}catch(e){return}
+  const beep=(f,d,at)=>{try{const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(.18,at+.03);g.gain.setValueAtTime(.18,at+d-.05);g.gain.linearRampToValueAtTime(0,at+d);o.connect(g);g.connect(this.ctx.destination);o.start(at);o.stop(at+d+.02)}catch(e){}};
+  const play=()=>{if(!this.ctx)return;const t=this.ctx.currentTime+.02;if(kind==='in'){beep(880,.35,t);beep(660,.35,t+.4);beep(880,.35,t+1.1);beep(660,.35,t+1.5)}else{beep(425,1.0,t)}};play();this.t=setInterval(play,kind==='in'?3000:4000)},
+ stop(){clearInterval(this.t);this.t=null}};
+
+/* ---------- CHIAMATE ---------- */
+const CALL={cur:null,seen:{},ice:LIVE.ice,
+ api(o){return vapi('/api/call',o)},
+ can(u){return CDB.isV()&&VC.on&&VC.canMsg(u)},
+ async media(v,facing){return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:v?{facingMode:facing||'user',width:{ideal:720},height:{ideal:1280}}:false})},
+ mkPC(){const c=this.cur;const pc=new RTCPeerConnection({iceServers:this.ice});c.pc=pc;c.local.getTracks().forEach(t=>pc.addTrack(t,c.local));
+  pc.ontrack=e=>{const st=e.streams&&e.streams[0]||new MediaStream([e.track]);const rv=$('#cR',c.el);if(rv&&rv.srcObject!==st){rv.srcObject=st;rv.play&&rv.play().catch(()=>{})}};
+  pc.onconnectionstatechange=()=>{const s=pc.connectionState;if(s==='connected'){if(!c.t1){c.t1=Date.now();RING.stop();this.ui()}c.lost=0;this.status('')}else if(s==='disconnected'){this.status('Riconnessione…');c.lost=Date.now()}else if(s==='failed'){this.status('Connessione persa');setTimeout(()=>{if(this.cur===c&&pc.connectionState==='failed')this.hang('err')},4000)}};
+  return pc},
+ async startOut(u,v){if(this.cur)return toast('Sei già in una chiamata');if(!this.can(u))return toast('Puoi chiamare solo chi vi seguite a vicenda');
+  const w=USERS['r_'+u];if(!w)return;let local;try{local=await this.media(v)}catch(e){return toast(v?'Consenti fotocamera e microfono per videochiamare':'Consenti il microfono per chiamare')}
+  const c=this.cur={role:'a',peer:u,v,local,cam:v,mic:true,facing:'user',t0:Date.now()};this.open();this.status(v?'Videochiamata in corso…':'Chiamata in corso…');RING.start('out');
+  try{const pc=this.mkPC();await pc.setLocalDescription(await pc.createOffer());await LIVE.waitIce(pc);if(this.cur!==c)return;
+   const j=await this.api({op:'ring',to:u,v,sdp:pc.localDescription.sdp});if(this.cur!==c)return;
+   if(j.busy){this.status('Occupato in un’altra chiamata');RING.stop();setTimeout(()=>this.close('busy'),2200);return}
+   c.cid=j.cid;this.status('Squilla…');this.loopOut(c)}catch(e){this.status(e&&e.code==='notmutual'?'Potete chiamarvi solo se vi seguite a vicenda':'Chiamata non riuscita');RING.stop();setTimeout(()=>this.close('err'),2200)}},
+ async loopOut(c){while(this.cur===c&&!c.t1&&!c.ans){await new Promise(r=>setTimeout(r,1200));if(this.cur!==c)return;
+   if(Date.now()-c.t0>45000){this.status('Nessuna risposta');return this.hang('noans')}
+   try{const j=await this.api({op:'get',cid:c.cid});if(this.cur!==c)return;
+    if(j.st==='end'){RING.stop();this.status(j.why==='rej'?'Chiamata rifiutata':j.why==='busy'?'Occupato':'Chiamata terminata');return setTimeout(()=>this.close(j.why==='rej'?'rej':'end'),1800)}
+    if(j.answer&&!c.ans){c.ans=1;this.status('Collegamento…');await c.pc.setRemoteDescription({type:'answer',sdp:j.answer});this.ui();this.loopAlive(c)}}catch(e){}}},
+ async loopAlive(c){while(this.cur===c){await new Promise(r=>setTimeout(r,4000));if(this.cur!==c)return;try{const j=await this.api({op:'alive',cid:c.cid});if(this.cur===c&&j.st==='end'){this.status('Chiamata terminata');return this.close('end',true)}}catch(e){}
+   if(c.lost&&Date.now()-c.lost>20000)return this.hang('err');if(!c.t1&&Date.now()-(c.ta||c.t0)>30000){this.status('Connessione non riuscita');return this.hang('err')}}},
+ async poll(){if(this.cur||this.pbusy||!S.acc||!CDB.isV()||!VC.on||document.visibilityState==='hidden')return;this.pbusy=true;
+  try{const j=await this.api({op:'inc'});if(j&&j.cid&&!this.seen[j.cid]&&!this.cur&&Date.now()-(+j.t||0)<45000){this.seen[j.cid]=1;this.incoming(j)}}catch(e){}finally{this.pbusy=false}},
+ incoming(j){const w=USERS['r_'+j.from];if(!w||(S.acc.rblock||[]).includes(j.from))return;const c=this.cur={role:'b',peer:j.from,v:!!j.v,cid:j.cid,offer:j.offer,t0:Date.now(),ringT:+j.t||Date.now(),cam:!!j.v,mic:true,facing:'user'};
+  this.open();this.status(j.v?'Videochiamata in arrivo…':'Chiamata vocale in arrivo…');RING.start('in');
+  const chk=async()=>{while(this.cur===c&&!c.local){await new Promise(r=>setTimeout(r,2000));if(this.cur!==c||c.local)return;if(Date.now()-c.ringT>46000){RING.stop();return this.close('miss')}try{const g=await this.api({op:'get',cid:c.cid});if(this.cur===c&&!c.local&&g.st==='end'){RING.stop();this.status('Chiamata persa');setTimeout(()=>this.close('miss'),1200);return}}catch(e){}}};chk()},
+ async accept(withVideo){const c=this.cur;if(!c||c.role!=='b'||c.local)return;RING.stop();c.v=c.v&&withVideo!==false;c.cam=c.v;
+  try{c.local=await this.media(c.v)}catch(e){toast('Consenti il microfono per rispondere');return this.decline()}
+  this.status('Collegamento…');c.ta=Date.now();this.ui();
+  try{const pc=this.mkPC();await pc.setRemoteDescription({type:'offer',sdp:c.offer});await pc.setLocalDescription(await pc.createAnswer());await LIVE.waitIce(pc);
+   const j=await this.api({op:'ans',cid:c.cid,sdp:pc.localDescription.sdp});if(!j.ok){this.status('La chiamata è terminata');return setTimeout(()=>this.close('end'),1500)}this.loopAlive(c)}catch(e){this.status('Chiamata non riuscita');setTimeout(()=>this.hang('err'),1500)}},
+ decline(){const c=this.cur;if(!c)return;RING.stop();this.api({op:'end',cid:c.cid,why:'rej'}).catch(()=>{});this.close('rej')},
+ hang(why){const c=this.cur;if(!c)return;RING.stop();if(c.cid)this.api({op:'end',cid:c.cid,why:why||(c.t1?'end':c.role==='a'?'cancel':'rej')}).catch(()=>{});this.close(why||'end')},
+ close(why,remote){const c=this.cur;if(!c)return;this.cur=null;RING.stop();try{c.pc&&c.pc.close()}catch(e){}try{c.local&&c.local.getTracks().forEach(t=>t.stop())}catch(e){}
+  const dur=c.t1?(Date.now()-c.t1)/1000:0;if(c.el){c.el.classList.add('vcout');setTimeout(()=>c.el.remove(),(why==='end'&&!remote)?250:900)}
+  if(c.role==='a'&&c.cid){const st=c.t1?'ok':why==='rej'?'rej':'miss';CALL._silent=1;VC.send('d:'+c.peer,{call:{v:c.v?1:0,d:Math.round(dur),st}}).catch(()=>{}).finally(()=>{setTimeout(()=>{CALL._silent=0},500)})}
+  if(c.t1)toast((c.v?'Videochiamata':'Chiamata')+' terminata · '+fmtDur(dur))},
+ toggleMic(){const c=this.cur;if(!c||!c.local)return;c.mic=!c.mic;c.local.getAudioTracks().forEach(t=>t.enabled=c.mic);this.ui()},
+ toggleCam(){const c=this.cur;if(!c||!c.local)return;const vt=c.local.getVideoTracks();if(!vt.length)return;c.cam=!c.cam;vt.forEach(t=>t.enabled=c.cam);this.ui()},
+ async flip(){const c=this.cur;if(!c||!c.local||!c.pc)return;const nf=c.facing==='user'?'environment':'user';try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:nf}});const nt=s.getVideoTracks()[0];const snd=c.pc.getSenders().find(x=>x.track&&x.track.kind==='video');if(snd)await snd.replaceTrack(nt);c.local.getVideoTracks().forEach(t=>{t.stop();c.local.removeTrack(t)});c.local.addTrack(nt);nt.enabled=c.cam;c.facing=nf;const lv=$('#cL',c.el);if(lv){lv.srcObject=c.local;lv.classList.toggle('mir',nf==='user')}}catch(e){toast('Impossibile cambiare fotocamera')}},
+ status(t){const c=this.cur;if(!c||!c.el)return;const e=$('#cS',c.el);if(e)e.textContent=t||''},
+ open(){const c=this.cur,w=USERS['r_'+c.peer];const el=document.createElement('div');el.className='vcall'+(c.v?' isv':'');c.el=el;
+  el.innerHTML=`<div class="vcbg" style="background-image:url('${w&&w.img?String(w.img).replace(/'/g,'%27'):''}')"></div><video id="cR" playsinline autoplay></video><video id="cL" class="mir" playsinline autoplay muted></video>
+  <div class="vctop"><div class="vcav">${avHTML(w,108)}</div><b>${esc(w?w.n||w.u:'')}</b><span id="cS"></span><em id="cT"></em><small>🔒 Cifrata da telefono a telefono</small></div><div class="vcbtns" id="cB"></div>`;
+  document.documentElement.appendChild(el);requestAnimationFrame(()=>el.classList.add('vcin'));this.ui();
+  clearInterval(this.tick);this.tick=setInterval(()=>{const k=this.cur;if(!k){clearInterval(this.tick);return}const t=$('#cT',k.el);if(t)t.textContent=k.t1?fmtDur((Date.now()-k.t1)/1000):''},1000)},
+ ui(){const c=this.cur;if(!c||!c.el)return;const el=c.el,B=$('#cB',el);el.classList.toggle('vclive',!!c.t1);el.classList.toggle('isv',!!c.v);
+  const lv=$('#cL',el);if(c.local&&c.v&&lv&&lv.srcObject!==c.local){lv.srcObject=c.local;lv.play&&lv.play().catch(()=>{})}lv.style.display=c.v&&c.local&&c.cam?'':'none';
+  const btn=(id,cls,icn,lab)=>`<button id="${id}" class="vcb ${cls}"><i>${icn}</i><span>${lab}</span></button>`;
+  if(c.role==='b'&&!c.local)B.innerHTML=btn('cDec','red',ic('phone',30,2),'Rifiuta')+(c.v?btn('cAcA','',ic('phone',28,2),'Solo audio'):'')+btn('cAcc','green',c.v?ic('video',30,2):ic('phone',30,2),'Rispondi');
+  else B.innerHTML=btn('cMic',c.mic?'':'on',ic(c.mic?'mic':'micoff',26,2),c.mic?'Microfono':'Muto')+(c.v?btn('cCam',c.cam?'':'on',ic(c.cam?'video':'vidoff',26,2),c.cam?'Video':'Video off')+btn('cFlip','',ic('flip',26,2),'Gira'):'')+btn('cEnd','red',ic('phone',30,2),'Chiudi');
+  const on=(id,f)=>{const b=$('#'+id,el);if(b)b.onclick=f};on('cDec',()=>this.decline());on('cAcc',()=>this.accept(true));on('cAcA',()=>this.accept(false));on('cMic',()=>this.toggleMic());on('cCam',()=>this.toggleCam());on('cFlip',()=>this.flip());on('cEnd',()=>this.hang())}};
+setInterval(()=>CALL.poll(),4000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>CALL.poll(),300)});
+{const nt=NOTIF.notify.bind(NOTIF);NOTIF.notify=function(o){if(CALL._silent&&o&&o.kind==='msg')return;return nt(o)}}
+{const ng=notifGo;notifGo=function(u){try{const U=new URL(u,location.href);if(U.searchParams.get('n')==='call'){setTimeout(()=>CALL.poll(),700);setTimeout(()=>CALL.poll(),2500);return}}catch(e){}return ng(u)}}
+try{const q=new URLSearchParams(location.search);if(q.get('n')==='call'){setTimeout(()=>CALL.poll(),2500);setTimeout(()=>CALL.poll(),5000)}}catch(e){}
+
+/* ---------- NOTE VOCALI ---------- */
+const VOICE={mime(){const C=['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac','audio/webm;codecs=opus','audio/webm'];if(!window.MediaRecorder)return null;for(const m of C){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''},
+ player:null,pid:null,
+ async send(cid,blob,dur){const v=cid[0]==='g'?((VC.meta(cid.slice(2))||{}).v||1):1;const key=await VC.keyFor(cid,v);if(!key)return toast('Chiave della chat non disponibile');
+  const bytes=new Uint8Array(await blob.arrayBuffer());if(bytes.length>640000)return toast('Messaggio vocale troppo lungo');
+  const e=await VC.encB(key,bytes);const id='a'+vid();try{await VC.db.doc('chat/'+VC.me+'/i/'+id).set({iv:e.iv,c:e.c,v})}catch(err){return toast('Vocale non inviato, riprova')}
+  const mt=(blob.type||'audio/mp4').split(';')[0];VC.imgs[VC.me+'/'+id]=Promise.resolve(URL.createObjectURL(blob));return VC.send(cid,{au:{id,d:Math.max(1,Math.round(dur)),mt}})},
+ get(owner,id,keyP,mt){const k=owner+'/'+id;if(VC.imgs[k])return VC.imgs[k];return VC.imgs[k]=(async()=>{const s=await VC.db.doc('chat/'+owner+'/i/'+id).get();if(!s.exists)return null;const key=await keyP;const b=await VC.decB(key,s.data());return b?URL.createObjectURL(new Blob([b],{type:mt||'audio/mp4'})):null})().catch(()=>{delete VC.imgs[k];return null})},
+ html(m,au){const d=Math.max(1,Math.min(600,+au.d||1)),mt=/^audio\/[a-z0-9.+-]{2,20}$/.test(au.mt||'')?au.mt:'audio/mp4';const bars=Array.from({length:26},(_,i)=>{const h=30+Math.round(Math.abs(Math.sin((i+1)*1.7+String(au.id).length))*70);return`<i style="height:${h}%"></i>`}).join('');
+  return`<div class="wau" data-au="${m.from}|${esc(String(au.id))}|${m.v}|${mt}|${d}"><button class="wauP" aria-label="Riproduci">▶</button><div class="wauW">${bars}<b></b></div><span class="wauT">${fmtDur(d)}</span><span class="wauM">🎤</span></div>`},
+ bind(box,cid){$$('[data-au]',box).forEach(e=>{if(e._b)return;e._b=1;const[o,id,v,mt,d]=e.dataset.au.split('|');const btn=$('.wauP',e);btn.innerHTML='▶';
+   e.onclick=async ev=>{ev.stopPropagation();const key=o+'/'+id;if(this.pid===key&&this.player){if(this.player.paused){this.player.play().catch(()=>{})}else this.player.pause();return}
+    if(this.player){try{this.player.pause()}catch(_){}}btn.innerHTML='…';const u=await this.get(o,id,VC.keyFor(cid,+v),mt);if(!u){btn.innerHTML='▶';return toast('Vocale non disponibile')}
+    if(/webm/.test(mt)){const t=document.createElement('audio');if(!t.canPlayType('audio/webm')){btn.innerHTML='▶';return toast('Questo vocale è stato registrato su Android: il tuo telefono non riesce a riprodurlo')}}
+    try{Music.stop();stopPostMusic()}catch(_){}const a=new Audio(u);a.playsInline=true;this.player=a;this.pid=key;const bar=$('.wauW b',e),T=$('.wauT',e);
+    a.onplay=()=>{btn.innerHTML='❚❚';e.classList.add('pl')};a.onpause=()=>{btn.innerHTML='▶'};a.onended=()=>{btn.innerHTML='▶';e.classList.remove('pl');bar.style.width='0';T.textContent=fmtDur(+d);this.pid=null};
+    a.ontimeupdate=()=>{const D=isFinite(a.duration)&&a.duration>0?a.duration:+d;bar.style.width=Math.min(100,a.currentTime/D*100)+'%';T.textContent=fmtDur(a.currentTime)};
+    a.play().catch(()=>{btn.innerHTML='▶';toast('Impossibile riprodurre il vocale')})}})},
+ attach(ov,cid){const inp=$('#wct',ov),bar=$('#wcin',ov);if(!inp||!bar||$('#wcv',ov))return;const mt=this.mime();if(mt===null)return;
+  const b=document.createElement('button');b.className='wsend wmic';b.id='wcv';b.setAttribute('aria-label','Tieni premuto per registrare un vocale');b.innerHTML=ic('mic',22,2.1);bar.appendChild(b);
+  const rec=document.createElement('div');rec.className='wrec';rec.style.display='none';rec.innerHTML='<i class="wrdot"></i><b id="wrT">0:00</b><span>‹ scorri per annullare</span>';bar.appendChild(rec);
+  const sync=()=>bar.classList.toggle('hastx',!!inp.value.trim());inp.addEventListener('input',sync);sync();setInterval(()=>{if(ov.isConnected)sync()},800);
+  let st=null;
+  const finish=send=>{const s=st;if(!s)return;st=null;clearInterval(s.tm);rec.style.display='none';bar.classList.remove('recording');b.classList.remove('rec');
+   if(!s.mr){if(s.stream)s.stream.getTracks().forEach(t=>t.stop());return}
+   const dur=(Date.now()-s.t0)/1000;s.mr.onstop=async()=>{s.stream.getTracks().forEach(t=>t.stop());if(!send)return;if(dur<1){toast('Tieni premuto per registrare un vocale 🎤');return}
+    const blob=new Blob(s.ch,{type:s.mr.mimeType||mt||'audio/mp4'});toast('Invio del vocale…');await this.send(cid,blob,dur);VC.emit()};try{s.mr.stop()}catch(e){}};
+  b.addEventListener('pointerdown',async ev=>{ev.preventDefault();if(st)return;if(!rl('vcmsg',20,30000))return toast('Stai inviando troppi messaggi');const me={x0:ev.clientX,t0:Date.now(),ch:[],up:false};st=me;
+   b.classList.add('rec');try{me.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}catch(e){st=null;b.classList.remove('rec');return toast('Consenti il microfono per i messaggi vocali')}
+   if(st!==me||me.up){me.stream.getTracks().forEach(t=>t.stop());if(st===me)st=null;b.classList.remove('rec');return toast('Microfono pronto: ora tieni premuto per registrare 🎤')}
+   try{me.mr=new MediaRecorder(me.stream,mt?{mimeType:mt,audioBitsPerSecond:32000}:{audioBitsPerSecond:32000})}catch(e){try{me.mr=new MediaRecorder(me.stream)}catch(e2){finish(false);return toast('Registrazione non supportata')}}
+   me.mr.ondataavailable=e=>{if(e.data&&e.data.size)me.ch.push(e.data)};me.mr.start(250);me.t0=Date.now();rec.style.display='';bar.classList.add('recording');
+   me.tm=setInterval(()=>{const s=(Date.now()-me.t0)/1000;$('#wrT',rec).textContent=fmtDur(s);if(s>=120)finish(true)},250);try{navigator.vibrate&&navigator.vibrate(20)}catch(e){}});
+  b.addEventListener('pointermove',ev=>{if(st&&st.mr&&ev.clientX-st.x0<-80){toast('Vocale annullato');finish(false)}});
+  const up=()=>{if(!st)return;st.up=true;if(st.mr)finish(true)};b.addEventListener('pointerup',up);b.addEventListener('pointercancel',()=>{if(st&&st.mr)finish(false)});b.addEventListener('contextmenu',e=>e.preventDefault())}};
+
+/* ---------- anteprime e bolle ---------- */
+{const vp=vcPreview;vcPreview=function(m){if(m&&!m.del&&m.pl){if(m.pl.au)return'🎤 Messaggio vocale ('+fmtDur(+m.pl.au.d||0)+')';if(m.pl.call){const k=m.pl.call;return k.st==='ok'?(k.v?'📹 Videochiamata':'📞 Chiamata vocale')+' · '+fmtDur(k.d):k.st==='rej'?'📵 Chiamata rifiutata':'📵 '+(k.v?'Videochiamata persa':'Chiamata persa')}}return vp(m)}}
+function vcCallHTML(m,k){const mine=m.from===VC.me,ok=k.st==='ok';const t=ok?(k.v?'Videochiamata':'Chiamata vocale'):k.st==='rej'?(mine?'Chiamata rifiutata':'Chiamata rifiutata'):(mine?(k.v?'Videochiamata senza risposta':'Chiamata senza risposta'):(k.v?'Videochiamata persa':'Chiamata persa'));
+ return`<div class="wcall ${ok?'':'miss'}" data-callu="${mine?'':m.from}" data-callv="${k.v?1:0}"><i>${k.v?ic('video',20,2):ic('phone',20,2)}</i><div><b>${t}</b><span>${ok?fmtDur(k.d):'Tocca per richiamare'}</span></div></div>`}
+
+/* ---------- conversazione: pulsanti chiamata, microfono, "Visualizzato" ---------- */
+{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{const ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));if(!ov)return r;
+  if(cid[0]==='d'){const u=cid.slice(2),m=$('#wcm',ov);const mk=(v)=>{const b=document.createElement('button');b.className='iconbtn wcallb';b.setAttribute('aria-label',v?'Videochiamata':'Chiamata');b.innerHTML=v?ic('video',24,1.9):ic('phone',21,1.9);b.onclick=()=>{if(!CALL.can(u))return toast(S.teen||(USERS['r_'+u]||{}).teen?'Potete chiamarvi solo se vi seguite a vicenda':'Puoi chiamare solo gli amici che vi seguite a vicenda');CALL.startOut(u,v)};return b};
+   if(m){m.parentNode.insertBefore(mk(true),m);m.parentNode.insertBefore(mk(false),m)}}
+  VOICE.attach(ov,cid);
+  const box=$('#wcmsgs',ov);const draw=ov._vc;const post=()=>{try{VOICE.bind(box,cid);$$('[data-callu]',box).forEach(e=>{if(e._b)return;e._b=1;e.onclick=()=>{const u=e.dataset.callu||cid.slice(2);if(cid[0]==='d')CALL.startOut(cid.slice(2),e.dataset.callv==='1')}});
+   $$('.wseen',box).forEach(x=>x.remove());const c=VC.conv(cid);if(c&&c.kind==='d'){const lm=[...c.msgs].reverse().find(m=>!m.del&&!(m.pl&&m.pl.sys));if(lm&&lm.from===VC.me&&c.theirRd>=lm.t){const el=box.querySelector(`[data-m="${lm.id}"]`);if(el){const row=el.closest('.wrow');if(row)row.insertAdjacentHTML('afterend',`<div class="wseen">Visualizzato ${vcHM(c.theirRd)}</div>`)}}}}catch(e){}};
+  ov._vc=function(){const x=draw.apply(this,arguments);post();return x};post()}catch(e){}return r}}
+
+(function(){const st=document.createElement('style');st.textContent=`
+.wcallb{color:var(--ink,#fff)}
+.wcin.hastx #wcv,.wcin.recording #wcs{display:none}.wcin:not(.hastx):not(.ro) #wcs{display:none}
+.wmic{touch-action:none;-webkit-user-select:none;user-select:none}.wmic.rec{transform:scale(1.35);background:#ef4444!important;box-shadow:0 0 0 8px rgba(239,68,68,.25)}
+.wcin{position:relative}.wrec{position:absolute;left:8px;right:64px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:22px;background:var(--surf,#1b1724);font-size:14px;z-index:2}
+.wrec b{font-variant-numeric:tabular-nums}.wrec span{opacity:.6;margin-left:auto;font-size:12.5px}.wrdot{width:10px;height:10px;border-radius:50%;background:#ef4444;animation:wrb 1s infinite}@keyframes wrb{50%{opacity:.25}}
+.wau{display:flex;align-items:center;gap:9px;min-width:210px;padding:4px 2px;cursor:pointer}.wauP{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.18);color:inherit;font-size:14px;display:grid;place-items:center;flex:0 0 auto}
+.wauW{flex:1;height:26px;display:flex;align-items:center;gap:2px;position:relative}.wauW i{flex:1;background:currentColor;opacity:.45;border-radius:2px;min-height:3px}.wauW b{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,255,255,.18);border-radius:4px;pointer-events:none}
+.wauT{font-size:12px;opacity:.8;font-variant-numeric:tabular-nums}.wauM{font-size:13px}
+.wcall{display:flex;align-items:center;gap:10px;min-width:190px;padding:4px 2px;cursor:pointer}.wcall>i{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(34,197,94,.22);color:#22c55e}.wcall.miss>i{background:rgba(239,68,68,.2);color:#ef4444}.wcall b{display:block;font-size:14px}.wcall span{font-size:12px;opacity:.75}
+.wseen{text-align:right;font-size:11.5px;opacity:.6;margin:-2px 14px 6px}
+.vcall{position:fixed;inset:0;z-index:99999;background:#0b0a10;color:#fff;opacity:0;transition:opacity .25s;overflow:hidden}.vcall.vcin{opacity:1}.vcall.vcout{opacity:0}
+.vcbg{position:absolute;inset:-60px;background-size:cover;background-position:center;filter:blur(40px) brightness(.45) saturate(1.3);background-color:#1e1033}
+.vcall video#cR{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;opacity:0;transition:opacity .3s}.vcall.isv.vclive video#cR{opacity:1}.vcall:not(.isv) video#cR{width:1px;height:1px}
+.vcall video#cL{position:absolute;right:14px;top:calc(env(safe-area-inset-top,0px) + 14px);width:104px;height:150px;object-fit:cover;border-radius:16px;z-index:3;box-shadow:0 8px 30px rgba(0,0,0,.5);background:#111}.vcall video#cL.mir{transform:scaleX(-1)}
+.vcall:not(.vclive) video#cL{inset:0;width:100%;height:100%;border-radius:0;top:0;right:0;z-index:1;opacity:.55}
+.vctop{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 70px);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2;text-align:center;padding:0 20px}
+.vcall.isv.vclive .vctop{top:calc(env(safe-area-inset-top,0px) + 16px);align-items:flex-start;padding-right:130px}.vcall.isv.vclive .vcav,.vcall.isv.vclive .vctop small{display:none}
+.vcav .av{box-shadow:0 0 0 6px rgba(255,255,255,.08),0 0 0 14px rgba(255,255,255,.04)}.vcall:not(.vclive) .vcav{animation:vcp 1.6s ease-in-out infinite}@keyframes vcp{50%{transform:scale(1.06)}}
+.vctop b{font-size:26px;font-weight:800;text-shadow:0 2px 12px rgba(0,0,0,.5)}.vctop span,.vctop em{font-size:15px;opacity:.85;font-style:normal;text-shadow:0 1px 8px rgba(0,0,0,.6)}.vctop small{font-size:12px;opacity:.55}
+.vcbtns{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 38px);display:flex;justify-content:center;gap:22px;z-index:3;padding:0 14px}
+.vcb{display:flex;flex-direction:column;align-items:center;gap:7px;color:#fff;font-size:12px}.vcb i{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.vcb.on i{background:#fff;color:#111}.vcb.red i{background:#ef4444}.vcb.red i svg{transform:rotate(135deg)}.vcb.green i{background:#22c55e;animation:vcg 1.2s ease-in-out infinite}@keyframes vcg{50%{transform:scale(1.1)}}
+`;document.head.appendChild(st)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
