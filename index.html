@@ -3825,7 +3825,7 @@ function openVConv(cid){const c0=VC.conv(cid);if(!c0)return toast('Chat non disp
    if(p.im)body+=`<div class="wim" data-img="${m.from}|${esc(p.im.id)}|${m.v}" style="aspect-ratio:${Math.max(.6,Math.min(1.8,(p.im.w||1)/(p.im.h||1)))}"><span class="wld"></span></div>`;
    if(p.sh){const s=p.sh;if(s.k==='prod'){const pr={ty:PTYPES[s.ty]?s.ty:'tee',col:/^#[0-9a-f]{6}$/i.test(s.col||'')?s.col:'#111114',tx:String(s.tx||'').slice(0,14),em:PEMO.includes(s.em)?s.em:''};body+=`<div class="wsh" data-prod="${esc(s.id||'')}" data-sr="${esc(s.sr||'')}"><img src="${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?s.img:prodImg(pr,240)}" alt=""><div><b>${esc(String(s.n||'').slice(0,40))}</b><span>🛍️ ${eur(+s.price||0)} · Negozio Vybe</span></div></div>`}
     else body+=`<div class="wsh" data-post="${esc(s.id||'')}">${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?`<img src="${s.img}" alt="">`:`<div class="wshx">${esc(String(s.cap||'').slice(0,60))}</div>`}<div><b>Post di @${esc(String(s.u||'').slice(0,30))}</b><span>${esc(String(s.cap||'').slice(0,80))}</span></div></div>`}
-   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);
+   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);if(p.gcall)body+=vcGCallHTML(m,p.gcall);
    if(p.tx)body+=`<div class="wtx">${vcLinkify(esc(p.tx))}</div>`}
   const rx=c.rx[m.id]||[];const agg={};rx.forEach(r=>agg[r.e]=(agg[r.e]||0)+1);
   return h+`<div class="wrow ${mine?'me':''} ${first?'first':''}"><div class="vb ${mine?'me':''} ${p&&p.im&&!p.tx?'imgonly':''}" data-m="${m.id}">${c.kind==='g'&&!mine&&first?`<div class="wsn" style="color:${ucol(m.from)}">${esc(uName(m.from))}</div>`:''}${body}<span class="wmeta">${vcHM(m.t)} ${vcTicks(c,m)}</span></div>${rx.length?`<div class="wrx">${Object.entries(agg).map(([e,n])=>e+(n>1?n:'')).join(' ')}</div>`:''}</div>`};
@@ -5345,7 +5345,7 @@ const SCHED={
   $$('[data-rx]',sh).forEach(b=>b.onclick=()=>{this.cancel(cid,b.dataset.rx);closeOv(sh);toast('Messaggio programmato annullato')});
   $$('[data-rr]',sh).forEach(b=>b.onclick=()=>{this.stopRep(b.dataset.rr);closeOv(sh);toast('Messaggio di ogni giorno annullato')});
   $('#schGo',sh).onclick=async()=>{const t=tx.value.trim();if(!t)return toast('Scrivi il messaggio');if(isBad(t))return toast('Messaggio non permesso: rispetta gli altri');if(!H.value)return toast('Scegli l’ora');
-   if(!VC.canMsg(cid.slice(2)))return toast('Non puoi scrivere a questa persona');const go=$('#schGo',sh);go.disabled=true;go.textContent='Programmo…';
+   if(!SCHED.ok(cid))return toast(cid[0]==='d'?'Non puoi scrivere a questa persona':'Non fai più parte di questo gruppo');const go=$('#schGo',sh);go.disabled=true;go.textContent='Programmo…';
    const at=this.nextAt(H.value);if(E.checked){const r={rid:'r'+vid(),cid,tx:t,hm:H.value,last:0};A.rep.push(r);save();await this.fill()}else await this.one(cid,t,at);
    closeOv(sh);const inp=$('#wct');if(inp&&pre&&inp.value.trim()===pre.trim()){inp.value='';inp.dispatchEvent(new Event('input'))}toast('🌙 Programmato: arriverà '+this.when(at))}}};
 setInterval(()=>SCHED.fill(),30*60000);setTimeout(()=>SCHED.fill(),12000);
@@ -5367,6 +5367,107 @@ setInterval(()=>{if(CDB.isV()&&document.visibilityState==='visible')fetch('/api/
 .schRep{display:flex;align-items:center;gap:10px;font-size:14.5px}.schRep input{width:20px;height:20px;accent-color:#a855f7}.schW{font-size:13.5px;color:#c084fc;min-height:18px}
 .schL{display:flex;flex-direction:column;gap:7px;margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}.schI{display:flex;align-items:center;gap:10px;font-size:13.5px}.schI span{flex:1}.schI button{color:#ef4444;font-weight:700;font-size:13px}
 .vb.wsched{opacity:.72;border:1.5px dashed rgba(255,255,255,.35)}.wschb{display:block;margin-top:5px;font-size:11.5px;color:inherit;opacity:.95;text-align:left;background:rgba(0,0,0,.18);padding:4px 8px;border-radius:9px}`;document.head.appendChild(s)})();
+
+/* v50: messaggi programmati anche nei gruppi + chiamate e videochiamate di gruppo */
+/* ---------- messaggi programmati nei gruppi ---------- */
+SCHED.targets=function(cid){if(cid[0]==='d')return[{to:cid.slice(2)}];const meta=VC.meta(cid.slice(2));return meta?meta.m.filter(u=>u!==VC.me).map(u=>({to:u,g:1})):[]};
+SCHED.ok=function(cid){if(cid[0]==='d')return VC.canMsg(cid.slice(2));const meta=VC.meta(cid.slice(2));return!!(meta&&meta.m.includes(VC.me))};
+SCHED.one=async function(cid,tx,at,rid){if(!this.ok(cid))return toast(cid[0]==='d'?'Non puoi scrivere a questa persona':'Non fai più parte di questo gruppo');
+ CALL._silent=1;let id;try{id=await VC.send(cid,{tx})}finally{setTimeout(()=>{CALL._silent=0},400)}if(!id)return null;
+ const did=VC.did(cid),d=VC.mine[did];const m=d&&d.msgs.find(x=>x.id===id);if(!m)return null;m.t=at;VC.put(did);
+ const A=this.st();A.sch.push({id,cid,at,tx:String(tx).slice(0,80),rid:rid||null});save();
+ const L=this.targets(cid).map(x=>Object.assign({at,id},x));for(let i=0;i<L.length;i+=20)this.api({op:'add',L:L.slice(i,i+20)}).catch(()=>{});VC.emit();return id};
+SCHED.cancel=function(cid,id){const did=VC.did(cid),d=VC.mine[did];if(d){d.msgs=d.msgs.filter(x=>x.id!==id);VC.put(did)}const A=this.st();A.sch=A.sch.filter(x=>x.id!==id);save();
+ const L=this.targets(cid).map(x=>Object.assign({id},x));for(let i=0;i<L.length;i+=20)this.api({op:'del',L:L.slice(i,i+20)}).catch(()=>{});VC.emit()};
+SCHED.fill=async function(){if(!S.acc||!VC.on||!VC.ready||this.busy)return;this.busy=true;try{const A=this.st(),now=Date.now();A.sch=A.sch.filter(x=>x.at>now-86400000);
+  for(const r of A.rep){if(!this.ok(r.cid))continue;let at=this.nextAt(r.hm,Math.max(now,r.last||0));while(at<=now+2.2*86400000){await this.one(r.cid,r.tx,at,r.rid);r.last=at;at=this.nextAt(r.hm,at)}}save()}catch(e){}finally{this.busy=false}};
+
+/* ---------- chiamate di gruppo ---------- */
+const GCALL={g:null,seen:{},
+ api(o){return vapi('/api/call',o)},
+ async start(gid,v){if(CALL.cur||this.g)return toast('Sei già in una chiamata');const meta=VC.meta(gid);if(!meta||!meta.m.includes(VC.me))return toast('Non fai più parte di questo gruppo');
+  const to=meta.m.filter(u=>u!==VC.me);if(!to.length)return toast('Nel gruppo non c’è nessun altro');const nm=(VC.conv('g:'+gid)||{}).title||'Gruppo';
+  let local;try{local=await CALL.media(v)}catch(e){return toast(v?'Consenti fotocamera e microfono':'Consenti il microfono')}
+  let j;try{j=await this.api({op:'gstart',to,v,nm})}catch(e){local.getTracks().forEach(t=>t.stop());return toast('Chiamata di gruppo non riuscita')}
+  CALL._silent=1;VC.send('g:'+gid,{gcall:{v:v?1:0,rid:j.rid}}).catch(()=>{}).finally(()=>setTimeout(()=>{CALL._silent=0},400));
+  this.enter(j.rid,v,local,nm,gid,true)},
+ async join(rid,v,nm,gid){if(CALL.cur||this.g)return toast('Sei già in una chiamata');let local;try{local=await CALL.media(v)}catch(e){return toast('Consenti il microfono per entrare')}this.enter(rid,v,local,nm,gid,false)},
+ async enter(rid,v,local,nm,gid,owner){RING.stop();const g=this.g={rid,v,local,nm,gid,owner,peers:new Map(),t0:Date.now(),mic:true,cam:v,facing:'user',names:{}};this.open();this.status(owner?'Sto chiamando il gruppo…':'Entro…');
+  let j;try{j=await this.api({op:'gjoin',rid})}catch(e){j={st:'err'}}if(this.g!==g)return;
+  if(j.st!=='on'){this.status(j.st==='full'?'La chiamata è piena (massimo 6)':'La chiamata è terminata');return setTimeout(()=>this.leave(),1800)}
+  this.sync(j.m||[]);this.loop(g)},
+ async loop(g){while(this.g===g){await new Promise(r=>setTimeout(r,1800));if(this.g!==g)return;
+   try{const j=await this.api({op:'gpoll',rid:g.rid});if(this.g!==g)return;if(j.st==='end'){this.status('La chiamata è terminata');return setTimeout(()=>this.leave(),1500)}
+    for(const x of j.msgs||[])await this.onMsg(x);this.sync(j.m||[]);
+    const others=(j.m||[]).filter(u=>u!==VC.me);if(!others.length){if(!g.alone)g.alone=Date.now();const lim=g.t1?20000:62000;if(Date.now()-g.alone>lim){this.status(g.t1?'Sono usciti tutti':'Nessuno ha risposto');return setTimeout(()=>this.leave(),1800)}}else g.alone=0}catch(e){}}},
+ sync(members){const g=this.g;if(!g)return;const now=Date.now();
+  for(const u of members){if(u===VC.me||g.peers.has(u))continue;if(VC.me>u)this.offer(u);else g.peers.set(u,{pc:null,since:now})}
+  for(const[u,p]of g.peers){if(!members.includes(u)&&now-p.since>8000)this.closePeer(u);else if(!p.pc&&now-p.since>15000&&VC.me>u){this.closePeer(u)}else if(p.pc&&['failed','closed'].includes(p.pc.connectionState)&&now-p.since>6000)this.closePeer(u)}this.tiles()},
+ mkPC(u){const g=this.g;const pc=new RTCPeerConnection({iceServers:LIVE.ice});g.local.getTracks().forEach(t=>pc.addTrack(t,g.local));
+  pc.ontrack=e=>{const p=g.peers.get(u);if(!p)return;p.stream=e.streams&&e.streams[0]||new MediaStream([e.track]);this.tiles()};
+  pc.onconnectionstatechange=()=>{if(pc.connectionState==='connected'&&!g.t1){g.t1=Date.now();RING.stop();this.status('')}this.tiles()};return pc},
+ async offer(u){const g=this.g;const p={pc:this.mkPC(u),since:Date.now()};g.peers.set(u,p);try{await p.pc.setLocalDescription(await p.pc.createOffer());await LIVE.waitIce(p.pc);if(this.g!==g||g.peers.get(u)!==p)return;await this.api({op:'gsig',rid:g.rid,to:u,d:{type:'offer',sdp:p.pc.localDescription.sdp}})}catch(e){}},
+ async onMsg(x){const g=this.g;if(!g||!x||!x.f)return;
+  if(x.type==='offer'){const old=g.peers.get(x.f);if(old&&old.pc)try{old.pc.close()}catch(e){}const p={pc:this.mkPC(x.f),since:Date.now()};g.peers.set(x.f,p);
+   try{await p.pc.setRemoteDescription({type:'offer',sdp:x.sdp});await p.pc.setLocalDescription(await p.pc.createAnswer());await LIVE.waitIce(p.pc);await this.api({op:'gsig',rid:g.rid,to:x.f,d:{type:'answer',sdp:p.pc.localDescription.sdp}})}catch(e){}}
+  else if(x.type==='answer'){const p=g.peers.get(x.f);if(p&&p.pc&&p.pc.signalingState==='have-local-offer')try{await p.pc.setRemoteDescription({type:'answer',sdp:x.sdp})}catch(e){}}},
+ closePeer(u){const g=this.g;if(!g)return;const p=g.peers.get(u);if(p&&p.pc)try{p.pc.close()}catch(e){}g.peers.delete(u);this.tiles()},
+ leave(){const g=this.g;if(!g)return;this.g=null;RING.stop();this.api({op:'gleave',rid:g.rid}).catch(()=>{});for(const[u,p]of g.peers)try{p.pc&&p.pc.close()}catch(e){}try{g.local&&g.local.getTracks().forEach(t=>t.stop())}catch(e){}
+  clearInterval(this.tick);if(g.el){g.el.classList.add('vcout');setTimeout(()=>g.el.remove(),400)}if(g.t1)toast('Chiamata di gruppo terminata · '+fmtDur((Date.now()-g.t1)/1000))},
+ status(t){const g=this.g;if(!g||!g.el)return;const e=$('#gS',g.el);if(e)e.textContent=t||''},
+ open(){const g=this.g;const el=document.createElement('div');el.className='vcall gcall'+(g.v?' isv':'');g.el=el;
+  el.innerHTML=`<div class="vcbg"></div><div class="gtop"><b>${esc(g.nm)}</b><span id="gS"></span><em id="gT"></em></div><div class="ggrid" id="gG"></div><div class="vcbtns" id="gB"></div>`;
+  document.documentElement.appendChild(el);requestAnimationFrame(()=>el.classList.add('vcin'));this.tiles();this.btns();
+  clearInterval(this.tick);this.tick=setInterval(()=>{const k=this.g;if(!k){clearInterval(this.tick);return}const t=$('#gT',k.el);if(t)t.textContent=k.t1?fmtDur((Date.now()-k.t1)/1000)+' · '+(1+[...k.peers.values()].filter(p=>p.stream).length)+' in chiamata':''},1000)},
+ tile(u,stream,mine){const w=mine?null:USERS['r_'+u];const nm=mine?'Tu':(w?w.first||w.u:'…');const g=this.g;
+  return{u,html:`<div class="gt${mine?' me':''}" data-gu="${u}"><div class="gav">${mine?avHTML(ME(),72):w?avHTML(w,72):''}</div><video playsinline autoplay ${mine?'muted':''} class="${mine&&g.facing==='user'?'mir':''}"></video><span class="gn">${esc(nm)}${mine&&!g.mic?' · 🔇':''}</span></div>`,stream}},
+ tiles(){const g=this.g;if(!g||!g.el)return;const G=$('#gG',g.el);const list=[{u:VC.me,stream:g.local,mine:true}];for(const[u,p]of g.peers)if(p.pc)list.push({u,stream:p.stream||null});
+  const n=list.length;G.dataset.n=Math.min(n,6);const have=new Set(list.map(x=>x.u));$$('.gt',G).forEach(e=>{if(!have.has(e.dataset.gu))e.remove()});
+  for(const x of list){let e=G.querySelector(`.gt[data-gu="${x.u}"]`);if(!e){const t=this.tile(x.u,x.stream,x.mine);G.insertAdjacentHTML('beforeend',t.html);e=G.querySelector(`.gt[data-gu="${x.u}"]`)}
+   const vd=e.querySelector('video');const hasV=!!(x.stream&&x.stream.getVideoTracks().some(t=>t.enabled&&t.readyState==='live'))&&(x.mine?g.cam:true)&&g.v;
+   if(x.stream&&vd.srcObject!==x.stream){vd.srcObject=x.stream;vd.play&&vd.play().catch(()=>{})}e.classList.toggle('nov',!hasV);if(x.mine){e.querySelector('.gn').textContent='Tu'+(g.mic?'':' · 🔇');vd.classList.toggle('mir',g.facing==='user')}}},
+ btns(){const g=this.g;if(!g||!g.el)return;const B=$('#gB',g.el);const btn=(id,cls,icn,lab)=>`<button id="${id}" class="vcb ${cls}"><i>${icn}</i><span>${lab}</span></button>`;
+  B.innerHTML=btn('gMic',g.mic?'':'on',ic(g.mic?'mic':'micoff',26,2),g.mic?'Microfono':'Muto')+(g.v?btn('gCam',g.cam?'':'on',ic(g.cam?'video':'vidoff',26,2),g.cam?'Video':'Video off')+btn('gFlip','',ic('flip',26,2),'Gira'):'')+btn('gEnd','red',ic('phone',30,2),'Esci');
+  const on=(id,f)=>{const b=$('#'+id,g.el);if(b)b.onclick=f};
+  on('gMic',()=>{g.mic=!g.mic;g.local.getAudioTracks().forEach(t=>t.enabled=g.mic);this.btns();this.tiles()});
+  on('gCam',()=>{g.cam=!g.cam;g.local.getVideoTracks().forEach(t=>t.enabled=g.cam);this.btns();this.tiles()});
+  on('gFlip',async()=>{const nf=g.facing==='user'?'environment':'user';try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:nf,width:{ideal:960},height:{ideal:720}}});const nt=s.getVideoTracks()[0];
+   for(const[u,p]of g.peers){const snd=p.pc&&p.pc.getSenders().find(x=>x.track&&x.track.kind==='video');if(snd)await snd.replaceTrack(nt)}g.local.getVideoTracks().forEach(t=>{t.stop();g.local.removeTrack(t)});g.local.addTrack(nt);nt.enabled=g.cam;g.facing=nf;
+   const me=g.el.querySelector('.gt.me video');if(me){me.srcObject=null;me.srcObject=g.local}this.tiles()}catch(e){toast('Impossibile cambiare fotocamera')}});
+  on('gEnd',()=>this.leave())},
+ incoming(j){if(this.g||CALL.cur)return;const w=USERS['r_'+j.from];const el=document.createElement('div');el.className='vcall';const v=!!j.v;
+  el.innerHTML=`<div class="vcbg"></div><div class="vctop"><div class="vcav">${w?avHTML(w,108):''}</div><b>${esc(j.nm||'Gruppo')}</b><span>${esc(w?w.first||w.u:'Qualcuno')} ti invita ${v?'in videochiamata':'in chiamata'} di gruppo</span><em>${j.n>1?j.n+' persone già dentro':''}</em></div>
+  <div class="vcbtns"><button class="vcb red" id="giNo"><i>${ic('phone',30,2)}</i><span>Rifiuta</span></button>${v?`<button class="vcb" id="giA"><i>${ic('phone',28,2)}</i><span>Solo audio</span></button>`:''}<button class="vcb green" id="giOk"><i>${v?ic('video',30,2):ic('phone',30,2)}</i><span>Entra</span></button></div>`;
+  document.documentElement.appendChild(el);requestAnimationFrame(()=>el.classList.add('vcin'));RING.start('in');
+  const close=()=>{RING.stop();clearTimeout(tm);el.classList.add('vcout');setTimeout(()=>el.remove(),300)};const tm=setTimeout(close,55000);
+  $('#giNo',el).onclick=()=>{close();this.api({op:'gdec',rid:j.rid}).catch(()=>{})};
+  $('#giOk',el).onclick=()=>{close();this.join(j.rid,v,j.nm||'Gruppo',null)};const a=$('#giA',el);if(a)a.onclick=()=>{close();this.join(j.rid,false,j.nm||'Gruppo',null)}}};
+/* l'arrivo delle chiamate di gruppo passa dallo stesso controllo delle chiamate normali */
+{const pl=CALL.poll.bind(CALL);CALL.poll=async function(){if(GCALL.g||$('#giNo'))return;if(this.cur||this.pbusy||!S.acc||!CDB.isV()||document.visibilityState==='hidden')return;this.pbusy=true;
+  try{const j=await this.api({op:'inc'});if(j&&j.g&&j.rid){if(!GCALL.seen[j.rid]){GCALL.seen[j.rid]=1;GCALL.incoming(j)}}else if(j&&j.cid&&!this.seen[j.cid]&&!this.cur&&Date.now()-(+j.t||0)<60000){this.seen[j.cid]=1;this.incoming(j)}}catch(e){}finally{this.pbusy=false}}}
+{const so=CALL.startOut.bind(CALL);CALL.startOut=function(u,v){if(GCALL.g)return toast('Sei già in una chiamata di gruppo');return so(u,v)}}
+/* anteprime e bolle in chat */
+{const vp=vcPreview;vcPreview=function(m){if(m&&!m.del&&m.pl&&m.pl.gcall)return(m.pl.gcall.v?'📹 Videochiamata':'📞 Chiamata')+' di gruppo';return vp(m)}}
+function vcGCallHTML(m,k){return`<div class="wcall" data-gcr="${esc(String(k.rid||''))}" data-gcv="${k.v?1:0}"><i>${k.v?ic('video',20,2):ic('phone',20,2)}</i><div><b>${k.v?'Videochiamata':'Chiamata'} di gruppo</b><span>Tocca per entrare</span></div></div>`}
+/* nella chat di gruppo: pulsanti chiamata + luna; nei gruppi anche le etichette dei programmati */
+{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{const ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));if(!ov)return r;const gid=cid.slice(2);
+  if(cid[0]==='g'){const m=$('#wcm',ov);const mk=v=>{const b=document.createElement('button');b.className='iconbtn wcallb';b.setAttribute('aria-label',v?'Videochiamata di gruppo':'Chiamata di gruppo');b.innerHTML=v?ic('video',24,1.9):ic('phone',21,1.9);b.onclick=()=>GCALL.start(gid,v);return b};
+   if(m&&!$('.wcallb',ov)){m.parentNode.insertBefore(mk(true),m);m.parentNode.insertBefore(mk(false),m)}
+   const clip=$('#wca',ov);if(clip&&!$('#wcsch',ov)){const b=document.createElement('button');b.className='iconbtn';b.id='wcsch';b.setAttribute('aria-label','Programma un messaggio');b.innerHTML=ic('moon',21,1.9);b.onclick=()=>SCHED.sheet(cid,($('#wct',ov)||{}).value||'');clip.parentNode.insertBefore(b,clip)}}
+  const box=$('#wcmsgs',ov),draw=ov._vc;const post=()=>{try{
+    $$('[data-gcr]',box).forEach(e=>{if(e._b)return;e._b=1;e.onclick=async ev=>{ev.stopPropagation();const rid=e.dataset.gcr;try{const j=await GCALL.api({op:'gget',rid});if(j.st!=='on')return toast('Questa chiamata è terminata');if(j.me)return toast('Sei già dentro');GCALL.join(rid,!!j.v,j.nm||'Gruppo',gid)}catch(err){toast('Chiamata non disponibile')}}});
+    if(cid[0]==='g'){const now=Date.now();const c=VC.conv(cid);if(c)c.msgs.forEach(m=>{if(m.from!==VC.me||m.t<=now)return;const el=box.querySelector(`[data-m="${m.id}"]`);if(!el||el.querySelector('.wschb'))return;el.classList.add('wsched');
+     el.insertAdjacentHTML('beforeend',`<button class="wschb">🌙 Arriverà ${esc(SCHED.when(m.t))} · Annulla</button>`);$('.wschb',el).onclick=ev=>{ev.stopPropagation();confirmSheet('Annullare il messaggio programmato?','Non verrà più inviato.','Annulla messaggio',()=>{SCHED.cancel(cid,m.id);toast('Messaggio annullato')})}})}}catch(e){}};
+  ov._vc=function(){const x=draw.apply(this,arguments);post();return x};post()}catch(e){}return r}}
+(function(){const s=document.createElement('style');s.textContent=`
+.gcall .gtop{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.gcall .gtop b{font-size:19px}.gcall .gtop span,.gcall .gtop em{font-size:13px;opacity:.85;font-style:normal}
+.ggrid{position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 70px);bottom:calc(env(safe-area-inset-bottom,0px) + 140px);display:grid;gap:8px;z-index:2;grid-template-columns:1fr;grid-auto-rows:1fr}
+.ggrid[data-n="2"]{grid-template-rows:1fr 1fr}.ggrid[data-n="3"],.ggrid[data-n="4"]{grid-template-columns:1fr 1fr}.ggrid[data-n="5"],.ggrid[data-n="6"]{grid-template-columns:1fr 1fr}
+.ggrid[data-n="3"] .gt:first-child{grid-column:span 2}.ggrid[data-n="5"] .gt:first-child{grid-column:span 2}
+.gt{position:relative;border-radius:18px;overflow:hidden;background:#15121d;display:grid;place-items:center}.gt video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}.gt video.mir{transform:scaleX(-1)}
+.gt.nov video{opacity:0}.gt .gav{position:relative;z-index:0}.gt:not(.nov) .gav{display:none}.gt .gn{position:absolute;left:10px;bottom:9px;z-index:2;font-size:13px;font-weight:700;background:rgba(0,0,0,.45);padding:4px 9px;border-radius:10px}
+.gt.me{outline:2px solid rgba(192,132,252,.6)}`;document.head.appendChild(s)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
