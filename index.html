@@ -5143,19 +5143,19 @@ const CALL={cur:null,seen:{},ice:LIVE.ice,
   try{const pc=this.mkPC();await pc.setLocalDescription(await pc.createOffer());await LIVE.waitIce(pc);if(this.cur!==c)return;
    const j=await this.api({op:'ring',to:u,v,sdp:pc.localDescription.sdp});if(this.cur!==c)return;
    if(j.busy){this.status('Occupato in un’altra chiamata');RING.stop();setTimeout(()=>this.close('busy'),2200);return}
-   c.cid=j.cid;this.status('Squilla…');this.loopOut(c)}catch(e){this.status(e&&e.code==='notmutual'?'Potete chiamarvi solo se vi seguite a vicenda':'Chiamata non riuscita');RING.stop();setTimeout(()=>this.close('err'),2200)}},
+   c.cid=j.cid;this.status('Squilla…');if(j.np===0){const w2=USERS['r_'+u];const e2=$('#cS',c.el);if(e2)e2.insertAdjacentHTML('afterend',`<small class="vcnp">⚠️ ${esc(w2?w2.first||w2.u:'')} non ha le notifiche di Vybe attive: la chiamata le arriva solo se ha Vybe aperta.</small>`)}this.loopOut(c)}catch(e){this.status(e&&e.code==='notmutual'?'Potete chiamarvi solo se vi seguite a vicenda':'Chiamata non riuscita');RING.stop();setTimeout(()=>this.close('err'),2200)}},
  async loopOut(c){while(this.cur===c&&!c.t1&&!c.ans){await new Promise(r=>setTimeout(r,1200));if(this.cur!==c)return;
-   if(Date.now()-c.t0>45000){this.status('Nessuna risposta');return this.hang('noans')}
+   if(Date.now()-c.t0>60000){this.status('Nessuna risposta');return this.hang('noans')}
    try{const j=await this.api({op:'get',cid:c.cid});if(this.cur!==c)return;
     if(j.st==='end'){RING.stop();this.status(j.why==='rej'?'Chiamata rifiutata':j.why==='busy'?'Occupato':'Chiamata terminata');return setTimeout(()=>this.close(j.why==='rej'?'rej':'end'),1800)}
     if(j.answer&&!c.ans){c.ans=1;this.status('Collegamento…');await c.pc.setRemoteDescription({type:'answer',sdp:j.answer});this.ui();this.loopAlive(c)}}catch(e){}}},
  async loopAlive(c){while(this.cur===c){await new Promise(r=>setTimeout(r,4000));if(this.cur!==c)return;try{const j=await this.api({op:'alive',cid:c.cid});if(this.cur===c&&j.st==='end'){this.status('Chiamata terminata');return this.close('end',true)}}catch(e){}
    if(c.lost&&Date.now()-c.lost>20000)return this.hang('err');if(!c.t1&&Date.now()-(c.ta||c.t0)>30000){this.status('Connessione non riuscita');return this.hang('err')}}},
- async poll(){if(this.cur||this.pbusy||!S.acc||!CDB.isV()||!VC.on||document.visibilityState==='hidden')return;this.pbusy=true;
-  try{const j=await this.api({op:'inc'});if(j&&j.cid&&!this.seen[j.cid]&&!this.cur&&Date.now()-(+j.t||0)<45000){this.seen[j.cid]=1;this.incoming(j)}}catch(e){}finally{this.pbusy=false}},
+ async poll(){if(this.cur||this.pbusy||!S.acc||!CDB.isV()||document.visibilityState==='hidden')return;this.pbusy=true;
+  try{const j=await this.api({op:'inc'});if(j&&j.cid&&!this.seen[j.cid]&&!this.cur&&Date.now()-(+j.t||0)<60000){this.seen[j.cid]=1;this.incoming(j)}}catch(e){}finally{this.pbusy=false}},
  incoming(j){const w=USERS['r_'+j.from];if(!w||(S.acc.rblock||[]).includes(j.from))return;const c=this.cur={role:'b',peer:j.from,v:!!j.v,cid:j.cid,offer:j.offer,t0:Date.now(),ringT:+j.t||Date.now(),cam:!!j.v,mic:true,facing:'user'};
   this.open();this.status(j.v?'Videochiamata in arrivo…':'Chiamata vocale in arrivo…');RING.start('in');
-  const chk=async()=>{while(this.cur===c&&!c.local){await new Promise(r=>setTimeout(r,2000));if(this.cur!==c||c.local)return;if(Date.now()-c.ringT>46000){RING.stop();return this.close('miss')}try{const g=await this.api({op:'get',cid:c.cid});if(this.cur===c&&!c.local&&g.st==='end'){RING.stop();this.status('Chiamata persa');setTimeout(()=>this.close('miss'),1200);return}}catch(e){}}};chk()},
+  const chk=async()=>{while(this.cur===c&&!c.local){await new Promise(r=>setTimeout(r,2000));if(this.cur!==c||c.local)return;if(Date.now()-c.ringT>61000){RING.stop();return this.close('miss')}try{const g=await this.api({op:'get',cid:c.cid});if(this.cur===c&&!c.local&&g.st==='end'){RING.stop();this.status('Chiamata persa');setTimeout(()=>this.close('miss'),1200);return}}catch(e){}}};chk()},
  async accept(withVideo){const c=this.cur;if(!c||c.role!=='b'||c.local)return;RING.stop();c.v=c.v&&withVideo!==false;c.cam=c.v;
   try{c.local=await this.media(c.v)}catch(e){toast('Consenti il microfono per rispondere');return this.decline()}
   this.status('Collegamento…');c.ta=Date.now();this.ui();
@@ -5184,8 +5184,8 @@ const CALL={cur:null,seen:{},ice:LIVE.ice,
   const on=(id,f)=>{const b=$('#'+id,el);if(b)b.onclick=f};on('cDec',()=>this.decline());on('cAcc',()=>this.accept(true));on('cAcA',()=>this.accept(false));on('cMic',()=>this.toggleMic());on('cCam',()=>this.toggleCam());on('cFlip',()=>this.flip());on('cEnd',()=>this.hang())}};
 setInterval(()=>CALL.poll(),4000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>CALL.poll(),300)});
 {const nt=NOTIF.notify.bind(NOTIF);NOTIF.notify=function(o){if(CALL._silent&&o&&o.kind==='msg')return;return nt(o)}}
-{const ng=notifGo;notifGo=function(u){try{const U=new URL(u,location.href);if(U.searchParams.get('n')==='call'){setTimeout(()=>CALL.poll(),700);setTimeout(()=>CALL.poll(),2500);return}}catch(e){}return ng(u)}}
-try{const q=new URLSearchParams(location.search);if(q.get('n')==='call'){setTimeout(()=>CALL.poll(),2500);setTimeout(()=>CALL.poll(),5000)}}catch(e){}
+{const ng=notifGo;notifGo=function(u){try{const U=new URL(u,location.href);if(U.searchParams.get('n')==='call'){[400,1500,3000,6000].forEach(t=>setTimeout(()=>CALL.poll(),t));return}}catch(e){}return ng(u)}}
+try{const q=new URLSearchParams(location.search);if(q.get('n')==='call'){[1500,3000,5000,8000,12000].forEach(t=>setTimeout(()=>CALL.poll(),t))}}catch(e){}
 
 /* ---------- NOTE VOCALI ---------- */
 const VOICE={mime(){const C=['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac','audio/webm;codecs=opus','audio/webm'];if(!window.MediaRecorder)return null;for(const m of C){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''},
@@ -5272,6 +5272,47 @@ function vcCallHTML(m,k){const mine=m.from===VC.me,ok=k.st==='ok';const t=ok?(k.
 (function(){const s=document.createElement('style');s.textContent=`.pcover.pcphoto{transition:height .35s ease}
 .pccov .pcbg{position:absolute;inset:-30px;background-size:cover;background-position:center;filter:blur(22px) brightness(.6) saturate(1.2)}
 .pcover.pcphoto .pccov img{inset:0;width:100%;height:100%;object-fit:contain;transform:rotateX(var(--ty,0deg)) rotateY(var(--tx,0deg));animation:none}`;document.head.appendChild(s)})();
+
+/* v48: videochiamata senza zoom (inquadratura intera come la fotocamera normale) + notifiche affidabili per messaggi e chiamate */
+CALL.media=async function(v,facing){const A={echoCancellation:true,noiseSuppression:true,autoGainControl:true};
+ if(!v)return navigator.mediaDevices.getUserMedia({audio:A,video:false});
+ const tries=[{facingMode:facing||'user',width:{ideal:960},height:{ideal:720},aspectRatio:{ideal:4/3},resizeMode:'none'},{facingMode:facing||'user',width:{ideal:640},height:{ideal:480}},{facingMode:facing||'user'}];
+ let last;for(const vc of tries){try{return await navigator.mediaDevices.getUserMedia({audio:A,video:vc})}catch(e){last=e;if(e&&e.name==='NotAllowedError')throw e}}throw last};
+{const fl=CALL.flip.bind(CALL);CALL.flip=async function(){const c=this.cur;if(!c||!c.local||!c.pc)return;const nf=c.facing==='user'?'environment':'user';
+  try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:nf,width:{ideal:960},height:{ideal:720},aspectRatio:{ideal:4/3},resizeMode:'none'}});const nt=s.getVideoTracks()[0];const snd=c.pc.getSenders().find(x=>x.track&&x.track.kind==='video');if(snd)await snd.replaceTrack(nt);
+   c.local.getVideoTracks().forEach(t=>{t.stop();c.local.removeTrack(t)});c.local.addTrack(nt);nt.enabled=c.cam;c.facing=nf;const lv=$('#cL',c.el);if(lv){lv.srcObject=c.local;lv.classList.toggle('mir',nf==='user')}}catch(e){return fl()}}}
+/* la finestrina con me stesso prende la forma vera del video (niente taglio) */
+{const ui=CALL.ui.bind(CALL);CALL.ui=function(){ui();const c=this.cur;if(!c||!c.el)return;const lv=$('#cL',c.el),rv=$('#cR',c.el);
+  const fitL=()=>{if(!lv.videoWidth)return;const r=lv.videoWidth/lv.videoHeight,H=150,W=Math.round(Math.min(150,H*r));lv.style.setProperty('--lw',W+'px');lv.style.setProperty('--lh',Math.round(W/r)+'px')};
+  if(lv&&!lv._fit){lv._fit=1;lv.addEventListener('loadedmetadata',fitL);lv.addEventListener('resize',fitL)}fitL()}}
+/* squilla più a lungo (il telefono di chi ricevi può metterci qualche secondo ad aprire Vybe dalla notifica) */
+(function(){const s=document.createElement('style');s.textContent=`
+.vcall video#cR{object-fit:contain!important;background:#000}
+.vcall.vclive video#cL{width:var(--lw,104px)!important;height:var(--lh,150px)!important;object-fit:cover}
+.vcall:not(.vclive) video#cL{object-fit:contain!important;background:#000}
+.vcnp{display:block;margin-top:6px;font-size:13px;opacity:.85;max-width:300px;line-height:1.35}`;document.head.appendChild(s)})();
+
+/* ---------- notifiche: ricollego sempre il telefono e chiedo di attivarle ---------- */
+const PUSHFIX={done:false,
+ async refresh(){if(this.done||!S.acc||!CDB.isV()||!NOTIF.sup()||NOTIF.perm()!=='granted')return;this.done=true;
+  try{const reg=(await navigator.serviceWorker.getRegistration('/'))||await NOTIF.reg();await navigator.serviceWorker.ready;let s=await reg.pushManager.getSubscription();
+   if(!s){const {key}=await CDB.call({op:'push_key'});s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:NOTIF.u8(key)})}
+   const st=await CDB.call({op:'push_state',endpoint:s.endpoint}).catch(()=>null);
+   const prefs=st&&st.prefs&&Object.keys(st.prefs).length?st.prefs:{msg:1,like:1,fol:1,story:1};if(prefs.msg===false)prefs.msg=1;
+   await CDB.call({op:'push_sub',sub:s.toJSON(),prefs});try{localStorage.setItem('vybe_push','1')}catch(e){}}catch(e){this.done=false}},
+ ask(){if(!S.acc||!CDB.isV()||$('#pfask'))return;const ios=NOTIF.ios(),sa=NOTIF.standalone();let snooze=0;try{snooze=+localStorage.getItem('vybe_pfask')||0}catch(e){}if(Date.now()-snooze<20*3600000)return;
+  if(NOTIF.sup()&&NOTIF.perm()==='granted')return;if(NOTIF.sup()&&NOTIF.perm()==='denied')return;
+  let body,btn='';
+  if(!NOTIF.sup()&&ios&&!sa)body=`<p>Su iPhone chiamate e messaggi arrivano <b>solo</b> se apri Vybe dall’icona sulla schermata Home:</p><ol class="nsteps"><li>Apri Vybe in <b>Safari</b></li><li>Tocca <b>Condividi</b> (quadrato con la freccia)</li><li>Tocca <b>Aggiungi alla schermata Home</b></li><li>Apri Vybe dalla nuova icona</li></ol>`;
+  else if(!NOTIF.sup())return;
+  else{body=`<p>Così ti arrivano sul telefono, anche con Vybe chiusa:</p><div class="pfl"><span>📞 Chiamate e videochiamate</span><span>💬 Messaggi e vocali</span><span>❤️ Mi piace e nuovi follower</span></div>`;btn=`<button class="btn" id="pfOn">🔔 Attiva le notifiche</button>`}
+  const sh=openSheet(`<div id="pfask" style="padding:6px 18px 22px;display:flex;flex-direction:column;gap:12px"><b style="font-size:19px">🔔 Non perdere le chiamate</b>${body}${btn}<button class="btn soft" id="pfNo">Non ora</button></div>`);
+  const no=()=>{try{localStorage.setItem('vybe_pfask',String(Date.now()))}catch(e){}closeOv(sh)};$('#pfNo',sh).onclick=no;
+  const on=$('#pfOn',sh);if(on)on.onclick=async()=>{on.disabled=true;on.textContent='Attivazione…';try{await NOTIF.enable({msg:1,like:1,fol:1,story:1});closeOv(sh);toast('Notifiche attive ✅ Ora ti arrivano chiamate e messaggi');try{await CDB.call({op:'push_test'})}catch(e){}}
+   catch(e){on.disabled=false;on.textContent='🔔 Attiva le notifiche';toast(e&&e.code==='denied'?'Hai rifiutato: puoi attivarle da Impostazioni › Notifiche › Vybe':'Non riesco ad attivarle, riprova')}}}};
+setTimeout(()=>{PUSHFIX.refresh();setTimeout(()=>{try{PUSHFIX.ask()}catch(e){}},2500)},5000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){PUSHFIX.done=false;setTimeout(()=>PUSHFIX.refresh(),1500)}});
+(function(){const s=document.createElement('style');s.textContent=`#pfask p{font-size:14.5px;line-height:1.45;opacity:.9}#pfask .pfl{display:flex;flex-direction:column;gap:7px;font-size:14.5px}#pfask .pfl span{padding:10px 12px;border-radius:12px;background:var(--soft)}`;document.head.appendChild(s)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
