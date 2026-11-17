@@ -5262,6 +5262,17 @@ function vcCallHTML(m,k){const mine=m.from===VC.me,ok=k.st==='ok';const t=ok?(k.
 .vcb.on i{background:#fff;color:#111}.vcb.red i{background:#ef4444}.vcb.red i svg{transform:rotate(135deg)}.vcb.green i{background:#22c55e;animation:vcg 1.2s ease-in-out infinite}@keyframes vcg{50%{transform:scale(1.1)}}
 `;document.head.appendChild(st)})();
 
+/* v47: copertina del profilo con la tua foto INTERA (niente taglio): il riquadro si allarga in base alla foto */
+{const mc=mountCover;mountCover=function(host,m,o){if(host&&!(m==='photo'&&o&&o.img)){host.style.height='';host.classList.remove('pcphoto')}return mc.apply(this,arguments)}}
+{const pcv=photoCover;photoCover=function(host,img){const r=pcv.apply(this,arguments);try{const w=host.querySelector('.pccov');if(!w)return r;host.classList.add('pcphoto');
+  const u=String(img).replace(/'/g,'%27');w.insertAdjacentHTML('afterbegin',`<div class="pcbg" style="background-image:url('${u}')"></div>`);const im=w.querySelector('img');
+  const fit=()=>{if(!im.naturalWidth||!host.isConnected)return;const W=host.getBoundingClientRect().width||340;const h=Math.round(Math.min(Math.max(W*im.naturalHeight/im.naturalWidth,150),Math.min(460,window.innerHeight*.58)));host.style.height=h+'px';
+   window.dispatchEvent(new Event('resize'))};if(im.complete)fit();else im.addEventListener('load',fit,{once:true});
+  const st=r&&r.stop;if(st)r.stop=function(){host.style.height='';host.classList.remove('pcphoto');return st.apply(this,arguments)}}catch(e){}return r}}
+(function(){const s=document.createElement('style');s.textContent=`.pcover.pcphoto{transition:height .35s ease}
+.pccov .pcbg{position:absolute;inset:-30px;background-size:cover;background-position:center;filter:blur(22px) brightness(.6) saturate(1.2)}
+.pcover.pcphoto .pccov img{inset:0;width:100%;height:100%;object-fit:contain;transform:rotateX(var(--ty,0deg)) rotateY(var(--tx,0deg));animation:none}`;document.head.appendChild(s)})();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
