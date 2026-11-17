@@ -5314,6 +5314,60 @@ setTimeout(()=>{PUSHFIX.refresh();setTimeout(()=>{try{PUSHFIX.ask()}catch(e){}},
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){PUSHFIX.done=false;setTimeout(()=>PUSHFIX.refresh(),1500)}});
 (function(){const s=document.createElement('style');s.textContent=`#pfask p{font-size:14.5px;line-height:1.45;opacity:.9}#pfask .pfl{display:flex;flex-direction:column;gap:7px;font-size:14.5px}#pfask .pfl span{padding:10px 12px;border-radius:12px;background:var(--soft)}`;document.head.appendChild(s)})();
 
+/* v49: messaggi programmati in Vybe Chat (es. la buonanotte alle 23, anche ogni sera) */
+I.moon='<path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/>';
+const SCHED={
+ api(o){return vapi('/api/sched',o)},
+ st(){const a=S.acc.vc=S.acc.vc||{};a.sch=a.sch||[];a.rep=a.rep||[];return a},
+ nextAt(hm,from){const[h,m]=String(hm).split(':').map(Number);const d=new Date(from||Date.now());d.setSeconds(0,0);d.setHours(h,m);if(d.getTime()<=(from||Date.now())+30000)d.setDate(d.getDate()+1);return d.getTime()},
+ async one(cid,tx,at,rid){if(cid[0]!=='d')return toast('Per ora si può programmare solo nelle chat private');const u=cid.slice(2);
+  CALL._silent=1;let id;try{id=await VC.send(cid,{tx})}finally{setTimeout(()=>{CALL._silent=0},400)}if(!id)return null;
+  const d=VC.mine['d_'+u];const m=d&&d.msgs.find(x=>x.id===id);if(!m)return null;m.t=at;VC.put('d_'+u);
+  const A=this.st();A.sch.push({id,cid,at,tx:String(tx).slice(0,80),rid:rid||null});save();
+  this.api({op:'add',L:[{to:u,at,id}]}).catch(()=>{});VC.emit();return id},
+ cancel(cid,id){const u=cid.slice(2),d=VC.mine['d_'+u];if(d){d.msgs=d.msgs.filter(x=>x.id!==id);VC.put('d_'+u)}const A=this.st();A.sch=A.sch.filter(x=>x.id!==id);save();this.api({op:'del',L:[{to:u,id}]}).catch(()=>{});VC.emit()},
+ stopRep(rid){const A=this.st();const r=A.rep.find(x=>x.rid===rid);A.rep=A.rep.filter(x=>x.rid!==rid);save();const now=Date.now();A.sch.filter(x=>x.rid===rid&&x.at>now).forEach(x=>this.cancel(x.cid,x.id))},
+ async fill(){if(!S.acc||!VC.on||!VC.ready||this.busy)return;this.busy=true;try{const A=this.st(),now=Date.now();A.sch=A.sch.filter(x=>x.at>now-86400000);
+  for(const r of A.rep){if(!VC.canMsg(r.cid.slice(2)))continue;let at=this.nextAt(r.hm,Math.max(now,r.last||0));while(at<=now+2.2*86400000){await this.one(r.cid,r.tx,at,r.rid);r.last=at;at=this.nextAt(r.hm,at)}}save()}catch(e){}finally{this.busy=false}},
+ pending(cid){const now=Date.now();return this.st().sch.filter(x=>x.cid===cid&&x.at>now).sort((a,b)=>a.at-b.at)},
+ when(at){const d=new Date(at),t=new Date();const hm=d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});const dd=Math.round((new Date(d.toDateString())-new Date(t.toDateString()))/86400000);return(dd===0?(d.getHours()>=18?'stasera':'oggi'):dd===1?'domani':d.toLocaleDateString('it-IT',{weekday:'long'}))+' alle '+hm},
+ sheet(cid,pre){const A=this.st();const reps=A.rep.filter(r=>r.cid===cid);const pend=this.pending(cid).filter(x=>!x.rid);
+  const sh=openSheet(`<div class="schs"><b class="schT">🌙 Programma un messaggio</b><small class="schS">Lo scrivi ora, arriva da solo all’ora che scegli.</small>
+   <div class="schQ">${['Buonanotte 🌙','Buonanotte, ti voglio bene ❤️','Sogni d’oro ✨','Buongiorno ☀️'].map(q=>`<button>${q}</button>`).join('')}</div>
+   <textarea class="in" id="schTx" rows="3" maxlength="1000" placeholder="Scrivi il messaggio…">${esc(pre||'')}</textarea>
+   <div class="schR"><label>Ora</label><input type="time" class="in" id="schH" value="23:00"></div>
+   <label class="schRep"><input type="checkbox" id="schE"> <span>🔁 Ogni giorno a quest’ora</span></label>
+   <div class="schW" id="schW"></div><button class="btn" id="schGo">🌙 Programma</button>
+   ${reps.length||pend.length?`<div class="schL"><b>Già programmati</b>${reps.map(r=>`<div class="schI"><span>🔁 Ogni giorno alle ${esc(r.hm)} · “${esc(r.tx.slice(0,40))}”</span><button data-rr="${r.rid}">Annulla</button></div>`).join('')}${pend.map(x=>`<div class="schI"><span>🕙 ${esc(this.when(x.at))} · “${esc(x.tx.slice(0,40))}”</span><button data-rx="${x.id}">Annulla</button></div>`).join('')}</div>`:''}</div>`);
+  const tx=$('#schTx',sh),H=$('#schH',sh),E=$('#schE',sh),W=$('#schW',sh);
+  const upd=()=>{if(!H.value)return W.textContent='';const at=this.nextAt(H.value);W.textContent=(E.checked?'Arriverà ogni giorno alle '+H.value+', a partire da ':'Arriverà ')+this.when(at)};upd();H.oninput=upd;E.onchange=upd;
+  $$('.schQ button',sh).forEach(b=>b.onclick=()=>{tx.value=b.textContent;tx.focus()});
+  $$('[data-rx]',sh).forEach(b=>b.onclick=()=>{this.cancel(cid,b.dataset.rx);closeOv(sh);toast('Messaggio programmato annullato')});
+  $$('[data-rr]',sh).forEach(b=>b.onclick=()=>{this.stopRep(b.dataset.rr);closeOv(sh);toast('Messaggio di ogni giorno annullato')});
+  $('#schGo',sh).onclick=async()=>{const t=tx.value.trim();if(!t)return toast('Scrivi il messaggio');if(isBad(t))return toast('Messaggio non permesso: rispetta gli altri');if(!H.value)return toast('Scegli l’ora');
+   if(!VC.canMsg(cid.slice(2)))return toast('Non puoi scrivere a questa persona');const go=$('#schGo',sh);go.disabled=true;go.textContent='Programmo…';
+   const at=this.nextAt(H.value);if(E.checked){const r={rid:'r'+vid(),cid,tx:t,hm:H.value,last:0};A.rep.push(r);save();await this.fill()}else await this.one(cid,t,at);
+   closeOv(sh);const inp=$('#wct');if(inp&&pre&&inp.value.trim()===pre.trim()){inp.value='';inp.dispatchEvent(new Event('input'))}toast('🌙 Programmato: arriverà '+this.when(at))}}};
+setInterval(()=>SCHED.fill(),30*60000);setTimeout(()=>SCHED.fill(),12000);
+/* ogni telefono con Vybe aperta aiuta a consegnare in orario le notifiche dei messaggi programmati */
+setInterval(()=>{if(CDB.isV()&&document.visibilityState==='visible')fetch('/api/sched',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"op":"tick"}'}).catch(()=>{})},45000);
+/* chi riceve non vede i messaggi prima dell'ora giusta */
+{const cv=VC.conv.bind(VC);VC.conv=function(cid){const c=cv(cid);if(!c||!c.msgs)return c;const now=Date.now()+2000;const before=c.msgs.length;const hid=c.msgs.filter(m=>m.from!==this.me&&m.t>now).length;
+  if(hid){c.msgs=c.msgs.filter(m=>!(m.from!==this.me&&m.t>now));c.unread=Math.max(0,(c.unread||0)-hid);c.last=c.msgs.length?c.msgs[c.msgs.length-1].t:c.last}return c}}
+/* in chat: pulsante luna + etichetta sui messaggi programmati */
+{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{if(cid[0]!=='d')return r;const ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));if(!ov)return r;
+  const clip=$('#wca',ov);if(clip&&!$('#wcsch',ov)){const b=document.createElement('button');b.className='iconbtn';b.id='wcsch';b.setAttribute('aria-label','Programma un messaggio');b.innerHTML=ic('moon',21,1.9);b.onclick=()=>SCHED.sheet(cid,($('#wct',ov)||{}).value||'');clip.parentNode.insertBefore(b,clip)}
+  const box=$('#wcmsgs',ov),draw=ov._vc;const post=()=>{try{const now=Date.now();const c=VC.conv(cid);if(!c)return;c.msgs.forEach(m=>{if(m.from!==VC.me||m.t<=now)return;const el=box.querySelector(`[data-m="${m.id}"]`);if(!el||el.querySelector('.wschb'))return;el.classList.add('wsched');
+    el.insertAdjacentHTML('beforeend',`<button class="wschb" data-sx="${m.id}">🌙 Arriverà ${esc(SCHED.when(m.t))} · Annulla</button>`);$('.wschb',el).onclick=ev=>{ev.stopPropagation();confirmSheet('Annullare il messaggio programmato?','Non verrà più inviato.','Annulla messaggio',()=>{SCHED.cancel(cid,m.id);toast('Messaggio annullato')})}})}catch(e){}};
+  ov._vc=function(){const x=draw.apply(this,arguments);post();return x};post()}catch(e){}return r}}
+(function(){const s=document.createElement('style');s.textContent=`
+.schs{padding:6px 16px 22px;display:flex;flex-direction:column;gap:11px}.schT{font-size:19px}.schS{opacity:.65;margin-top:-6px}
+.schQ{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}.schQ button{flex:0 0 auto;padding:8px 12px;border-radius:16px;background:var(--soft);font-size:13.5px;color:inherit}
+.schs textarea.in{height:auto;padding:12px 14px;resize:none;line-height:1.4}.schR{display:flex;align-items:center;gap:12px}.schR label{font-weight:700}.schR .in{flex:1;font-size:18px;font-weight:700}
+.schRep{display:flex;align-items:center;gap:10px;font-size:14.5px}.schRep input{width:20px;height:20px;accent-color:#a855f7}.schW{font-size:13.5px;color:#c084fc;min-height:18px}
+.schL{display:flex;flex-direction:column;gap:7px;margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}.schI{display:flex;align-items:center;gap:10px;font-size:13.5px}.schI span{flex:1}.schI button{color:#ef4444;font-weight:700;font-size:13px}
+.vb.wsched{opacity:.72;border:1.5px dashed rgba(255,255,255,.35)}.wschb{display:block;margin-top:5px;font-size:11.5px;color:inherit;opacity:.95;text-align:left;background:rgba(0,0,0,.18);padding:4px 8px;border-radius:9px}`;document.head.appendChild(s)})();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
