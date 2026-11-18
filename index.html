@@ -5557,6 +5557,31 @@ MAIL.check();
   catch(e){h.textContent='Controllo non riuscito, riprova';h.className='hint center err';o.clear()}finally{busy=false}});
  $('#resend').onclick=()=>{if(cool>0)return;send()};send()}}
 
+/* v54: chiamate più affidabili — server "ponte" (TURN) per le reti mobili, attesa giusta dei percorsi, registro diagnostico */
+const ICEF={t:0,turn:false,busy:null,
+ async get(){if(Date.now()-this.t<6*3600000)return;if(this.busy)return this.busy;
+  this.busy=(async()=>{try{if(!CDB.isV())return;const j=await Promise.race([vapi('/api/call',{op:'ice'}),new Promise((_,rj)=>setTimeout(()=>rj('to'),3500))]);
+   if(j&&Array.isArray(j.ice)&&j.ice.length){const base=[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']}];const all=base.concat(j.ice);
+    LIVE.ice.splice(0,LIVE.ice.length,...all);if(CALL.ice!==LIVE.ice)CALL.ice=LIVE.ice;this.turn=true}this.t=Date.now()}catch(e){}finally{this.busy=null}})();return this.busy}};
+setTimeout(()=>ICEF.get(),9000);
+/* aspetta i percorsi di collegamento (anche quello "ponte") prima di chiamare */
+LIVE.waitIce=function(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();let done=false;const fin=()=>{if(!done){done=true;res()}};
+ pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete')fin()});
+ pc.addEventListener('icecandidate',e=>{if(!e.candidate)fin();else if(/ typ relay/.test(e.candidate.candidate))setTimeout(fin,800)});setTimeout(fin,ICEF.turn?6000:3500)})};
+const ctypes=sdp=>{const c={host:0,srflx:0,relay:0};String(sdp||'').split('\n').forEach(l=>{const m=/ typ (host|srflx|relay)/.exec(l);if(m)c[m[1]]++});return`h${c.host}s${c.srflx}r${c.relay}`};
+function clog(t){try{if(CDB.isV())vapi('/api/call',{op:'clog',t:String(t).slice(0,380)}).catch(()=>{})}catch(e){}}
+/* registro: cosa succede durante la chiamata (serve a capire i problemi sui telefoni veri) */
+{const mk=CALL.mkPC.bind(CALL);CALL.mkPC=function(){const pc=mk();const c=this.cur;const tag=(c&&c.role||'?')+(c&&c.v?'v':'a');
+  pc.addEventListener('connectionstatechange',()=>{clog(`1v1 ${tag} conn=${pc.connectionState} ice=${pc.iceConnectionState} turn=${ICEF.turn?1:0} loc=${ctypes(pc.localDescription&&pc.localDescription.sdp)} rem=${ctypes(pc.remoteDescription&&pc.remoteDescription.sdp)}`)});return pc}}
+{const mk=GCALL.mkPC.bind(GCALL);GCALL.mkPC=function(u){const pc=mk(u);pc.addEventListener('connectionstatechange',()=>{if(['connected','failed'].includes(pc.connectionState))clog(`grp conn=${pc.connectionState} turn=${ICEF.turn?1:0} loc=${ctypes(pc.localDescription&&pc.localDescription.sdp)} rem=${ctypes(pc.remoteDescription&&pc.remoteDescription.sdp)}`)});return pc}}
+/* prima di chiamare o rispondere mi assicuro di avere i server ponte */
+{const so=CALL.startOut.bind(CALL);CALL.startOut=async function(u,v){await ICEF.get();return so(u,v)}}
+{const ac=CALL.accept.bind(CALL);CALL.accept=async function(w){await ICEF.get();return ac(w)}}
+{const gs=GCALL.start.bind(GCALL);GCALL.start=async function(g,v){await ICEF.get();return gs(g,v)}}
+{const gj=GCALL.join.bind(GCALL);GCALL.join=async function(r,v,n,g){await ICEF.get();return gj(r,v,n,g)}}
+/* errori della fotocamera/microfono nel registro */
+{const md=CALL.media.bind(CALL);CALL.media=async function(v,f){try{return await md(v,f)}catch(e){clog('media '+(v?'v':'a')+' '+(e&&e.name||e));throw e}}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
