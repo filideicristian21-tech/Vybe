@@ -2268,11 +2268,11 @@ function pickMedia(kind='any'){return new Promise(res=>{const inp=$('#filePick')
    return res({kind:'video',url:url||local,temp:!url,w:m.w,h:m.h,dur:m.dur,poster:m.poster})}
   if(f.type.startsWith('audio/')){const local=URL.createObjectURL(f);const dur=await new Promise(r=>{const a=new Audio();a.preload='metadata';a.onloadedmetadata=()=>r(a.duration||0);a.onerror=()=>r(0);a.src=local;setTimeout(()=>r(0),5000)});
    let url=null;if(Assets.ready&&/mp4|m4a|aac/.test(f.type)&&f.size<=20*1024*1024)url=await Assets.put(f,'video/mp4');return res({kind:'audio',url:url||local,temp:!url,dur})}
-  if(!f.type.startsWith('image/')){toast('Formato non supportato');return res(null)}
+  if(!f.type.startsWith('image/')&&!/\.(hei[cf]|jpe?g|png|webp|gif|avif|tiff?|bmp)$/i.test(f.name||'')){toast('Formato non supportato');return res(null)}
   const im=await loadImgFile(f);
   if(Assets.ready){const e=encodeImg(im,1440,.82);const blob=await new Promise(r=>e.c.toBlob(r,'image/jpeg',.82));const url=blob?await Assets.put(blob,'image/jpeg'):null;if(url)return res({kind:'image',url,w:e.w,h:e.h})}
   let m=900,q=.74,e;for(let k=0;k<6;k++){e=encodeImg(im,m,q);if(e.url.length<230000)break;q=Math.max(.45,q-.1);m=Math.round(m*.85)}
-  try{PICKHD.set(e.url,im)}catch(_){}return res({kind:'image',url:e.url,w:e.w,h:e.h})}catch(err){toast('Impossibile leggere il file');res(null)}};inp.click()})}
+  try{PICKHD.set(e.url,im)}catch(_){}return res({kind:'image',url:e.url,w:e.w,h:e.h})}catch(err){try{PICKX.fail(f,err)}catch(_){toast('Impossibile leggere il file')}res(null)}};inp.click()})}
 function pickImage(max){return pickMedia('image')}
 
 /* ---------- Reels ---------- */
@@ -5581,6 +5581,36 @@ function clog(t){try{if(CDB.isV())vapi('/api/call',{op:'clog',t:String(t).slice(
 {const gj=GCALL.join.bind(GCALL);GCALL.join=async function(r,v,n,g){await ICEF.get();return gj(r,v,n,g)}}
 /* errori della fotocamera/microfono nel registro */
 {const md=CALL.media.bind(CALL);CALL.media=async function(v,f){try{return await md(v,f)}catch(e){clog('media '+(v?'v':'a')+' '+(e&&e.name||e));throw e}}}
+
+/* v55: foto che non si aprono ("Impossibile leggere il file") — più modi di aprire la foto, HEIC, iCloud, registro */
+const PICKX={
+ img(src){return new Promise((res,rej)=>{const im=new Image();let done=false;const t=setTimeout(()=>{if(!done){done=true;rej(new Error('timeout'))}},25000);
+  im.onload=()=>{if(done)return;done=true;clearTimeout(t);const d=im.decode?im.decode().catch(()=>{}):Promise.resolve();d.then(()=>{if(!(im.naturalWidth||im.width))return rej(new Error('w0'));res(im)})};
+  im.onerror=()=>{if(done)return;done=true;clearTimeout(t);rej(new Error('img'))};im.src=src})},
+ data(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('fr'));r.readAsDataURL(f)})},
+ isHeic(f){return /hei[cf]/i.test(f.type||'')||/\.hei[cf]$/i.test(f.name||'')},
+ lib:null,
+ loadLib(){if(window.heic2any)return Promise.resolve(window.heic2any);if(this.lib)return this.lib;
+  this.lib=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';s.async=true;
+   s.onload=()=>window.heic2any?res(window.heic2any):rej(new Error('lib'));s.onerror=()=>{PICKX.lib=null;rej(new Error('lib'))};document.head.appendChild(s)});return this.lib},
+ async decode(f){const why=[];
+  if(!f||!f.size){const e=new Error('vuoto');e.why='size0';e.empty=1;throw e}
+  try{return await this.img(URL.createObjectURL(f))}catch(e){why.push('url-'+e.message)}
+  try{if(window.createImageBitmap){const b=await createImageBitmap(f);if(b&&b.width)return b}}catch(e){why.push('bmp-'+(e.name||e.message))}
+  try{return await this.img(await this.data(f))}catch(e){why.push('fr-'+e.message)}
+  if(this.isHeic(f)||!f.type){try{toast('Converto la foto…');const h=await this.loadLib();const out=await h({blob:f,toType:'image/jpeg',quality:.92});const b=Array.isArray(out)?out[0]:out;return await this.img(URL.createObjectURL(b))}catch(e){why.push('heic-'+(e&&e.message||e))}}
+  const er=new Error('decode');er.why=why.join(' ');throw er},
+ ios(){const m=navigator.userAgent.match(/OS (\d+)_(\d+)/);return m?m[1]+'.'+m[2]:'-'},
+ fail(f,err){const ext=((f&&f.name||'').match(/\.([a-z0-9]{2,5})$/i)||[])[1]||'-';
+  try{clog(`pick fail type=${(f&&f.type)||'vuoto'} ext=${ext} size=${f?Math.round(f.size/1024):0}k ios=${this.ios()} why=${(err&&(err.why||err.message))||'?'}`)}catch(e){}
+  const empty=err&&err.empty;
+  openSheet(`<div class="shead">${empty?'La foto è ancora su iCloud':'Questa foto non si apre'}</div><div style="padding:4px 18px 18px;line-height:1.5;font-size:15px;color:var(--ink)">${empty
+   ?'L’iPhone non l’ha ancora scaricata. Apri la foto nell’app <b>Foto</b>, aspetta che diventi nitida, poi torna qui e riprova.'
+   :'Il telefono non riesce a leggerla. Prova così:<br>1. Riprova a sceglierla una seconda volta.<br>2. Se non va, fai uno <b>screenshot</b> della foto e carica lo screenshot.<br>3. Aggiorna l’iPhone: <b>Impostazioni › Generali › Aggiornamento software</b>.'}</div>`)}
+};
+loadImgFile=function(f){return PICKX.decode(f)};
+/* se la tela è troppo grande per il telefono, riprovo più piccola */
+{const enc=encodeImg;encodeImg=function(im,max,q){let m=max;for(let k=0;k<4;k++){try{const e=enc(im,m,q);if(e&&e.url&&e.url.length>40)return e}catch(err){}m=Math.round(m*.6)}throw new Error('canvas')}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
