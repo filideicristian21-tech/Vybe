@@ -4334,7 +4334,8 @@ function openStoryOf(id){const L=realStoryList();const i=L.findIndex(x=>x.who.id
 /* le risposte e i mi piace alle tue storie arrivano nelle notifiche */
 async function readStoryInbox(){if(!Cloud.on||S.ibBusy)return;S.ibBusy=1;try{const r=await fetch('/api/inbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:Cloud.email,token:Cloud.tok,action:'read'})});if(!r.ok)return;const j=await r.json();const a=S.acc;const seen=a.ibSeen||0;let mx=seen;
   for(const it of j.items||[]){if(!it||it.t<=seen)continue;mx=Math.max(mx,it.t);const w=USERS['r_'+it.f];if(!w||a.rblock.includes(it.f))continue;
-   const txt=it.k==='like'?'ha messo ❤️ alla tua storia':it.k==='react'?`ha reagito alla tua storia ${String(it.tx||'').slice(0,4)}`:`ha risposto alla tua storia: “${String(it.tx||'').slice(0,120)}”`;notify('story',w,null,txt)}
+   if(it.k==='cmt'){const op=(S.acc.own||[]).find(x=>String(x.id)===String(it.st));notify('comment',w,op||null,`ha commentato il tuo post: “${String(it.tx||'').slice(0,120)}”`);try{CMT.cnt[Real.uid+'|'+it.st]=(CMT.cnt[Real.uid+'|'+it.st]||0)+1;CMT.apply()}catch(e){}continue}
+    const txt=it.k==='like'?'ha messo ❤️ alla tua storia':it.k==='react'?`ha reagito alla tua storia ${String(it.tx||'').slice(0,4)}`:`ha risposto alla tua storia: “${String(it.tx||'').slice(0,120)}”`;notify('story',w,null,txt)}
   a.ibSeen=mx;save()}catch(e){}finally{S.ibBusy=0}}
 {const os=Real.onSnap.bind(Real);Real.onSnap=function(s){os(s);if(Real.db!==VDB||!VDB.dir||!Real.uid)return;const me=VDB.dir[Real.uid];if(me&&me.ib&&me.ib>(S.acc.ibSeen||0))readStoryInbox()}}
 /* canzoni: lista "di tendenza" subito visibile, poi la ricerca */
@@ -5498,6 +5499,63 @@ try{const k=TABS2.findIndex(x=>x[0]==='ads');if(k>=0)TABS2.splice(k,1);if(S.tab=
   const bd=document.querySelector('.welcome .collage .badge');if(bd&&/2,4k/.test(bd.textContent))bd.remove()});mo.observe(document.documentElement,{childList:true,subtree:true})}
 /* 8) il riquadro del codice email sparisce appena il codice è giusto (non copre più le schermate dopo) */
 {const sc=stCode;stCode=function(){const r=sc.apply(this,arguments);const t=setInterval(()=>{if(!$('#otp')){clearInterval(t);const b=document.getElementById('mailbanner');if(b)b.classList.remove('show')}},300);return r}}
+
+/* v52: commenti veri sotto i post (condivisi tra le persone, non più solo sul tuo telefono) */
+const CMT={cnt:{},
+ api(o){return vapi('/api/cmt',o)},
+ on(){return typeof CDB!=='undefined'&&CDB.isV()&&!!Real.uid},
+ key(p){if(!p)return null;if(p.real&&p.rid)return{o:p.rid,p:String(p.rpid)};if(Real.uid&&(p.mine||((S.acc&&S.acc.own)||[]).some(x=>String(x.id)===String(p.id))))return{o:Real.uid,p:String(p.id)};return null},
+ who(f){if(f===Real.uid){const m=ME();return{n:m.n||S.acc.name||'Tu',u:S.acc.username||'tu',av:avHTML(m,34),me:true}}const w=USERS['r_'+f];return w?{n:w.first||w.n,u:w.u,av:avHTML(w,34),w}:{n:'Utente',u:'utente',av:'<div class="av" style="width:34px;height:34px"></div>'}},
+ open(o,pid,post){const ownerW=o===Real.uid?null:USERS['r_'+o];const ownerName=o===Real.uid?'te':(ownerW?ownerW.first:'');let items=[],busy=false;
+  const sh=openSheet(`<div class="shead">💬 Commenti</div><div class="sbody cmtl" id="cmL"><div class="cmw">Carico i commenti…</div></div>
+   <div class="cbar">${avHTML(ME(),36)}<input id="cmI" maxlength="500" placeholder="Scrivi un commento${ownerName&&ownerName!=='te'?' per '+esc(ownerName):''}…" enterkeyhint="send"><button class="send" id="cmS">${ic('send',20)}</button></div>`);
+  const L=$('#cmL',sh),I=$('#cmI',sh);
+  const draw=()=>{const bl=S.acc.rblock||[];const v=items.filter(x=>!bl.includes(x.f));this.cnt[o+'|'+pid]=items.length;this.apply();
+   L.innerHTML=v.length?v.map(x=>{const h=this.who(x.f);return`<div class="cmi" data-id="${esc(x.id)}" data-f="${esc(x.f)}">${h.av}<div class="cmb"><div><b>${esc(h.u)}</b> <span>${ago(x.t)}</span></div><p>${vcLinkify?vcLinkify(esc(x.tx)):esc(x.tx)}</p></div><button class="cmm" aria-label="Opzioni">⋯</button></div>`}).join(''):`<div class="cmw">Ancora nessun commento.<br><b>Scrivi il primo!</b></div>`;
+   L.scrollTop=L.scrollHeight;
+   $$('.cmm',L).forEach(b=>b.onclick=()=>{const row=b.closest('.cmi'),id=row.dataset.id,f=row.dataset.f;const mine=f===Real.uid,owner=o===Real.uid;
+    const opts=[];if(mine||owner)opts.push(['del','🗑️ Elimina commento']);if(!mine)opts.push(['rep','🚩 Segnala']);if(!mine)opts.push(['blk','🚫 Blocca @'+(this.who(f).u)]);
+    const m=openSheet(`<div class="menu">${opts.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('')}<button data-k="x">Annulla</button></div>`);
+    $$('[data-k]',m).forEach(x=>x.onclick=async()=>{closeOv(m);const k=x.dataset.k;
+     if(k==='del'){try{await this.api({op:'del',o,p:pid,id});items=items.filter(y=>y.id!==id);draw();toast('Commento eliminato')}catch(e){toast('Non riesco a eliminarlo, riprova')}}
+     else if(k==='rep'){try{openReport(f,{kind:'comment',o,p:pid,id,tx:(items.find(y=>y.id===id)||{}).tx})}catch(e){toast('Segnalazione non disponibile')}}
+     else if(k==='blk'){try{if(!S.acc.rblock.includes(f))S.acc.rblock.push(f);save();draw();toast('Persona bloccata: non vedrai più i suoi commenti')}catch(e){}}})})};
+  const load=async()=>{try{const j=await this.api({op:'list',o,p:pid});items=j.items||[];draw()}catch(e){L.innerHTML=`<div class="cmw">${e&&e.code==='private'?'Profilo privato: segui e fatti accettare per vedere i commenti.':'Commenti non disponibili ora. Riprova tra poco.'}</div>`}};load();
+  const send=async()=>{const tx=I.value.replace(/\s+/g,' ').trim();if(!tx||busy)return;if(isBad(tx))return toast('Commento non permesso: rispetta gli altri');busy=true;$('#cmS',sh).disabled=true;
+   try{const j=await this.api({op:'add',o,p:pid,tx});items.push(j.it);I.value='';draw()}catch(e){toast(e&&e.code==='slow'?'Stai commentando troppo velocemente':e&&e.code==='private'?'Profilo privato: non puoi commentare':'Commento non inviato, riprova')}finally{busy=false;$('#cmS',sh).disabled=false}};
+  $('#cmS',sh).onclick=send;I.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send()}});setTimeout(()=>{try{I.focus()}catch(e){}},350);
+  sh._cmt=setInterval(()=>{if(!sh.isConnected){clearInterval(sh._cmt);return}if(document.activeElement!==I||!I.value)load()},15000)},
+ apply(){for(const p of REALP){const c=this.cnt[p.rid+'|'+p.rpid];if(c!=null)p.cmCount=c}for(const p of (S.acc&&S.acc.own)||[]){const c=this.cnt[Real.uid+'|'+p.id];if(c!=null)p.cmCount=c}
+  $$('[data-cmc]').forEach(e=>{const c=this.cnt[e.dataset.cmc];if(c!=null)e.textContent=c?fmt(c):''})},
+ async refresh(){if(!this.on()||this.rb||document.visibilityState==='hidden')return;this.rb=true;try{const L=[];REALP.slice(0,50).forEach(p=>L.push([p.rid,String(p.rpid)]));((S.acc&&S.acc.own)||[]).slice(0,30).forEach(p=>L.push([Real.uid,String(p.id)]));
+  if(!L.length)return;const j=await this.api({op:'counts',L});(j.c||[]).forEach((n,i)=>{this.cnt[L[i][0]+'|'+L[i][1]]=n});this.apply()}catch(e){}finally{this.rb=false}}};
+setTimeout(()=>CMT.refresh(),8000);setInterval(()=>CMT.refresh(),90000);
+{const sr=syncRealPosts;syncRealPosts=function(){const r=sr.apply(this,arguments);try{CMT.apply()}catch(e){}return r}}
+/* i pulsanti "commenti" dei post veri e dei tuoi post aprono i commenti condivisi */
+{const oc=openComments;openComments=function(id){const p=getPost(id);const k=CMT.on()&&CMT.key(p);if(k)return CMT.open(k.o,k.p,p);return oc.apply(this,arguments)}}
+/* nella scheda del post di un amico: pulsante commenti */
+{const orp=openRealPost;openRealPost=function(id,i){const r=orp.apply(this,arguments);try{const w=USERS[id],p=w&&w.posts[i];const sh=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.rpost'));if(!sh||!p||!CMT.on())return r;
+  const act=sh.querySelector('.rpact');if(act&&!act.querySelector('.rpc')){const k=w.rid+'|'+p.id;act.insertAdjacentHTML('beforeend',`<button class="rpc" aria-label="Commenti">${ic('comment',23)}<span data-cmc="${k}">${CMT.cnt[k]?fmt(CMT.cnt[k]):''}</span></button>`);
+   act.querySelector('.rpc').onclick=()=>CMT.open(w.rid,String(p.id),null);CMT.api({op:'counts',L:[[w.rid,String(p.id)]]}).then(j=>{CMT.cnt[k]=(j.c||[0])[0];CMT.apply()}).catch(()=>{})}}catch(e){}return r}}
+(function(){const s=document.createElement('style');s.textContent=`
+.cmtl{min-height:180px;max-height:58vh;overflow-y:auto;padding:4px 14px 10px}.cmw{text-align:center;opacity:.7;padding:40px 10px;line-height:1.6}
+.cmi{display:flex;gap:10px;align-items:flex-start;padding:9px 0}.cmb{flex:1;min-width:0}.cmb div{font-size:13px}.cmb span{opacity:.55;font-size:12px}.cmb p{margin:2px 0 0;font-size:14.5px;line-height:1.4;word-wrap:break-word;white-space:pre-wrap}
+.cmm{opacity:.55;font-size:18px;padding:0 4px;color:inherit}.rpact .rpc{display:flex;align-items:center;gap:6px;margin-left:14px;color:inherit}.rpact .rpc span{font-weight:700;font-size:14px}`;document.head.appendChild(s)})();
+
+/* v53: codice di verifica via email VERA (quando il servizio email è attivo sul server) */
+const MAIL={on:null,async check(){if(this.on!==null)return this.on;try{const r=await fetch('/api/mail',{cache:'no-store'});const j=await r.json();this.on=!!j.on}catch(e){this.on=false}return this.on},
+ api(o){return fetch('/api/mail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http',status:r.status};return j})}};
+MAIL.check();
+{const cf=codeFlow;codeFlow=function(cfg){if(!MAIL.on)return cf(cfg);let cool=0,tm,busy=false;
+ function tick(){clearInterval(tm);const up=()=>{const b=$('#resend');if(!b)return clearInterval(tm);if(cool>0){b.disabled=true;b.textContent=`Invia di nuovo tra ${cool}s`;cool--}else{b.disabled=false;b.textContent='Non è arrivata? Invia un nuovo codice';clearInterval(tm)}};up();tm=setInterval(up,1000)}
+ async function send(){const h=$('#hOtp');cool=45;tick();try{await MAIL.api({op:'send',email:cfg.mail});if(h){h.textContent='📩 Email inviata: controlla anche la cartella Spam';h.className='hint center'}}
+  catch(e){cool=0;tick();if(h){h.textContent=e.code==='slow'?'Troppe richieste: aspetta qualche minuto e riprova':e.code==='bademail'?'Questo indirizzo email non sembra valido: torna indietro e correggilo':'Non riesco a inviare l’email adesso, riprova tra poco';h.className='hint center err'}}}
+ shell(cfg.n,cfg.total,`<h1>${cfg.title}</h1><p class="sub">Ti abbiamo mandato un’email con un codice di 6 cifre a <b style="color:var(--ink)">${esc(cfg.mail)}</b>. Inseriscilo qui sotto.</p>${otpUI()}<small class="hint center" id="hOtp">Invio in corso…</small><button class="link" id="resend" style="text-decoration:none;color:var(--muted)"></button><div class="box">${ic('shield',18)}<div style="margin-top:6px">Il codice serve a dimostrare che l’email è davvero tua. Arriva da “Vybe” in pochi secondi: se non lo trovi, guarda in Spam o Promozioni.</div></div>`);
+ const o=bindOtp(async v=>{if(busy)return;busy=true;const h=$('#hOtp');h.textContent='Controllo…';h.className='hint center';
+  try{const j=await MAIL.api({op:'verify',email:cfg.mail,code:v});if(j.ok){h.textContent='Verificato ✓';h.className='hint center ok';setTimeout(cfg.onOk,450);return}
+   h.textContent=j.why==='expired'?'Codice scaduto: richiedine uno nuovo':j.why==='tries'?'Troppi tentativi: richiedi un nuovo codice':`Codice errato. Tentativi rimasti: ${j.left}`;h.className='hint center err';o.clear();if(j.why!=='wrong'){cool=0;tick()}}
+  catch(e){h.textContent='Controllo non riuscito, riprova';h.className='hint center err';o.clear()}finally{busy=false}});
+ $('#resend').onclick=()=>{if(cool>0)return;send()};send()}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
