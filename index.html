@@ -1496,7 +1496,7 @@ function showWelcome(){showAuth();D={};
  const imgs=[['sunset',11,'k1'],['mountains',42,'k2'],['beach',7,'k3']].map(([k,s,c])=>`<div class="c3 ${c}"><img src="${sceneURL(k,s,300,420)}" alt=""></div>`).join('');
  A.innerHTML=`<div class="welcome dark"><div class="logo" style="font-size:40px;align-self:flex-start">Vybe</div>
  <div class="collage">${imgs}<div class="badge" style="left:4%;bottom:24px;z-index:5">${ic('heart',15)} 2,4k</div><div class="badge" style="right:2%;top:0;z-index:5">${ic('shield',15)} Accesso protetto</div></div>
- <div class="wtitle">Condividi le tue <em>vibes</em>.<br>Resta al sicuro.</div>
+ <div class="wtitle">Condividi le tue <em>vibes</em>.</div>
  <p class="sub" style="margin:0">Foto, storie con musica, pubblicità dei creator e commenti. Dai 12 anni in su, con contenuti adatti alla tua età.</p>
  <div class="spacer"></div>
  <button class="btn" id="wNew">Crea un account</button>
@@ -5611,6 +5611,16 @@ const PICKX={
 loadImgFile=function(f){return PICKX.decode(f)};
 /* se la tela è troppo grande per il telefono, riprovo più piccola */
 {const enc=encodeImg;encodeImg=function(im,max,q){let m=max;for(let k=0;k<4;k++){try{const e=enc(im,m,q);if(e&&e.url&&e.url.length>40)return e}catch(err){}m=Math.round(m*.6)}throw new Error('canvas')}}
+
+/* v56: app a tutto schermo su iPhone (niente striscia vuota sotto) */
+{const st=document.createElement('style');st.textContent=`@media(max-width:519px){
+html,body{height:100%;overflow:hidden}
+#app{position:fixed!important;left:0!important;right:0!important;top:env(safe-area-inset-top,0px)!important;bottom:0!important;height:auto!important;max-width:none!important;margin:0!important;border-radius:0!important}
+#nav{height:calc(66px + env(safe-area-inset-bottom,0px))!important;padding-bottom:calc(4px + env(safe-area-inset-bottom,0px))!important;box-sizing:border-box}
+#views{bottom:calc(66px + env(safe-area-inset-bottom,0px))!important}
+#auth,#splash{padding-bottom:env(safe-area-inset-bottom,0px)}
+.ovf{padding-bottom:env(safe-area-inset-bottom,0px)}
+}`;document.head.appendChild(st)}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
