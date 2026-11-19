@@ -5636,6 +5636,24 @@ const VFIT={
 VFIT.run();addEventListener('resize',()=>VFIT.run());addEventListener('orientationchange',()=>setTimeout(()=>VFIT.run(),400));setTimeout(()=>VFIT.run(),1500);setTimeout(()=>VFIT.run(),6000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>VFIT.run(),300)});
 
+/* v58: sotto la pagina iPhone non disegna nulla (misurato: schermo 693, pagina 654).
+   1) trucco noto per far allungare la pagina; 2) se resta corta: barra in basso senza spazio extra e striscia dello stesso colore */
+{const st=document.createElement('style');st.textContent=`@media(max-width:519px){
+html{min-height:calc(100% + env(safe-area-inset-top,0px))}
+html.vshort #nav{height:66px!important;padding-bottom:4px!important;background:#07060c!important}
+html.vshort #views{bottom:66px!important}
+html.vshort #auth,html.vshort #splash,html.vshort .ovf{padding-bottom:0!important}
+html.vshort,html.vshort body{background:#07060c!important}
+}`;document.head.appendChild(st)}
+VFIT.logged2=false;
+VFIT.run=function(){try{const ih=window.innerHeight,iw=window.innerWidth,sh=screen.height,top=this.env('top'),bot=this.env('bottom'),st=this.st();
+  const gap=Math.round(sh-ih),short=st&&ih>iw&&iw<520&&gap>=10&&gap<=140;
+  document.documentElement.style.setProperty('--vgap','0px');
+  document.documentElement.classList.toggle('vshort',!!short);
+  const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.setAttribute('content',short?'#07060c':'#0b0a10');
+  if(!this.logged2&&typeof clog==='function'&&S&&S.acc){this.logged2=true;clog(`vfit2 sh=${sh} ih=${ih} iw=${iw} top=${top} bot=${bot} st=${st?1:0} short=${short?1:0} gap=${gap}`)}}catch(e){}};
+VFIT.run();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
