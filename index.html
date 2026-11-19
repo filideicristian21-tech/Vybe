@@ -5654,6 +5654,9 @@ VFIT.run=function(){try{const ih=window.innerHeight,iw=window.innerWidth,sh=scre
   if(!this.logged2&&typeof clog==='function'&&S&&S.acc){this.logged2=true;clog(`vfit2 sh=${sh} ih=${ih} iw=${iw} top=${top} bot=${bot} st=${st?1:0} short=${short?1:0} gap=${gap}`)}}catch(e){}};
 VFIT.run();
 
+/* v59: la fascia sotto l'orologio prende lo stesso colore dell'app */
+{const st=document.createElement('style');st.textContent=`@media(max-width:519px){html,body{background:#07060c!important}}`;document.head.appendChild(st);const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.setAttribute('content','#07060c')}
+{const r=VFIT.run;VFIT.run=function(){r.apply(this,arguments);const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.setAttribute('content','#07060c')}}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
