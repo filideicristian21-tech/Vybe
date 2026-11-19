@@ -5622,6 +5622,20 @@ html,body{height:100%;overflow:hidden}
 .ovf{padding-bottom:env(safe-area-inset-bottom,0px)}
 }`;document.head.appendChild(st)}
 
+/* v57: iPhone (iOS 26) — l'app web finisce prima del fondo dello schermo: la allungo fino in fondo */
+const VFIT={
+ env(side){const d=document.createElement('div');d.style.cssText='position:fixed;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;height:env(safe-area-inset-'+side+',0px)';document.body.appendChild(d);const h=d.getBoundingClientRect().height;d.remove();return Math.round(h)},
+ st(){return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true},
+ logged:false,
+ run(){try{const ih=window.innerHeight,iw=window.innerWidth,sh=screen.height,top=this.env('top'),bot=this.env('bottom'),st=this.st();
+  let g=0;if(st&&ih>iw&&iw<520){g=Math.round(sh-ih);if(g<0||g>140||top===0)g=0}
+  document.documentElement.style.setProperty('--vgap',g+'px');
+  if(!this.logged&&typeof clog==='function'&&S&&S.acc){this.logged=true;const vv=window.visualViewport?Math.round(visualViewport.height):0;clog(`vfit sh=${sh} ih=${ih} vv=${vv} iw=${iw} top=${top} bot=${bot} st=${st?1:0} g=${g} ios=${(navigator.userAgent.match(/OS (\d+)_(\d+)/)||[]).slice(1).join('.')}`)}}catch(e){}}
+};
+{const st=document.createElement('style');st.textContent=`@media(max-width:519px){#app{bottom:calc(-1 * var(--vgap,0px))!important}}`;document.head.appendChild(st)}
+VFIT.run();addEventListener('resize',()=>VFIT.run());addEventListener('orientationchange',()=>setTimeout(()=>VFIT.run(),400));setTimeout(()=>VFIT.run(),1500);setTimeout(()=>VFIT.run(),6000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>VFIT.run(),300)});
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
