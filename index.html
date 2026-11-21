@@ -6106,6 +6106,9 @@ GUIDE.S.splice(1,0,
  ['📊','Sondaggi — NUOVO','Nelle storie tocca <b>📊 Sondaggio</b> mentre la crei. In chat e nei gruppi tocca il <b>+</b> accanto al messaggio e scegli <b>Sondaggio</b>. Tutti votano con un tocco e vedono i risultati.'],
  ['🎂','Compleanni — NUOVO','Puoi far vedere ai tuoi amici il giorno del tuo compleanno (mai l’anno). In alto nella home vedi chi compie gli anni, e se vuoi Vybe manda gli auguri da solo a mezzanotte.'],
  ['🧑‍🎨','Avatar con l’IA — facoltativo','In <b>Modifica profilo</b> puoi creare un avatar dalla tua foto, in stile cartoon, anime, videogioco e altri. Lo usi solo se ti piace.']);
+/* v67: la guida "Prima di entrare" si vede UNA volta sola: chi l'ha già letta (anche una versione vecchia) non la rivede più */
+GUIDE.seen=function(){try{if(S.acc&&(S.acc.guideV>=1||S.acc.guideSeen))return true}catch(e){}try{return +localStorage.getItem('vybe_guide_v')>=1}catch(e){return false}};
+{const mk=GUIDE.mark.bind(GUIDE);GUIDE.mark=function(){mk();try{S.acc.guideSeen=1;save()}catch(e){}}}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
