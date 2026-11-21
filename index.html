@@ -6262,6 +6262,10 @@ FX.open=function(target){const L=this.build();let fi=0,mi=Math.max(0,+(S.acc&&S.
 `;document.head.appendChild(st)}
 {const oc=openCreate;openCreate=function(only){const r=oc.apply(this,arguments);try{const b=$('#cFx');if(b){const s=b.querySelector('small');if(s)s.textContent=`Maschere animate (leone, gatto, unicorno…) + ${FX.build().length} filtri colore · NUOVO`}}catch(e){}return r}}
 
+/* v70: Vybe Imagine tolto (su richiesta) */
+{const st=document.createElement('style');st.textContent='#imHdr,#cImg{display:none!important}';document.head.appendChild(st)}
+IMAG.open=function(){toast('Vybe Imagine non è più disponibile')};openAI=function(){};
+GUIDE.S=GUIDE.S.filter(x=>!/Vybe Imagine/.test(x[1]));
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
