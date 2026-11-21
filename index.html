@@ -5114,7 +5114,7 @@ I.vidoff='<path d="M3 3l18 18M15.5 15.5V17a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1
 async function vapi(path,o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:CDB.sid},o))});
  if(r.status===401&&!retry){CDB.sid=null;try{localStorage.removeItem(CDB.key())}catch(e){}if(!await CDB.auth())throw{code:'auth'};return vapi(path,o,true)}
- if(r.status===503)throw{code:'nodb'};const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status,status:r.status};return j}
+ if(r.status===503)throw{code:'nodb'};const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status,status:r.status,j};return j}
 const fmtDur=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 
 /* ---------- suoni di chiamata (squillo / attesa) ---------- */
@@ -5657,7 +5657,7 @@ const IMAG={
  STY:[['real','📷','Realistico'],['cine','🎬','Cinema'],['ow','🌴','Open World'],['cartoon','🧸','Cartoon 3D'],['anime','🌸','Anime'],['comic','💥','Fumetto'],['pixel','👾','Pixel'],['clay','🟠','Plastilina'],['water','🎨','Acquerello'],['oil','🖼️','Quadro a olio'],['neon','🌃','Neon'],['sketch','✏️','Matita'],['lego','🧱','Mattoncini'],['fantasy','🐉','Fantasy'],['vintage','📼','Vintage'],['free','✍️','Libero']],
  FMT:[['vert','Post 4:5'],['sq','Quadrato'],['story','Storia 9:16'],['wide','Orizzontale']],
  IDEAS:['Un gatto astronauta che cammina su Marte','La mia città al tramonto con le luci al neon','Una macchina sportiva rossa sotto la pioggia di notte','Un drago gentile che dorme su una montagna di nuvole','Una spiaggia tropicale con l’acqua trasparente','Un ragazzo con gli occhiali da sole su uno skate a Miami'],
- ERR:{day:'Hai usato tutte le immagini di oggi. Domani ne hai di nuove ✨',all:'Oggi su Vybe sono state create troppe immagini. Riprova domani.',credits:'Il servizio IA ha finito i crediti per ora. Riprova più tardi.',blocked:'Questa richiesta non si può creare. Prova a descriverla in un altro modo 💜',busy:'Il servizio è pieno in questo momento: riprova tra 20 secondi.',editoff:'Trasformare le foto non è ancora attivo. Per ora puoi creare immagini da zero.',short:'Scrivi qualcosa in più su cosa vuoi vedere.',img:'Questa foto è troppo grande, scegline un’altra.',auth:'Accedi di nuovo per usare Vybe Imagine.',nodb:'Server non raggiungibile, riprova.',banned:'Il tuo account non può usare questa funzione.'},
+ ERR:{day:'Hai usato tutte le immagini di oggi. Domani ne hai di nuove ✨',all:'Oggi su Vybe sono state create troppe immagini. Riprova domani.',credits:'Il servizio IA ha finito i crediti per ora. Riprova più tardi.',blocked:'Questa richiesta non si può creare. Prova a descriverla in un altro modo 💜',busy:'Ci sono tante richieste in questo momento: riprova tra un minuto.',editoff:'Trasformare le foto non è ancora attivo. Per ora puoi creare immagini da zero.',short:'Scrivi qualcosa in più su cosa vuoi vedere.',img:'Questa foto è troppo grande, scegline un’altra.',auth:'Accedi di nuovo per usare Vybe Imagine.',nodb:'Server non raggiungibile, riprova.',banned:'Il tuo account non può usare questa funzione.'},
  async status(){try{const r=await fetch('/api/img',{cache:'no-store'});if(!r.ok)throw 0;this.st=await r.json()}catch(e){this.st={on:false}}return this.st},
  toData(im,max,q){const W=im.naturalWidth||im.width,H=im.naturalHeight||im.height,sc=Math.min(1,max/Math.max(W,H)),c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)},
  loadUrl(u){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>rej(new Error('load'));im.src=u})},
@@ -5710,7 +5710,7 @@ const IMAG={
    busy=true;const btn=$o('#imGo');btn.disabled=true;const t0=Date.now();
    $o('#imOut').innerHTML=`<div class="imwait"><div class="imorb"></div><b id="imW">Sto disegnando la tua immagine…</b><small>Di solito ci vogliono 10–40 secondi. Non chiudere questa schermata.</small></div>`;
    const msgs=['Sto disegnando la tua immagine…','Aggiungo luci e colori…','Sistemo i dettagli…','Quasi pronta ✨'];let mi=0;const iv=setInterval(()=>{const w=$o('#imW');if(w)w.textContent=msgs[Math.min(++mi,msgs.length-1)]},9000);
-   try{const j=await vapi('/api/img',Object.assign({prompt:p,style,fmt},mode==='edit'?{image:src}:{}));
+   clearInterval(iv);try{const j=await IMAG.call(Object.assign({prompt:p,style,fmt},mode==='edit'?{image:src}:{}),t=>{const w=$o('#imW');if(w)w.textContent=t});
     this.res.unshift(j.url);this.res=this.res.slice(0,12);paintLeft(j.left);show(j.url);render();try{clog('img ok '+mode+' '+style+' '+Math.round((Date.now()-t0)/1000)+'s')}catch(e){}}
    catch(e){const c=e&&e.code||'fail';$o('#imOut').innerHTML=`<div class="imnote err">${esc(this.ERR[c]||'Qualcosa è andato storto. Riprova tra poco.')}</div>`;try{clog('img fail '+c)}catch(_){}}
    finally{clearInterval(iv);busy=false;btn.disabled=false}};
@@ -5812,6 +5812,12 @@ openAI=function(){IMAG.open()};
 {const st=document.createElement('style');st.textContent=`.imhbtn .imico{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#ec4899 60%,#f97316);font-size:16px;box-shadow:0 0 12px rgba(236,72,153,.55)}`;document.head.appendChild(st)}
 const IMBTN=()=>{try{const cb=$('#chatBtn');if(!cb||$('#imHdr'))return;cb.insertAdjacentHTML('beforebegin',`<button class="iconbtn imhbtn" id="imHdr" aria-label="Vybe Imagine"><span class="imico">✨</span></button>`);$('#imHdr').onclick=e=>{e.stopPropagation();IMAG.open()}}catch(e){}};
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);IMBTN();setTimeout(IMBTN,600);return r}}
+/* v63: coda del servizio gratuito — se è occupato aspetto e riprovo da solo, con il conto alla rovescia */
+IMAG.call=async function(o,say){const msgs=['Sto disegnando la tua immagine…','Aggiungo luci e colori…','Sistemo i dettagli…','Quasi pronta ✨'];
+ for(let k=0;k<4;k++){let mi=0;say(this.st&&this.st.queue?'Sto disegnando… (servizio gratuito: un’immagine alla volta)':msgs[0]);const iv=setInterval(()=>say(msgs[Math.min(++mi,msgs.length-1)]),9000);
+  try{return await vapi('/api/img',o)}catch(e){clearInterval(iv);if(!(e&&e.code==='busy')||k===3)throw e;let w=Math.max(10,Math.min(95,(e.j&&e.j.wait)||46));
+   while(w>0){say(`C’è un’altra immagine in preparazione: la tua parte tra ${w} secondi…`);await new Promise(r=>setTimeout(r,1000));w--}}
+  finally{clearInterval(iv)}}};
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
