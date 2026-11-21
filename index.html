@@ -2371,21 +2371,19 @@ function openCreate(only){const ov=openSheet(`<div class="shead">${only==='story
  <button id="c2"><span class="mi">${ic('text',22)}</span><div>Post di testo<small>Una frase, un consiglio, una domanda</small></div></button>`}
  <button id="c3"><span class="mi">${ic('story',22)}</span><div>Storia con foto o video<small>Adesivi, testo e musica · 24 ore</small></div></button>
  <button id="c4"><span class="mi">${ic('music',22)}</span><div>Storia di testo<small>Sfondo animato, una frase e musica</small></div></button>
- ${only==='story'?'':`<button id="c5"><span class="mi" style="color:#f87171">${ic('live',22)}</span><div>Vai in diretta<small>Commenti in tempo reale e ospiti</small></div></button>
- <button id="c6"><span class="mi" style="color:#d8b4fe">${ic('wand',22)}</span><div>Idee con Vybe AI<small>Reel, didascalie, hashtag e titoli</small></div></button>`}</div>`);
+ ${only==='story'?'':`<button id="c5"><span class="mi" style="color:#f87171">${ic('live',22)}</span><div>Vai in diretta<small>Commenti in tempo reale e ospiti</small></div></button>`}</div>`);
  const b=(i,f)=>{const e=$('#'+i,ov);if(e)e.onclick=()=>{closeOv(ov);f()}};
  b('c1',()=>pickMedia().then(m=>m&&composeMedia(m)));b('c2',()=>composeText('post'));b('c3',()=>pickMedia().then(m=>m&&composeStory(m)));b('c4',()=>composeStory(null));b('c5',()=>goLive());b('c6',()=>openAI())}
 function composeMedia(m){const isV=m.kind==='video';
  const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('x')}</button><h2>${isV?'Nuovo Reel':'Nuovo post'}</h2><button class="pubbtn" id="pub">Pubblica</button></div>
  <div class="fbody"><div class="cpreview">${isV?`<video src="${m.url}" poster="${m.poster||''}" controls playsinline style="width:100%;max-height:420px;background:#000"></video>`:`<img src="${m.url}" alt="">`}</div>
  <textarea class="ta" id="cap" maxlength="500" placeholder="Scrivi una didascalia… usa #hashtag"></textarea><div class="cnt" id="cc">0/500</div>
- <button class="aibtn" id="aiCap">${ic('wand',16,2)} Scrivi con Vybe AI</button><div id="aiBox"></div>
  <div id="pw"></div>
  <div class="trow2"><div>Aggiungi anche alla storia<small>Resterà visibile per 24 ore</small></div><button class="sw" id="alsoS"></button></div>
  ${S.acc.settings.private?`<div class="inote t" style="margin-top:6px">${ic('lock',17)}<span>Il tuo account è privato: solo i tuoi follower vedranno questo post.</span></div>`:''}
  <div class="studnote" style="margin-top:10px">${ic('bolt',14,2)} Spotlight: il tuo post viene mostrato prima a un piccolo pubblico e cresce se piace, anche se hai pochi follower.</div></div>`,'up');
  const cap=$('#cap',ov);cap.oninput=()=>$('#cc',ov).textContent=cap.value.length+'/500';const sw=$('#alsoS',ov);sw.onclick=()=>sw.classList.toggle('on');
- $('#aiCap',ov).onclick=()=>aiCaption($('#aiBox',ov),isV?'Video ('+Math.round(m.dur||0)+' secondi). Descrizione dell’autore: '+(cap.value||'nessuna'):'Foto. Descrizione dell’autore: '+(cap.value||'nessuna'),isV?null:m.url,t=>{cap.value=t;cap.oninput()});
+ if($('#aiCap',ov))$('#aiCap',ov).onclick=()=>aiCaption($('#aiBox',ov),isV?'Video ('+Math.round(m.dur||0)+' secondi). Descrizione dell’autore: '+(cap.value||'nessuna'):'Foto. Descrizione dell’autore: '+(cap.value||'nessuna'),isV?null:m.url,t=>{cap.value=t;cap.oninput()});
  $('#pub',ov).onclick=()=>{const v=cap.value.trim();if(S.acc.settings.filter&&isBad(v)){$('#pw',ov).innerHTML='<div class="cwarn" style="margin:8px 14px">La didascalia contiene parole offensive. Modificala per pubblicare.</div>';return}
   if(!rl('post',5,3600000)){$('#pw',ov).innerHTML='<div class="cwarn" style="margin:8px 14px">Hai pubblicato troppi post nell’ultima ora. Riprova più tardi (protezione anti-spam).</div>';return}
   const p={id:'m'+Date.now(),mine:true,track:isV?null:'pop',type:isV?'video':'photo',ratio:Math.min(1.78,Math.max(.6,m.h/m.w)),caption:v||(isV?'🎬':'📸'),tags:tagsOf(v),likes:0,cm:[],cmCount:0,time:Date.now(),min:12,views:0,watch:0,shares:0,saves:0};
@@ -2685,7 +2683,6 @@ function renderProfile(){if(!S.acc)return;const me=ME(),a=S.acc;const mine=mySto
  observe($('#profileScroll'));const pc=$('#profileScroll .pcover');if(pc)mountMyCover(pc)}
 function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="studio"><span class="mi">${ic('chart',22)}</span><div>Creator Studio<small>Statistiche, crescita e contenuti</small></div></button>
- <button data-m="ai"><span class="mi" style="color:#d8b4fe">${ic('wand',22)}</span><div>Vybe AI<small>Idee, didascalie, hashtag e analisi</small></div></button>
  <button data-m="archive"><span class="mi">${ic('archive',22)}</span><div>Archivio storie<small>Le tue storie dopo 24 ore</small></div></button>
  <button data-m="vplus"><span class="mi" style="color:#f0abfc">${ic('crown',22)}</span><div>VYBE+<small>Abbonamento e vantaggi</small></div></button>
  <button data-m="subs"><span class="mi" style="color:#d8b4fe">⭐</span><div>Abbonamenti al canale<small>Standard 3,99 € · Premium Deluxe 20 €</small></div></button>
@@ -2722,7 +2719,7 @@ function openSettings(){const a=S.acc,s=a.settings,teen=S.teen,st=a.status;
  <div class="trow2"><div>Email<small>${esc(a.email)}</small></div></div>
  ${a.parentEmail?`<div class="trow2"><div>Genitore o tutore<small>${esc(a.parentEmail)}</small></div></div>`:''}
  <div class="trow2"><div>Età<small>${S.age} anni · ${teen?'Account Teen (12–17)':'Account standard (18+)'}</small></div></div>
- <div class="trow2"><div>Salvataggio<small>${Persist.ready?'Online nel tuo spazio privato + su questo dispositivo':'Su questo dispositivo'} · File: ${Assets.ready?'caricamento online attivo':'solo locali'} · Vybe AI: ${AI.ready?'collegata':'non disponibile qui'}</small></div></div>
+ <div class="trow2"><div>Salvataggio<small>${Persist.ready?'Online nel tuo spazio privato + su questo dispositivo':'Su questo dispositivo'} · File: ${Assets.ready?'caricamento online attivo':'solo locali'}</small></div></div>
  <div class="menu" style="margin-top:6px"><button id="lockNow"><span class="mi">${ic('lock',22)}</span>Blocca ora</button>
  <button id="lo"><span class="mi">${ic('logout',22)}</span>Esci</button>
  <button id="delA" class="danger"><span class="mi">${ic('trash',22)}</span>Elimina account</button></div><div style="height:30px"></div></div>`);
@@ -2746,7 +2743,7 @@ function barChart(B,k,col){const W=320,H=120,P=6,mx=Math.max(1,...B.map(b=>b[k])
  return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Barre">${B.map((b,i)=>{const h=(b[k]/mx)*(H-30);return`<rect x="${P+i*bw+bw*.18}" y="${H-18-h}" width="${bw*.64}" height="${Math.max(h,1)}" rx="3" fill="${col}" opacity="${b[k]?1:.25}"/>${i%step===0?`<text x="${P+i*bw+bw/2}" y="${H-3}" text-anchor="middle">${b.lab}</text>`:''}`}).join('')}<text x="${W-4}" y="12" text-anchor="end">max ${fmt(mx)}</text></svg>`}
 function delta(cur,prev){if(!prev&&!cur)return'<i style="color:var(--muted)">—</i>';if(!prev)return'<i class="up">nuovo</i>';const p=Math.round((cur-prev)/prev*100);return p>=0?`<i class="up">▲ ${p}%</i>`:`<i class="down">▼ ${-p}%</i>`}
 function openStudio(){let range=28,gran='d',tab='ov';
- const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>Creator Studio</h2><button class="iconbtn" id="sai" style="color:#d8b4fe">${ic('wand',22)}</button></div><div class="ftabs" id="stb"></div><div class="fbody" id="sbd"></div>`);
+ const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>Creator Studio</h2><span style="width:40px"></span></div><div class="ftabs" id="stb"></div><div class="fbody" id="sbd"></div>`);
  const draw=()=>{$('#stb',ov).innerHTML=[['ov','Panoramica'],['ct','Contenuti'],['au','Pubblico'],['mo','Guadagni']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('');const b=$('#sbd',ov);
   if(tab==='ov'){const cur=statsRange(range),prev=statsRange(range,range),B=bucketize(cur,gran);const inter=L=>sumK(L,'l')+sumK(L,'c')+sumK(L,'s')+sumK(L,'sv');
    b.innerHTML=`<div class="chips" style="padding-top:12px">${[[7,'7 giorni'],[28,'28 giorni'],[90,'90 giorni']].map(([d,l])=>`<button data-r="${d}" class="${range===d?'on':''}">${l}</button>`).join('')}</div>
@@ -2763,8 +2760,7 @@ function openStudio(){let range=28,gran='d',tab='ov';
   else if(tab==='au'){const h=Array.from({length:24},(_,i)=>({lab:i+'h',v:Math.round(20+60*Math.max(0,Math.sin((i-7)/24*Math.PI*2-.4))+ (i>=19&&i<=22?45:0)+(i>=12&&i<=14?20:0))}));const fol=(S.acc.followerIds||[]).length;
    b.innerHTML=`<div class="kpis" style="padding-top:12px"><div class="kpi"><span>Follower</span><b>${fmt(fol)}</b></div><div class="kpi"><span>Seguiti</span><b>${S.acc.following.length}</b></div></div>
    <div class="chartbox"><h4>Quando sono online i tuoi follower <span>stima</span></h4>${barChart(h,'v','#a855f7')}</div>
-   <div class="studnote">Orari migliori per pubblicare: <b style="color:var(--ink)">19:00–22:00</b> e <b style="color:var(--ink)">12:30–14:00</b>. Chiedi a Vybe AI un’analisi basata sui tuoi contenuti.</div>
-   <div class="aibtns"><button class="pri" id="aiT">${ic('wand',14,2)} Analizza i miei orari con Vybe AI</button></div>`;$('#aiT',b).onclick=()=>openAI('times')}
+   <div class="studnote">Orari migliori per pubblicare: <b style="color:var(--ink)">19:00–22:00</b> e <b style="color:var(--ink)">12:30–14:00</b>.</div>`}
   else{const cur=statsRange(28),views=sumK(cur,'v'),est=views/1000*.04,deals=Object.values(S.acc.collabs).filter(c=>c.st==='ok').reduce((s,c)=>s+c.fee,0),fol=(S.acc.followerIds||[]).length;
    const crit=[['Almeno 18 anni',S.age>=18],['Almeno 1.000 follower',fol>=1000],['10.000 visualizzazioni in 28 giorni',views>=10000],['Nessun contenuto in pausa per spam',!S.acc.own.some(p=>p.spot&&p.spot.flag)]];
    b.innerHTML=`<div class="kpis" style="padding-top:12px"><div class="kpi" data-a="wallet" style="cursor:pointer;border-color:#6b4fb0"><span>🎁 Saldo regali</span><b>${eur(wallet().bal)}</b><i style="color:#fde68a">Apri saldo ›</i></div><div class="kpi"><span>Regali 28 giorni</span><b>${eur(sumK(statsRange(28),'e'))}</b><i style="color:var(--muted)">dalle dirette</i></div><div class="kpi"><span>Stima ultimi 28 giorni</span><b>€ ${est.toFixed(2)}</b><i style="color:var(--muted)">da visualizzazioni</i></div><div class="kpi"><span>Collaborazioni accettate</span><b>€ ${deals}</b><i style="color:var(--muted)">${Object.values(S.acc.collabs).filter(c=>c.st==='ok').length} campagne</i></div></div>
@@ -2772,14 +2768,12 @@ function openStudio(){let range=28,gran='d',tab='ov';
    <div class="studnote">⚠️ Guadagni stimati: i pagamenti reali non sono attivi. Per attivarli servono un sistema di pagamento (es. Stripe Connect), verifica dell’identità e la tua autorizzazione.${S.teen?' Per gli account Teen i pagamenti restano disattivati.':''}</div>
    <div class="aibtns"><button class="pri" data-a="collabs">${ic('brief',14,2)} Collaborazioni</button><button data-a="vplus">${ic('crown',14,2)} VYBE+</button><button disabled style="opacity:.4">Configura pagamenti</button></div>`}
   $$('[data-r]',b).forEach(x=>x.onclick=()=>{range=+x.dataset.r;draw()});$$('[data-g]',b).forEach(x=>x.onclick=()=>{gran=x.dataset.g;draw()})};
- $('#stb',ov).onclick=e=>{const t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;draw()}};$('#sai',ov).onclick=()=>openAI('analyze');draw()}
+ $('#stb',ov).onclick=e=>{const t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;draw()}};draw()}
 function postStats(p){if(!p)return;const sp=p.spot||newSpot(p);const er=erOf(p);
  const sh=openSheet(`<div class="shead">Statistiche del contenuto</div><div class="sbody" style="padding-top:12px">
  <div class="kpis"><div class="kpi"><span>Visualizzazioni</span><b>${fmt(p.views||0)}</b></div><div class="kpi"><span>Tempo medio</span><b>${p.views?((p.watch||0)/p.views).toFixed(1):0}s</b></div><div class="kpi"><span>Like</span><b>${fmt(p.likes||0)}</b></div><div class="kpi"><span>Commenti</span><b>${fmt((p.cmCount||0)+myComments(p.id).length)}</b></div><div class="kpi"><span>Condivisioni</span><b>${fmt(p.shares||0)}</b></div><div class="kpi"><span>Salvataggi</span><b>${fmt(p.saves||0)}</b></div></div>
  <div class="chartbox"><h4>Spotlight <span>${sp.flag?'in pausa':sp.done?'distribuzione completata':'in distribuzione'}</span></h4><div class="stepbar">${STAGES.map((s,i)=>`<i class="${i<=sp.stage?'on':''}"></i>`).join('')}</div>
- <div style="font-size:13px;color:var(--muted);line-height:1.5">Fase attuale: <b style="color:var(--ink)">${STAGES[sp.stage].n}</b> · Coinvolgimento ${(er*100).toFixed(1)}% (serve ${sp.stage<4?(THR[sp.stage]*100).toFixed(0)+'%':'—'} per salire) · Qualità ${(sp.q*100).toFixed(0)}/100${sp.flag?`<br><b style="color:#fca5a5">Motivo pausa: ${esc(sp.flag.join(', '))}</b>`:''}</div></div>
- <div class="aibtns"><button class="pri" id="aiP">${ic('wand',14,2)} Consigli di Vybe AI</button></div></div>`);
- $('#aiP',sh).onclick=()=>{closeOv(sh);openAI('improve',p)}}
+ <div style="font-size:13px;color:var(--muted);line-height:1.5">Fase attuale: <b style="color:var(--ink)">${STAGES[sp.stage].n}</b> · Coinvolgimento ${(er*100).toFixed(1)}% (serve ${sp.stage<4?(THR[sp.stage]*100).toFixed(0)+'%':'—'} per salire) · Qualità ${(sp.q*100).toFixed(0)}/100${sp.flag?`<br><b style="color:#fca5a5">Motivo pausa: ${esc(sp.flag.join(', '))}</b>`:''}</div></div></div>`)}
 
 /* ---------- Vybe AI (Claude reale) ---------- */
 function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^#{1,3}\s*(.+)$/gm,'<b>$1</b>').replace(/^\s*[-•]\s+/gm,'• ').replace(/\n/g,'<br>')}
@@ -2830,7 +2824,7 @@ function aiCaption(box,desc,imgUrl,apply){if(!AI.ready){box.innerHTML=`<div clas
 /* ---------- VYBE+ e collaborazioni ---------- */
 function openVplus(){const a=S.acc;let plan='y';
  const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>VYBE+</h2></div><div class="fbody">
- <div class="vplus"><h2><span class="neon-t">VYBE+</span></h2><p style="color:#d6cdf0;font-size:14px;margin-top:4px">Più strumenti per chi crea.</p><ul>${['Badge VYBE+ neon sul profilo','Statistiche avanzate e esportazione','Vybe AI con priorità','Video fino a 10 minuti','Temi esclusivi e icone app','Nessuna pubblicità nel feed'].map(t=>`<li>${ic('check',18,2.4)} ${t}</li>`).join('')}</ul></div>
+ <div class="vplus"><h2><span class="neon-t">VYBE+</span></h2><p style="color:#d6cdf0;font-size:14px;margin-top:4px">Più strumenti per chi crea.</p><ul>${['Badge VYBE+ neon sul profilo','Statistiche avanzate e esportazione','Vybe Imagine: immagini con l’IA','Video fino a 10 minuti','Temi esclusivi e icone app','Nessuna pubblicità nel feed'].map(t=>`<li>${ic('check',18,2.4)} ${t}</li>`).join('')}</ul></div>
  <div class="plans"><div class="plan" data-p="m"><span>Mensile</span><b>€3,99</b><span>al mese</span></div><div class="plan on" data-p="y"><span>Annuale · -17%</span><b>€39,99</b><span>all’anno</span></div></div>
  <div style="padding:14px">${a.vplus?`<div class="studnote" style="margin:0 0 10px">Prova VYBE+ attiva fino al ${new Date(a.vplus.until).toLocaleDateString('it-IT')} (demo, nessun addebito).</div><button class="btn soft" id="end">Termina la prova</button>`:`<button class="btn" id="buy">Abbonati</button><button class="btn soft" id="trial" style="margin-top:10px">Prova gratis 7 giorni (demo)</button>`}</div>
  <div class="studnote">Pagamenti reali non attivi: nessun addebito verrà effettuato. Per attivarli servono un fornitore di pagamenti configurato (es. Stripe o acquisti in-app Apple/Google) e la tua autorizzazione.${S.teen?' Gli account Teen hanno bisogno del consenso di un genitore.':''}</div></div>`);
@@ -3156,7 +3150,7 @@ function vplusCheck(){const a=S.acc,v=a&&a.vplus;if(!v||v.trial||!v.plan)return 
  else{a.vplus=null;notifySys(v.auto?'VYBE+ scaduto: saldo insufficiente per il rinnovo':'Il tuo VYBE+ è scaduto');}
  save();applyTheme()}
 function openVplus(){const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>VYBE+</h2></div><div class="fbody" id="vpb"></div>`);let plan='y',method=wallet().bal>=VP_PLANS.y.p?'vybe':wallet().giro?'giro':'vybe';
- const feats=[['🔥','Badge VYBE+ neon accanto al tuo nome (profilo, chat e dirette)'],['🚫','Nessuna pubblicità nel feed e nei Reels'],['🎬','Video fino a 10 minuti invece di 3'],['🚀','Spotlight Boost: +25% di visualizzazioni sui tuoi post'],['🪄','Vybe AI con più richieste (25 al minuto invece di 8)'],['🎨','4 temi colore esclusivi per tutta l’app'],['📊','Esporta le statistiche del Creator Studio']];
+ const feats=[['🔥','Badge VYBE+ neon accanto al tuo nome (profilo, chat e dirette)'],['🚫','Nessuna pubblicità nel feed e nei Reels'],['🎬','Video fino a 10 minuti invece di 3'],['🚀','Spotlight Boost: +25% di visualizzazioni sui tuoi post'],['🎨','4 temi colore esclusivi per tutta l’app'],['📊','Esporta le statistiche del Creator Studio']];
  const draw=()=>{const a=S.acc,v=a.vplus,act=vplusActive(),w=wallet();
   $('#vpb',ov).innerHTML=`<div class="vplus"><h2><span class="neon-t">VYBE+</span>${act?' <span class="vbadge2" style="width:22px;height:22px;font-size:13px;vertical-align:middle">+</span>':''}</h2>
   <p style="color:#d6cdf0;font-size:14px;margin-top:4px">${act?(v.trial?'Prova attiva':'Abbonamento attivo · piano '+VP_PLANS[v.plan].n)+' fino al '+new Date(v.until).toLocaleDateString('it-IT'):'Più strumenti per chi crea.'}</p>
@@ -5768,7 +5762,7 @@ const IMAG={
 /* v61: prima di entrare — "Leggi con attenzione": tutto quello che puoi fare su Vybe */
 const GUIDE={V:1,
  S:[
-  ['✨','Vybe Imagine — NUOVO','Crea immagini con l’intelligenza artificiale: scrivi un’idea, scegli uno stile (realistico, cinema, open world, cartoon 3D, anime, fumetto, pixel e tanti altri) e il formato. Poi la pubblichi come post o la metti in storia. Lo trovi nel tasto <b>+</b> in basso. Hai un numero di immagini al giorno.'],
+  ['✨','Vybe Imagine — NUOVO','Crea immagini con l’intelligenza artificiale: scrivi un’idea, scegli uno stile (realistico, cinema, open world, cartoon 3D, anime, fumetto, pixel e tanti altri) e il formato. Poi la pubblichi come post o la metti in storia. Lo trovi in alto, nel tasto <b>✨</b> accanto alla chat (e anche nel tasto <b>+</b>). Hai un numero di immagini al giorno.'],
   ['📸','Post e Reels','Pubblica foto in alta qualità, intere e senza tagli (verticali e orizzontali). I video vanno nei <b>Reels</b>: fino a 3 minuti (10 con VYBE+). Puoi fare anche post di solo testo e aggiungere una canzone a ogni post.'],
   ['🌙','Storie','Foto, video o testo con musica e adesivi. Spariscono dopo 24 ore. Tocca la tua foto in alto a sinistra per aggiungerne una.'],
   ['❤️','Mi piace e commenti','Metti mi piace con un doppio tocco. Sotto ogni post puoi commentare e rispondere. Un commento offensivo si può segnalare, e chi lo scrive si può bloccare.'],
@@ -5777,7 +5771,6 @@ const GUIDE={V:1,
   ['⏰','Messaggi programmati','Tocca la <b>luna</b> in una chat o in un gruppo: scrivi il messaggio (per esempio la buonanotte), scegli l’ora e se ripeterlo ogni giorno. Parte da solo.'],
   ['🔴','Dirette','Vai in diretta e chatta con chi ti guarda in tempo reale. Le dirette sono permesse dai 16 anni in su.'],
   ['👤','Profilo','Foto profilo, copertina intera, bio. Puoi rendere il profilo <b>privato</b>: allora solo chi approvi vede i tuoi post e le tue storie.'],
-  ['🤖','Vybe AI','Ti aiuta a scrivere didascalie, hashtag, titoli e idee per i Reel. Lo trovi nel tasto <b>+</b>.'],
   ['🔔','Notifiche','Per ricevere messaggi, chiamate, commenti e mi piace anche con l’app chiusa: aggiungi Vybe alla schermata Home (Safari › Condividi › Aggiungi alla schermata Home) e consenti le notifiche.'],
   ['🛡️','Sicurezza e regole','Vybe è dai 12 anni in su. Sotto i 16 anni puoi chattare solo con gli amici che vi seguite a vicenda. Le parole offensive vengono filtrate. Rispetta sempre gli altri: niente insulti, prese in giro, foto di altri senza permesso o contenuti volgari. Chi non rispetta le regole può essere bloccato.'],
   ['🔒','Il tuo account','Non dare mai a nessuno la tua password o i codici che ricevi, nemmeno a chi dice di lavorare per Vybe. Se qualcosa non va, scrivilo a un adulto di fiducia.']
@@ -5814,6 +5807,11 @@ const GUIDE={V:1,
 `;document.head.appendChild(st)}
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{GUIDE.maybe()}catch(e){}return r}}
 
+/* v62: niente più Vybe AI (testi): resta solo Vybe Imagine, con il tasto ✨ in alto accanto alla chat */
+openAI=function(){IMAG.open()};
+{const st=document.createElement('style');st.textContent=`.imhbtn .imico{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#ec4899 60%,#f97316);font-size:16px;box-shadow:0 0 12px rgba(236,72,153,.55)}`;document.head.appendChild(st)}
+const IMBTN=()=>{try{const cb=$('#chatBtn');if(!cb||$('#imHdr'))return;cb.insertAdjacentHTML('beforebegin',`<button class="iconbtn imhbtn" id="imHdr" aria-label="Vybe Imagine"><span class="imico">✨</span></button>`);$('#imHdr').onclick=e=>{e.stopPropagation();IMAG.open()}}catch(e){}};
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);IMBTN();setTimeout(IMBTN,600);return r}}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
