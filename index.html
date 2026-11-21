@@ -3819,7 +3819,7 @@ function openVConv(cid){const c0=VC.conv(cid);if(!c0)return toast('Chat non disp
    if(p.im)body+=`<div class="wim" data-img="${m.from}|${esc(p.im.id)}|${m.v}" style="aspect-ratio:${Math.max(.6,Math.min(1.8,(p.im.w||1)/(p.im.h||1)))}"><span class="wld"></span></div>`;
    if(p.sh){const s=p.sh;if(s.k==='prod'){const pr={ty:PTYPES[s.ty]?s.ty:'tee',col:/^#[0-9a-f]{6}$/i.test(s.col||'')?s.col:'#111114',tx:String(s.tx||'').slice(0,14),em:PEMO.includes(s.em)?s.em:''};body+=`<div class="wsh" data-prod="${esc(s.id||'')}" data-sr="${esc(s.sr||'')}"><img src="${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?s.img:prodImg(pr,240)}" alt=""><div><b>${esc(String(s.n||'').slice(0,40))}</b><span>🛍️ ${eur(+s.price||0)} · Negozio Vybe</span></div></div>`}
     else body+=`<div class="wsh" data-post="${esc(s.id||'')}">${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?`<img src="${s.img}" alt="">`:`<div class="wshx">${esc(String(s.cap||'').slice(0,60))}</div>`}<div><b>Post di @${esc(String(s.u||'').slice(0,30))}</b><span>${esc(String(s.cap||'').slice(0,80))}</span></div></div>`}
-   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);if(p.gcall)body+=vcGCallHTML(m,p.gcall);
+   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);if(p.gcall)body+=vcGCallHTML(m,p.gcall);if(p.poll&&typeof POLL!=='undefined')body+=POLL.html(p.poll);
    if(p.tx)body+=`<div class="wtx">${vcLinkify(esc(p.tx))}</div>`}
   const rx=c.rx[m.id]||[];const agg={};rx.forEach(r=>agg[r.e]=(agg[r.e]||0)+1);
   return h+`<div class="wrow ${mine?'me':''} ${first?'first':''}"><div class="vb ${mine?'me':''} ${p&&p.im&&!p.tx?'imgonly':''}" data-m="${m.id}">${c.kind==='g'&&!mine&&first?`<div class="wsn" style="color:${ucol(m.from)}">${esc(uName(m.from))}</div>`:''}${body}<span class="wmeta">${vcHM(m.t)} ${vcTicks(c,m)}</span></div>${rx.length?`<div class="wrx">${Object.entries(agg).map(([e,n])=>e+(n>1?n:'')).join(' ')}</div>`:''}</div>`};
@@ -5818,6 +5818,294 @@ IMAG.call=async function(o,say){const msgs=['Sto disegnando la tua immagine…',
   try{return await vapi('/api/img',o)}catch(e){clearInterval(iv);if(!(e&&e.code==='busy')||k===3)throw e;let w=Math.max(10,Math.min(95,(e.j&&e.j.wait)||46));
    while(w>0){say(`C’è un’altra immagine in preparazione: la tua parte tra ${w} secondi…`);await new Promise(r=>setTimeout(r,1000));w--}}
   finally{clearInterval(iv)}}};
+/* v64: 📊 sondaggi (chat, gruppi, storie) · 🎂 compleanni automatici · ✨ avatar con l'IA */
+const PID=()=>(Date.now().toString(36)+Math.random().toString(36).slice(2,10)).slice(0,18);
+const POLL={c:{},want:new Set(),t:null,
+ ok:p=>p&&typeof p==='object'&&/^[a-z0-9]{10,24}$/.test(p.id||'')&&typeof p.q==='string'&&Array.isArray(p.o)&&p.o.length>=2&&p.o.length<=4,
+ clean(p){if(!this.ok(p))return null;return{id:p.id,q:String(p.q).slice(0,90),o:p.o.slice(0,4).map(x=>String(x).slice(0,40))}},
+ mine(id){return((S.acc&&S.acc.myPolls)||[]).includes(id)},
+ html(p,cls){p=this.clean(p);if(!p)return'';const d=this.c[p.id];const tot=d?d.c.reduce((a,b)=>a+b,0):0;const show=!!d&&(d.me>=0||this.mine(p.id));
+  return`<div class="vpoll ${cls||''} ${show?'shown':''}" data-pid="${p.id}"><b class="vpq">📊 ${esc(p.q)}</b>${p.o.map((o,i)=>{const n=d?d.c[i]||0:0,pc=tot?Math.round(n*100/tot):0;return`<button class="vpo ${d&&d.me===i?'me':''}" data-po="${i}"><i style="width:${show?pc:0}%"></i><span>${esc(o)}</span><em>${show?pc+'%':''}</em></button>`}).join('')}<small class="vpt">${show?tot+(tot===1?' voto':' voti'):'Tocca per votare'}</small></div>`},
+ paint(el){const id=el.dataset.pid,d=this.c[id];if(!d)return;const tot=d.c.reduce((a,b)=>a+b,0),show=d.me>=0||this.mine(id);el.classList.toggle('shown',show);
+  el.querySelectorAll('.vpo').forEach((b,i)=>{const n=d.c[i]||0,pc=tot?Math.round(n*100/tot):0;b.classList.toggle('me',d.me===i);b.querySelector('i').style.width=(show?pc:0)+'%';b.querySelector('em').textContent=show?pc+'%':''});
+  const t=el.querySelector('.vpt');if(t)t.textContent=show?tot+(tot===1?' voto':' voti'):'Tocca per votare'},
+ paintAll(id){document.querySelectorAll(`.vpoll[data-pid="${id}"]`).forEach(el=>this.paint(el))},
+ ask(id){this.want.add(id);clearTimeout(this.t);this.t=setTimeout(()=>this.load(),250)},
+ async load(){const ids=[...this.want].slice(0,30);this.want.clear();if(!ids.length)return;try{const j=await vapi('/api/poll',{op:'get',ids});for(const k in (j.r||{})){this.c[k]=j.r[k];this.paintAll(k)}}catch(e){}},
+ async vote(id,o){const d=this.c[id]||(this.c[id]={c:[0,0,0,0],me:-1});if(d.me===o)return;if(d.me>=0)d.c[d.me]=Math.max(0,d.c[d.me]-1);d.c[o]=(d.c[o]||0)+1;d.me=o;this.paintAll(id);try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}
+  try{const j=await vapi('/api/poll',{op:'vote',id,o});for(const k in (j.r||{})){this.c[k]=j.r[k];this.paintAll(k)}}catch(e){toast('Voto non inviato, riprova')}},
+ compose(cb){const sh=openSheet(`<div class="pcmp"><b class="pcT">📊 Nuovo sondaggio</b><input class="in" id="pq" maxlength="90" placeholder="Domanda (es. Pizza o sushi stasera?)"><div id="pos"><input class="in po" maxlength="40" placeholder="Opzione 1"><input class="in po" maxlength="40" placeholder="Opzione 2"></div><button class="btn soft" id="padd">+ Aggiungi opzione</button><button class="btn" id="pgo">Crea sondaggio</button></div>`);
+  setTimeout(()=>{const q=$('#pq',sh);if(q)q.focus()},300);
+  $('#padd',sh).onclick=()=>{const n=$$('#pos .po',sh).length;if(n>=4)return toast('Massimo 4 opzioni');$('#pos',sh).insertAdjacentHTML('beforeend',`<input class="in po" maxlength="40" placeholder="Opzione ${n+1}">`);if(n+1>=4)$('#padd',sh).style.display='none'};
+  $('#pgo',sh).onclick=()=>{const q=$('#pq',sh).value.trim(),o=$$('#pos .po',sh).map(x=>x.value.trim()).filter(Boolean);if(q.length<2)return toast('Scrivi la domanda');if(o.length<2)return toast('Servono almeno 2 opzioni');
+   if([q,...o].some(t=>typeof isBad==='function'&&isBad(t)))return toast('Il testo contiene parole non permesse');
+   const p={id:PID(),q,o};S.acc.myPolls=(S.acc.myPolls||[]).concat(p.id).slice(-200);save();closeOv(sh);cb(p)}}
+};
+document.addEventListener('click',e=>{const b=e.target.closest('.vpoll .vpo');if(!b)return;if(b.closest('.vpoll.pv')){e.preventDefault();e.stopPropagation();return}e.preventDefault();e.stopPropagation();const el=b.closest('.vpoll');POLL.vote(el.dataset.pid,+b.dataset.po)},true);
+['pointerdown','touchstart','mousedown'].forEach(ev=>document.addEventListener(ev,e=>{if(e.target.closest&&e.target.closest('.vpoll'))e.stopPropagation()},true));
+new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes){if(n.nodeType!==1)continue;const L=n.matches&&n.matches('.vpoll')?[n]:[...n.querySelectorAll?n.querySelectorAll('.vpoll'):[]];L.forEach(el=>{if(POLL.c[el.dataset.pid])POLL.paint(el);POLL.ask(el.dataset.pid)})}}).observe(document.documentElement,{childList:true,subtree:true});
+setInterval(()=>{if(document.hidden)return;document.querySelectorAll('.vpoll').forEach(el=>POLL.want.add(el.dataset.pid));if(POLL.want.size)POLL.load()},15000);
+/* chat e gruppi */
+{const vp=vcPreview;vcPreview=function(m){if(m&&!m.del&&m.pl&&m.pl.poll)return'📊 '+String(m.pl.poll.q||'Sondaggio').slice(0,60);return vp(m)}}
+{const va=vcAttach;vcAttach=function(cid,redraw,getReply){const r=va.apply(this,arguments);try{const sh=$$('#layer>.ov').pop();const w=sh&&$('.watt',sh);if(w&&!$('[data-k="poll"]',w)){w.insertAdjacentHTML('beforeend',`<button data-k="poll"><i style="background:linear-gradient(135deg,#f59e0b,#ef4444)">📊</i>Sondaggio</button>`);
+  $('[data-k="poll"]',w).onclick=e=>{e.stopPropagation();closeOv(sh);POLL.compose(async p=>{await VC.send(cid,{poll:p});try{redraw()}catch(_){}})}}}catch(e){}return r}}
+/* storie: adesivo sondaggio */
+{const sk=stkHTML;stkHTML=function(st){const L=st||[];const norm=L.filter(k=>k&&k.k!=='poll'),pl=L.filter(k=>k&&k.k==='poll'&&POLL.ok(k.poll));
+  return sk(norm)+pl.map(k=>`<div class="stk spoll" style="left:${(+k.x||.5)*100}%;top:${(+k.y||.62)*100}%;transform:translate(-50%,-50%)">${POLL.html(k.poll,'inst')}</div>`).join('')}}
+{const pl=Real.payload;Real.payload=async function(){const d=await pl.apply(this,arguments);(d.st||[]).forEach(x=>{const f=(S.acc.stories||[]).find(s=>s.time===x.t);const k=f&&(f.stk||[]).find(q=>q&&q.k==='poll');if(k&&POLL.ok(k.poll))x.pl={...POLL.clean(k.poll),x:Math.round((+k.x||.5)*100)/100,y:Math.round((+k.y||.62)*100)/100}});return d}}
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const src=Array.isArray(d&&d.st)?d.st:[];(o.st||[]).forEach(f=>{const x=src.find(y=>y&&+y.t===f.t);if(x&&POLL.ok(x.pl)){const c=POLL.clean(x.pl);c.x=Math.min(.9,Math.max(.1,+x.pl.x||.5));c.y=Math.min(.9,Math.max(.1,+x.pl.y||.62));f.pl=c}});return o}}
+{const rl=realStoryList;realStoryList=function(){const L=rl.apply(this,arguments);L.forEach(s=>{(s.frames||[]).forEach((fr,i)=>{const f=(s.who.st||[]).find(z=>z.t===fr.time);if(f&&f.pl)fr.stk=(fr.stk||[]).concat({k:'poll',x:f.pl.x,y:f.pl.y,s:1,poll:f.pl})})});return L}}
+/* tasto "Sondaggio" nell'editor della storia */
+{const cs=composeStory;composeStory=function(m){const r=cs.apply(this,arguments);try{const ov=$$('#layer>.ovf').pop();const tray=ov&&$('#tray',ov);if(tray){tray.insertAdjacentHTML('afterbegin',`<button class="txt" data-k="poll2">📊 Sondaggio</button>`);
+  const b=$('[data-k="poll2"]',tray);b.onclick=e=>{e.stopPropagation();e.preventDefault();POLL.compose(p=>{ov._poll=p;const stl=$('#stl',ov);let el=$('.spollpv',ov);if(!el){$('#spv',ov).insertAdjacentHTML('beforeend',`<div class="spollpv"></div>`);el=$('.spollpv',ov)}el.innerHTML=POLL.html(p,'inst pv')+'<button class="spx" aria-label="Togli">✕</button>';el.querySelector('.spx').onclick=ev=>{ev.stopPropagation();ov._poll=null;el.remove()};b.textContent='📊 Sondaggio ✓'})};
+  const pub=$('#pub',ov);if(pub){const h=pub.onclick;pub.onclick=function(){const before=(S.acc.stories||[]).length;const res=h&&h.apply(this,arguments);try{const L=S.acc.stories||[];if(ov._poll&&L.length>before){const f=L[L.length-1];f.stk=(f.stk||[]).filter(k=>k.k!=='poll').concat({k:'poll',v:'📊 '+ov._poll.q,x:.5,y:.62,s:1,poll:ov._poll});save();try{Real.publishSoon(300)}catch(e){}}}catch(e){}return res}}}}catch(e){}return r}}
+
+/* 🎂 compleanni */
+const BDAY={
+ RX:/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/,
+ mine(){const b=S.acc&&S.acc.birth;const m=String(b||'').match(/^\d{4}-(\d\d)-(\d\d)/);return m?m[1]+'-'+m[2]:null},
+ next(md,from){const[mm,dd]=md.split('-').map(Number);const n=new Date(from||Date.now());n.setHours(0,0,0,0);let d=new Date(n.getFullYear(),mm-1,dd);if(d<n)d=new Date(n.getFullYear()+1,mm-1,dd);return d},
+ list(){if(!Real.on)return[];const now=new Date();now.setHours(0,0,0,0);const seen=new Set();return Real.myFollowing().map(w=>{const d=Real.docs[w.rid]||{};if(!this.RX.test(d.bd||'')||seen.has(w.rid))return null;seen.add(w.rid);const at=this.next(d.bd);return{w,bd:d.bd,at,days:Math.round((at-now)/86400000)}}).filter(Boolean).sort((a,b)=>a.days-b.days)},
+ dstr(x){return x.days===0?'oggi':x.days===1?'domani':'tra '+x.days+' giorni'},
+ card(){const box=$('#stories');if(!box||!S.acc)return;let el=$('#bdCard');const L=this.list().filter(x=>x.days<=7);
+  if(!L.length){if(el)el.remove();return}
+  if(!el){box.insertAdjacentHTML('afterend','<div id="bdCard" class="bdcard"></div>');el=$('#bdCard')}
+  const t=L.filter(x=>x.days===0),u=L.filter(x=>x.days>0).slice(0,4);
+  el.innerHTML=`${t.map(x=>`<div class="bdrow today"><span class="bdi">🎂</span><div><b>Oggi è il compleanno di ${esc(x.w.first||x.w.n)}!</b><small>Fagli gli auguri 🎉</small></div><button class="bdb" data-bdc="${x.w.rid}">Auguri</button></div>`).join('')}${u.length?`<div class="bdrow"><span class="bdi">🎈</span><div><b>Prossimi compleanni</b><small>${u.map(x=>esc(x.w.first||x.w.n)+' '+this.dstr(x)).join(' · ')}</small></div><button class="bdb soft" data-bdset="1">⚙️</button></div>`:''}`;
+  el.onclick=e=>{const c=e.target.closest('[data-bdc]');if(c){const uid=c.dataset.bdc;if(!VC.canMsg(uid))return toast('Non puoi scrivere a questa persona');try{openVConv('d:'+uid)}catch(_){}return}if(e.target.closest('[data-bdset]'))this.sheet()}},
+ async fill(){if(!S.acc||!S.acc.bdAuto||!VC.on||!VC.ready||this.busy)return;this.busy=true;try{const done=S.acc.bdDone=S.acc.bdDone||{};
+  for(const x of this.list()){if(x.days>6)continue;const key=x.w.rid+':'+x.at.getFullYear();if(done[key])continue;if(!VC.canMsg(x.w.rid))continue;const at=x.at.getTime()+ (x.days===0?0:0);
+   if(at<Date.now()-3600000){done[key]='late';continue}const when=Math.max(at,Date.now()+90000);
+   const id=await SCHED.one('d:'+x.w.rid,`Tanti auguri ${x.w.first||''}! 🎂🎉 Buon compleanno, passa una giornata bellissima ❤️`.replace(' !','!'),when,'bd'+x.w.rid);if(id){done[key]=id;save()}}
+  const ks=Object.keys(done);if(ks.length>300)ks.slice(0,100).forEach(k=>delete done[k])}catch(e){}finally{this.busy=false}},
+ sheet(){const a=S.acc,teen=S.teen,my=this.mine();const sh=openSheet(`<div class="bds"><b class="bdT">🎂 Compleanni</b>
+  <div class="trow2"><div>Mostra il mio compleanno ai miei amici<small>${teen?'Non disponibile per gli account Teen':my?'Solo giorno e mese ('+my.split('-').reverse().join('/')+'), mai l’anno':'Data di nascita non trovata'}</small></div><button class="sw ${a.bdShare&&!teen&&my?'on':''} ${teen||!my?'locked':''}" id="bdS"></button></div>
+  <div class="trow2"><div>Auguri automatici<small>A mezzanotte Vybe manda da solo gli auguri, in chat, agli amici che compiono gli anni</small></div><button class="sw ${a.bdAuto?'on':''}" id="bdA"></button></div>
+  <div class="bdl">${this.list().slice(0,12).map(x=>`<div class="urow">${avHTML(x.w,36)}<div><b>${esc(x.w.n)}</b><span>${x.bd.split('-').reverse().join('/')} · ${this.dstr(x)}</span></div></div>`).join('')||'<small style="color:var(--muted)">Nessun amico ha ancora condiviso il compleanno</small>'}</div></div>`);
+  $('#bdS',sh).onclick=e=>{if(teen||!my)return;a.bdShare=!a.bdShare;e.currentTarget.classList.toggle('on',a.bdShare);save();try{Real.publishSoon(300)}catch(_){}};
+  $('#bdA',sh).onclick=e=>{a.bdAuto=!a.bdAuto;e.currentTarget.classList.toggle('on',a.bdAuto);save();if(a.bdAuto){this.fill();toast('Gli auguri partiranno da soli a mezzanotte 🎂')}else{const now=Date.now();(SCHED.st().sch||[]).filter(s=>String(s.rid||'').startsWith('bd')&&s.at>now).forEach(s=>SCHED.cancel(s.cid,s.id));toast('Auguri automatici spenti')}}},
+ ask(){const a=S.acc;if(!a||a.bdAsked||S.teen||!this.mine())return;if($('.gdov')||$('.lockscreen')){setTimeout(()=>this.ask(),4000);return}a.bdAsked=1;save();
+  const sh=openSheet(`<div class="bds"><b class="bdT">🎂 Novità: compleanni</b><small class="bdsub">Vuoi che i tuoi amici su Vybe vedano quando è il tuo compleanno? Mostriamo solo giorno e mese, mai l’anno.</small>
+  <label class="bdck"><input type="checkbox" id="bq2" checked> Manda anche gli auguri in automatico ai miei amici</label>
+  <button class="btn" id="bq1">Sì, mostra il mio compleanno</button><button class="btn soft" id="bq0">No, grazie</button></div>`);
+  const fin=share=>{a.bdShare=share;a.bdAuto=$('#bq2',sh).checked;save();closeOv(sh);try{Real.publishSoon(300)}catch(_){}this.card();if(a.bdAuto)this.fill()};
+  $('#bq1',sh).onclick=()=>fin(true);$('#bq0',sh).onclick=()=>fin(false)}
+};
+VDB.LIGHT.includes('bd')||VDB.LIGHT.push('bd');
+{const pl=Real.payload;Real.payload=async function(){const d=await pl.apply(this,arguments);const my=BDAY.mine();if(S.acc&&S.acc.bdShare&&!S.teen&&my)d.bd=my;else delete d.bd;return d}}
+{const rs=renderStories;renderStories=function(){const r=rs.apply(this,arguments);try{BDAY.card()}catch(e){}return r}}
+setInterval(()=>{try{BDAY.card();BDAY.fill()}catch(e){}},60000);
+
+/* ✨ avatar con l'IA (facoltativo) */
+const AVA={STY:[['cartoon','🧸','Cartoon 3D'],['anime','🌸','Anime'],['comic','💥','Fumetto'],['ow','🌴','Open World'],['pixel','👾','Pixel'],['clay','🟠','Plastilina'],['water','🎨','Acquerello'],['fantasy','🐉','Fantasy']],
+ open(){let style='cartoon',src=null,busy=false,res=null;const a=S.acc;
+  const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('x')}</button><h2>✨ Avatar con l’IA</h2><span style="width:40px"></span></div>
+  <div class="fbody imbody"><div class="imhero"><b>Il tuo avatar, in un altro stile</b><small>Parti da una tua foto, scegli lo stile e l’IA crea il tuo avatar. Lo usi come foto profilo solo se ti piace: è facoltativo.</small></div>
+  <div class="avsrc"><div class="avpv" id="avPv">${a.avatar?`<img src="${a.avatar}" alt="">`:'👤'}</div><div class="avbt">${a.avatar?'<button class="btn soft" id="avMine">Usa la mia foto profilo</button>':''}<button class="btn soft" id="avPick">📷 Scegli una foto</button></div></div>
+  <label class="imlab">Stile</label><div class="imsty" id="avSty">${this.STY.map(([k,e,n])=>`<button data-s="${k}" class="${k===style?'on':''}"><span>${e}</span>${n}</button>`).join('')}</div>
+  <button class="btn imgo" id="avGo">✨ Crea il mio avatar</button><div id="avOut"></div><div style="height:30px"></div></div>`,'imov');
+  const $o=q=>$(q,ov);
+  const setSrc=(d,show)=>{src=d;$o('#avPv').innerHTML=`<img src="${show||d}" alt="">`};
+  const mine=$o('#avMine');if(mine)mine.onclick=()=>{setSrc(a.avatar);mine.textContent='Foto profilo scelta ✓'};
+  if(a.avatar)setSrc(a.avatar);
+  $o('#avPick').onclick=()=>pickMedia('image').then(m=>{if(!m)return;let d=m.url;try{const im=PICKHD.get(m.url);if(im)d=IMAG.toData(im,1024,.88)}catch(e){}setSrc(d,m.url)});
+  $o('#avSty').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;style=b.dataset.s;$$('#avSty button',ov).forEach(x=>x.classList.toggle('on',x===b))};
+  $o('#avGo').onclick=async()=>{if(busy)return;if(!src)return toast('Prima scegli una foto');busy=true;const btn=$o('#avGo');btn.disabled=true;
+   $o('#avOut').innerHTML=`<div class="imwait"><div class="imorb"></div><b id="avW">Creo il tuo avatar…</b><small>Ci vogliono circa 15–30 secondi.</small></div>`;
+   try{const j=await IMAG.call({prompt:'head and shoulders portrait avatar of the same person in the photo, centered, friendly expression, same face, same hair, same skin tone, clean simple background',style,fmt:'sq',image:src},t=>{const w=$o('#avW');if(w)w.textContent=t});res=j.url;
+    $o('#avOut').innerHTML=`<div class="imres avres"><img src="${res}" alt="Avatar"><div class="imact"><button class="btn" id="avUse">✅ Usa come foto profilo</button><div class="imrow"><button class="btn soft" id="avAg">🔄 Rifai</button><button class="btn soft" id="avNo">Non ora</button></div></div></div>`;
+    $o('#avAg').onclick=()=>$o('#avGo').click();$o('#avNo').onclick=()=>closeOv(ov);
+    $o('#avUse').onclick=async()=>{try{const m=await IMAG.asMedia(res);const sq=await squareCrop({url:m.url},300);a.avatar=sq;save();closeOv(ov);renderProfile();renderNav();renderStories();try{Real.publishSoon(300)}catch(_){}toast('Nuova foto profilo ✨')}catch(e){toast('Non riesco a usare questa immagine, riprova')}}}
+   catch(e){const c=e&&e.code||'fail';$o('#avOut').innerHTML=`<div class="imnote err">${esc(IMAG.ERR[c]||'Qualcosa è andato storto. Riprova tra poco.')}</div>`}
+   finally{busy=false;btn.disabled=false}}}
+};
+{const ep=editProfile;editProfile=function(){const r=ep.apply(this,arguments);try{const ov=$$('#layer>.ov').pop();const b=ov&&$('#es',ov);if(b&&!$('#avAI',ov)){b.insertAdjacentHTML('beforebegin',`<button class="btn soft" id="avAI">✨ Crea un avatar con l’IA (facoltativo)</button>`);$('#avAI',ov).onclick=()=>{closeOv(ov);AVA.open()}}}catch(e){}return r}}
+
+{const st=document.createElement('style');st.textContent=`
+.vpoll{width:100%;min-width:200px;max-width:280px;display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:16px;background:rgba(255,255,255,.08);text-align:left}
+.vpoll.inst{background:rgba(255,255,255,.96);color:#111;box-shadow:0 8px 30px rgba(0,0,0,.35);width:250px}
+.vpq{font-size:14.5px;line-height:1.3;margin-bottom:2px}
+.vpo{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.1);font-size:14px;font-weight:700;color:inherit;text-align:left}
+.vpoll.inst .vpo{background:#f1eef8;color:#111}
+.vpo i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,rgba(168,85,247,.45),rgba(236,72,153,.35));transition:width .5s ease;z-index:0}
+.vpo span,.vpo em{position:relative;z-index:1}.vpo span{flex:1}.vpo em{font-style:normal;font-size:13px;opacity:.85}
+.vpo.me{outline:2px solid #a855f7}
+.vpt{font-size:11.5px;opacity:.7}
+.spoll{z-index:30;pointer-events:auto}
+.spollpv{position:absolute;left:50%;top:78%;transform:translate(-50%,-50%) scale(.82);z-index:5}
+.spollpv .spx{position:absolute;top:-10px;right:-10px;width:26px;height:26px;border-radius:50%;background:#111;color:#fff;font-size:13px}
+.pcmp{padding:6px 18px 20px;display:flex;flex-direction:column;gap:10px}.pcT{font-size:17px}#pos{display:flex;flex-direction:column;gap:8px}
+.bdcard{margin:2px 14px 10px;display:flex;flex-direction:column;gap:8px}
+.bdrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.06)}
+.bdrow.today{background:linear-gradient(135deg,rgba(236,72,153,.28),rgba(250,204,21,.2))}
+.bdrow>div{flex:1;min-width:0}.bdrow b{display:block;font-size:14px}.bdrow small{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bdi{font-size:26px}.bdb{padding:8px 14px;border-radius:12px;background:var(--vy);color:#fff;font-weight:800;font-size:13px}.bdb.soft{background:rgba(255,255,255,.1)}
+.bds{padding:6px 16px 20px;display:flex;flex-direction:column;gap:10px}.bdT{font-size:18px}.bdsub{color:var(--muted);font-size:14px;line-height:1.45}
+.bdck{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:600}.bdck input{width:20px;height:20px;accent-color:#a855f7}
+.bdl{display:flex;flex-direction:column;gap:2px;max-height:38vh;overflow:auto}
+.avsrc{display:flex;gap:14px;align-items:center;margin:6px 0 4px}.avpv{width:92px;height:92px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:40px;flex:none;border:2px solid rgba(168,85,247,.6)}
+.avpv img{width:100%;height:100%;object-fit:cover}.avbt{display:flex;flex-direction:column;gap:8px;flex:1}.avbt .btn{height:42px;font-size:14px}
+.avres img{border-radius:50%;width:76%;margin:0 auto;aspect-ratio:1;object-fit:cover}
+`;document.head.appendChild(st)}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{BDAY.ask();BDAY.card();BDAY.fill()}catch(e){}},2500);return r}}
+
+/* v65: 🎨 Fotocamera con 200 filtri (dal tasto +) — ti vedi dal vivo, scegli il filtro, scatti o prendi dalla galleria, pubblichi come post o storia */
+const FX={
+ /* filtro = {n:nome, b:luminosità, c:contrasto, s:saturazione, h:tonalità°, sp:seppia, g:bianco-nero, t:[colore,modo,alfa], f:sbiadito, v:vignetta, gr:grana, l:[coloreLuce,alfa]} */
+ L:null,
+ build(){if(this.L)return this.L;const P=[
+  {n:'Originale'},
+  {n:'Roma',b:1.05,c:1.1,s:1.15,t:['#ff9a3c','soft-light',.25],v:.25},
+  {n:'Milano',b:1.02,c:1.15,s:.85,t:['#6b8cff','soft-light',.18],v:.2},
+  {n:'Venezia',b:1.05,c:1.05,s:1.1,h:-8,t:['#ffd6a0','overlay',.2],f:.06},
+  {n:'Amalfi',b:1.08,c:1.1,s:1.35,t:['#00c2ff','soft-light',.2]},
+  {n:'Positano',b:1.1,c:1.05,s:1.25,t:['#ff7aa8','soft-light',.22],l:['#ffcf70',.25]},
+  {n:'Capri',b:1.06,c:1.12,s:1.3,h:6,t:['#2ad1c9','soft-light',.2]},
+  {n:'Tramonto',b:1.04,c:1.1,s:1.3,t:['#ff6a3d','soft-light',.35],l:['#ffb347',.3],v:.25},
+  {n:'Alba',b:1.1,c:.95,s:1.1,t:['#ffc6d9','soft-light',.3],f:.08},
+  {n:'Notte',b:.85,c:1.2,s:.9,t:['#1e2a78','soft-light',.45],v:.45},
+  {n:'Neon',b:1.05,c:1.25,s:1.6,h:-15,t:['#b026ff','soft-light',.35],l:['#00e5ff',.25]},
+  {n:'Vintage 70',b:1.05,c:.9,s:.8,sp:.35,t:['#ffcc80','multiply',.18],f:.12,gr:.18,v:.3},
+  {n:'Polaroid',b:1.08,c:.92,s:.9,t:['#ffe8b0','soft-light',.3],f:.14,v:.2},
+  {n:'B/N Classico',g:1,c:1.15},
+  {n:'Noir',g:1,c:1.45,b:.95,v:.5,gr:.12},
+  {n:'Argento',g:1,c:1.05,b:1.08,f:.1},
+  {n:'Seppia',sp:.85,c:1.05},
+  {n:'Pastello',b:1.12,c:.85,s:.85,f:.15,t:['#ffd1f2','soft-light',.25]},
+  {n:'Pesca',b:1.07,c:.98,s:1.05,t:['#ffb38a','soft-light',.35]},
+  {n:'Lavanda',b:1.05,c:1,s:.95,t:['#b9a2ff','soft-light',.35]},
+  {n:'Menta',b:1.05,c:1,s:1.05,t:['#7dffc8','soft-light',.3]},
+  {n:'Oceano',b:1,c:1.1,s:1.15,h:10,t:['#0077ff','soft-light',.35]},
+  {n:'Ghiaccio',b:1.08,c:1.05,s:.75,t:['#bfe9ff','soft-light',.4]},
+  {n:'Fuoco',b:1.02,c:1.25,s:1.45,t:['#ff3d00','soft-light',.35],v:.3},
+  {n:'Oro',b:1.05,c:1.1,s:1.1,t:['#ffc400','soft-light',.35],l:['#ffd36b',.2]},
+  {n:'Bronzo',b:1,c:1.15,s:.9,sp:.3,t:['#c26b2b','soft-light',.3]},
+  {n:'Cinema',b:.98,c:1.2,s:1.05,t:['#00a6a6','soft-light',.25],l:['#ff8a3d',.2],v:.35},
+  {n:'Teal & Orange',b:1,c:1.15,s:1.2,h:-5,t:['#008c8c','soft-light',.3],l:['#ff9a3c',.28]},
+  {n:'Sogno',b:1.12,c:.9,s:1.1,f:.12,l:['#ff9de2',.3]},
+  {n:'Glow',b:1.15,c:.95,s:1.15,l:['#fff1c1',.35],f:.05},
+  {n:'VHS Retrò',b:1.02,c:1.1,s:1.3,h:-12,f:.1,gr:.28,v:.3,t:['#ff00a8','soft-light',.15]},
+  {n:'Pellicola 35mm',b:1.02,c:1.08,s:.92,f:.08,gr:.22,v:.25,t:['#ffdca3','soft-light',.2]},
+  {n:'Pellicola calda',b:1.05,c:1.05,s:1.05,t:['#ff9f43','soft-light',.3],gr:.15},
+  {n:'Pellicola fredda',b:1.02,c:1.08,s:.9,t:['#4aa3ff','soft-light',.3],gr:.15},
+  {n:'Matte',b:1.04,c:.85,s:.9,f:.2},
+  {n:'Drama',b:.95,c:1.45,s:1.1,v:.45},
+  {n:'Vivido',b:1.05,c:1.15,s:1.6},
+  {n:'Pop',b:1.08,c:1.25,s:1.8,h:8},
+  {n:'Cyber',b:1,c:1.3,s:1.4,h:-30,t:['#00ffd5','soft-light',.3],l:['#ff00e6',.25]},
+  {n:'Vaporwave',b:1.05,c:1.05,s:1.3,h:-20,t:['#ff71ce','soft-light',.35],l:['#01cdfe',.25]}];
+  const C=[['Corallo','#ff6f61'],['Rosa','#ff7ab8'],['Lampone','#e3256b'],['Ciliegia','#c1121f'],['Arancio','#ff8c1a'],['Pesca chiara','#ffb48a'],['Miele','#ffbf2e'],['Limone','#fff04d'],['Lime','#b6ff3b'],['Menta fresca','#56f0b5'],['Smeraldo','#10b981'],['Acqua','#2de2e6'],['Cielo','#5ab8ff'],['Cobalto','#2457ff'],['Lilla','#b388ff'],['Viola','#8b2cf5']];
+  const V=[['',{b:1.03,c:1.05,s:1.1,a:.28,m:'soft-light'}],['Soft',{b:1.1,c:.92,s:.95,a:.22,m:'soft-light',f:.1}],['Intenso',{b:1,c:1.25,s:1.45,a:.38,m:'soft-light',v:.25}],['Film',{b:1.02,c:1.06,s:.9,a:.25,m:'soft-light',gr:.2,f:.07,v:.2}],['Matte',{b:1.05,c:.85,s:.85,a:.24,m:'soft-light',f:.2}],['Glow',{b:1.14,c:.96,s:1.1,a:.18,m:'soft-light',l:.35}],['Notte',{b:.86,c:1.2,s:.95,a:.42,m:'soft-light',v:.45}],['Retrò',{b:1.03,c:.95,s:.8,sp:.25,a:.2,m:'multiply',gr:.15,v:.3}],['Sogno',{b:1.12,c:.9,s:1.05,a:.2,m:'screen',f:.08}],['Pop',{b:1.08,c:1.22,s:1.7,a:.3,m:'overlay'}]];
+  for(const[cn,col]of C)for(const[vn,p]of V){const f={n:(cn+' '+vn).trim(),b:p.b,c:p.c,s:p.s,t:[col,p.m,p.a]};if(p.f)f.f=p.f;if(p.v)f.v=p.v;if(p.gr)f.gr=p.gr;if(p.sp)f.sp=p.sp;if(p.l)f.l=[col,p.l];P.push(f)}
+  return this.L=P},
+ css(f){const a=[];if(f.b&&f.b!==1)a.push(`brightness(${f.b})`);if(f.c&&f.c!==1)a.push(`contrast(${f.c})`);if(f.s!=null&&f.s!==1)a.push(`saturate(${f.s})`);if(f.h)a.push(`hue-rotate(${f.h}deg)`);if(f.sp)a.push(`sepia(${f.sp})`);if(f.g)a.push(`grayscale(${f.g})`);return a.join(' ')||'none'},
+ noise:null,
+ noiseURL(){if(this.noise)return this.noise;const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),d=x.createImageData(128,128);for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255}x.putImageData(d,0,0);this.ncv=c;return this.noise=c.toDataURL('image/png')},
+ layers(f){const o=[];if(f.t)o.push(`<i class="fxl" style="background:${f.t[0]};mix-blend-mode:${f.t[1]};opacity:${f.t[2]}"></i>`);if(f.l)o.push(`<i class="fxl" style="background:linear-gradient(135deg,${f.l[0]} 0%,transparent 62%);mix-blend-mode:screen;opacity:${f.l[1]}"></i>`);
+  if(f.f)o.push(`<i class="fxl" style="background:rgb(${Math.round(f.f*255)},${Math.round(f.f*255)},${Math.round(f.f*255)});mix-blend-mode:screen"></i>`);
+  if(f.v)o.push(`<i class="fxl" style="background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,${f.v}) 100%)"></i>`);if(f.gr)o.push(`<i class="fxl" style="background-image:url(${this.noiseURL()});background-size:128px;mix-blend-mode:overlay;opacity:${f.gr}"></i>`);return o.join('')},
+ /* applica il filtro ai pixel: stessa matematica dei filtri CSS (così la foto è uguale all'anteprima) */
+ mat(f){const M=[];const mul=(m)=>M.push(m);
+  if(f.s!=null&&f.s!==1){const s=f.s;mul([.213+.787*s,.715-.715*s,.072-.072*s,.213-.213*s,.715+.285*s,.072-.072*s,.213-.213*s,.715-.715*s,.072+.928*s])}
+  if(f.h){const a=f.h*Math.PI/180,c=Math.cos(a),s=Math.sin(a);mul([.213+c*.787-s*.213,.715-c*.715-s*.715,.072-c*.072+s*.928,.213-c*.213+s*.143,.715+c*.285+s*.140,.072-c*.072-s*.283,.213-c*.213-s*.787,.715-c*.715+s*.715,.072+c*.928+s*.072])}
+  if(f.sp){const a=1-Math.min(1,f.sp);mul([.393+.607*a,.769-.769*a,.189-.189*a,.349-.349*a,.686+.314*a,.168-.168*a,.272-.272*a,.534-.534*a,.131+.869*a])}
+  if(f.g){const a=1-Math.min(1,f.g);mul([.2126+.7874*a,.7152-.7152*a,.0722-.0722*a,.2126-.2126*a,.7152+.2848*a,.0722-.0722*a,.2126-.2126*a,.7152-.7152*a,.0722+.9278*a])}return M},
+ pixels(cv,f){const x=cv.getContext('2d'),W=cv.width,H=cv.height;const im=x.getImageData(0,0,W,H),d=im.data;const b=f.b||1,c=f.c||1,M=this.mat(f);const cl=v=>v<0?0:v>1?1:v;
+  for(let i=0;i<d.length;i+=4){let r=d[i]/255,g=d[i+1]/255,bl=d[i+2]/255;
+   if(b!==1){r=cl(r*b);g=cl(g*b);bl=cl(bl*b)}if(c!==1){r=cl((r-.5)*c+.5);g=cl((g-.5)*c+.5);bl=cl((bl-.5)*c+.5)}
+   for(const m of M){const R=m[0]*r+m[1]*g+m[2]*bl,G=m[3]*r+m[4]*g+m[5]*bl,B=m[6]*r+m[7]*g+m[8]*bl;r=cl(R);g=cl(G);bl=cl(B)}
+   d[i]=r*255;d[i+1]=g*255;d[i+2]=bl*255}x.putImageData(im,0,0);
+  const W2=W,H2=H;x.save();
+  if(f.t){x.globalCompositeOperation=f.t[1];x.globalAlpha=f.t[2];x.fillStyle=f.t[0];x.fillRect(0,0,W2,H2)}
+  if(f.l){x.globalCompositeOperation='screen';x.globalAlpha=f.l[1];const L=Math.max(W2,H2);const gg=x.createLinearGradient(0,0,L*.62,L*.62);gg.addColorStop(0,f.l[0]);gg.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gg;x.fillRect(0,0,W2,H2)}
+  if(f.f){x.globalCompositeOperation='screen';x.globalAlpha=1;const v=Math.round(f.f*255);x.fillStyle=`rgb(${v},${v},${v})`;x.fillRect(0,0,W2,H2)}
+  if(f.v){x.globalCompositeOperation='source-over';x.globalAlpha=1;const R=Math.hypot(W2,H2)/2;const gg=x.createRadialGradient(W2/2,H2/2,R*.45*Math.min(W2,H2)/Math.max(W2,H2)*1.4,W2/2,H2/2,R);gg.addColorStop(0,'rgba(0,0,0,0)');gg.addColorStop(1,`rgba(0,0,0,${f.v})`);x.fillStyle=gg;x.fillRect(0,0,W2,H2)}
+  if(f.gr){this.noiseURL();x.globalCompositeOperation='overlay';x.globalAlpha=f.gr;x.fillStyle=x.createPattern(this.ncv,'repeat');x.fillRect(0,0,W2,H2)}
+  x.restore()},
+ open(target){const L=this.build();let fi=+(S.acc&&S.acc.fxLast)||0;if(!(fi>=0&&fi<L.length))fi=0;let stream=null,facing='user',still=null,snap='',busy=false;
+  const ov=openFull(`<div class="fxcam"><div class="fxst" id="fxSt"><video id="fxV" playsinline autoplay muted></video><img id="fxI" alt="" hidden><div class="fxov" id="fxO"></div><div class="fxname" id="fxN"></div><div class="fxmsg" id="fxM">Apro la fotocamera…</div></div>
+   <div class="fxtop"><button class="fxb" data-a="close">${ic('x',24)}</button><b>🎨 Filtri</b><span class="fxcount" id="fxC"></span><button class="fxb" id="fxFl" aria-label="Gira">🔄</button></div>
+   <div class="fxbot"><div class="fxlist" id="fxL"></div><div class="fxctl"><button class="fxside" id="fxG" aria-label="Galleria">🖼️<small>Galleria</small></button><button class="fxshot" id="fxS" aria-label="Scatta"><i></i></button><button class="fxside" id="fxR" aria-label="A caso">🎲<small>A caso</small></button></div></div></div>`,'fxwrap');
+  const $o=q=>$(q,ov),V=$o('#fxV'),I=$o('#fxI'),O=$o('#fxO');
+  const stop=()=>{if(stream){stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});stream=null}};
+  const prevOC=ov.onclose;ov.onclose=()=>{stop();if(prevOC)prevOC()};
+  const media=()=>still?I:V;
+  let nt;const apply=(show)=>{const f=L[fi];const css=this.css(f);V.style.filter=I.style.filter=css;O.innerHTML=this.layers(f);$o('#fxC').textContent=(fi+1)+'/'+L.length;
+   $$('.fxit',ov).forEach(b=>b.classList.toggle('on',+b.dataset.i===fi));const cur=$o(`.fxit[data-i="${fi}"]`);if(cur)cur.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+   if(show!==false){const n=$o('#fxN');n.textContent=f.n;n.classList.remove('sh');void n.offsetWidth;n.classList.add('sh')}};
+  const thumbs=()=>{const src=snap||'';$o('#fxL').innerHTML=L.map((f,i)=>`<button class="fxit ${i===fi?'on':''}" data-i="${i}"><span class="fxth">${src?`<img src="${src}" style="filter:${this.css(f)}" alt="">`:'<em></em>'}${this.layers(f)}</span><small>${esc(f.n)}</small></button>`).join('')};
+  const grab=()=>{try{const m=media();const w=m.videoWidth||m.naturalWidth,h=m.videoHeight||m.naturalHeight;if(!w||!h)return;const c=document.createElement('canvas'),k=90/Math.min(w,h);c.width=Math.round(w*k);c.height=Math.round(h*k);const x=c.getContext('2d');if(!still&&facing==='user'){x.translate(c.width,0);x.scale(-1,1)}x.drawImage(m,0,0,c.width,c.height);snap=c.toDataURL('image/jpeg',.7);thumbs();apply(false)}catch(e){}};
+  const start=async()=>{stop();still=null;I.hidden=true;V.hidden=false;$o('#fxM').textContent='Apro la fotocamera…';$o('#fxM').hidden=false;
+   try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1920},height:{ideal:1920}},audio:false});V.srcObject=stream;V.classList.toggle('mir',facing==='user');await V.play().catch(()=>{});$o('#fxM').hidden=true;setTimeout(grab,700)}
+   catch(e){$o('#fxM').innerHTML='Non riesco ad aprire la fotocamera.<br><small>Controlla il permesso in Impostazioni › Safari › Fotocamera, oppure scegli una foto dalla <b>Galleria</b>.</small>'}};
+  thumbs();apply(false);start();
+  $o('#fxL').onclick=e=>{const b=e.target.closest('.fxit');if(!b)return;fi=+b.dataset.i;apply()};
+  $o('#fxR').onclick=()=>{fi=1+Math.floor(Math.random()*(L.length-1));apply()};
+  $o('#fxFl').onclick=()=>{facing=facing==='user'?'environment':'user';start()};
+  let sx=null;const st=$o('#fxSt');st.addEventListener('touchstart',e=>{sx=e.touches[0].clientX},{passive:true});st.addEventListener('touchend',e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>45){fi=(fi+(dx<0?1:-1)+L.length)%L.length;apply()}},{passive:true});
+  $o('#fxG').onclick=()=>pickMedia('image').then(m=>{if(!m)return;let im=null;try{im=PICKHD.get(m.url)}catch(e){}const go=src=>{stop();still=src;I.onload=()=>{grab()};I.src=src.src||src;I.hidden=false;V.hidden=true;$o('#fxM').hidden=true};
+   if(im){const c=document.createElement('canvas');const W=im.naturalWidth||im.width,H=im.naturalHeight||im.height,k=Math.min(1,1600/Math.max(W,H));c.width=Math.round(W*k);c.height=Math.round(H*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);go(c.toDataURL('image/jpeg',.92))}else go(m.url)});
+  $o('#fxS').onclick=async()=>{if(busy)return;const m=media();const w=m.videoWidth||m.naturalWidth,h=m.videoHeight||m.naturalHeight;if(!w||!h)return toast('Fotocamera non pronta');busy=true;
+   try{const fl=$o('.fxst');fl.classList.add('flash');setTimeout(()=>fl.classList.remove('flash'),250);
+    /* ritaglio = quello che vedi sullo schermo */
+    let sx0=0,sy0=0,sw=w,sh=h;if(!still){const r=st.getBoundingClientRect(),ar=r.width/r.height,vr=w/h;if(vr>ar){sw=Math.round(h*ar);sx0=Math.round((w-sw)/2)}else{sh=Math.round(w/ar);sy0=Math.round((h-sh)/2)}}
+    const k=Math.min(1,1600/Math.max(sw,sh)),c=document.createElement('canvas');c.width=Math.round(sw*k);c.height=Math.round(sh*k);const x=c.getContext('2d');
+    if(!still&&facing==='user'){x.translate(c.width,0);x.scale(-1,1)}x.drawImage(m,sx0,sy0,sw,sh,0,0,c.width,c.height);x.setTransform(1,0,0,1,0,0);
+    await new Promise(r=>setTimeout(r,20));this.pixels(c,L[fi]);
+    S.acc.fxLast=fi;save();const url=c.toDataURL('image/jpeg',.92);this.done(url,c,ov,target)}
+   catch(e){toast('Non riesco a scattare, riprova')}finally{busy=false}};
+  return ov},
+ done(url,canvas,camOv,target){const sh=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('back')}</button><h2>La tua foto</h2><span style="width:40px"></span></div>
+  <div class="fbody imbody"><div class="imres"><img src="${url}" alt=""></div><div class="imact">${target==='story'?'':'<button class="btn" id="fxP">📸 Pubblica come post</button>'}<button class="btn ${target==='story'?'':'soft'}" id="fxSt2">🌙 Metti in storia</button><div class="imrow"><button class="btn soft" id="fxAg">🔄 Rifai</button><button class="btn soft" id="fxSv">⬇️ Salva</button></div></div><div style="height:30px"></div></div>`,'imov');
+  const asM=()=>{let m=900,q=.82,e;for(let k=0;k<6;k++){e=encodeImg(canvas,m,q);if(e.url.length<230000)break;q=Math.max(.45,q-.1);m=Math.round(m*.85)}try{PICKHD.set(e.url,canvas)}catch(_){}return{kind:'image',url:e.url,w:e.w,h:e.h}};
+  const go=f=>{try{const m=asM();closeOv(sh);closeOv(camOv);setTimeout(()=>f(m),120)}catch(e){toast('Riprova')}};
+  const P=$('#fxP',sh);if(P)P.onclick=()=>go(m=>composeMedia(m));$('#fxSt2',sh).onclick=()=>go(m=>composeStory(m));$('#fxAg',sh).onclick=()=>closeOv(sh);
+  $('#fxSv',sh).onclick=async()=>{try{const b=await (await fetch(url)).blob();const f=new File([b],'vybe-filtro.jpg',{type:'image/jpeg'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e&&e.name==='AbortError')return}const a=document.createElement('a');a.href=url;a.download='vybe-filtro.jpg';a.click()}}
+};
+{const st=document.createElement('style');st.textContent=`
+.fxwrap{background:#000}
+.fxcam{position:absolute;inset:0;background:#000;overflow:hidden}
+.fxst{position:absolute;inset:0;overflow:hidden;isolation:isolate}
+.fxst video,.fxst img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fxst img{object-fit:contain}
+.fxst video.mir{transform:scaleX(-1)}
+.fxov{position:absolute;inset:0;pointer-events:none}
+.fxl{position:absolute;inset:0;display:block;pointer-events:none}
+.fxst.flash::after{content:'';position:absolute;inset:0;background:#fff;opacity:.85;animation:fxfl .25s ease-out forwards;z-index:9}
+@keyframes fxfl{to{opacity:0}}
+.fxname{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:30px;font-weight:900;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.6);opacity:0;pointer-events:none}
+.fxname.sh{animation:fxnm 1.1s ease forwards}@keyframes fxnm{0%{opacity:0;transform:scale(.9)}20%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0}}
+.fxmsg{position:absolute;left:24px;right:24px;top:40%;text-align:center;color:#fff;font-size:16px;line-height:1.5}
+.fxmsg small{font-size:13px;opacity:.8}
+.fxtop{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;padding:12px 12px;background:linear-gradient(rgba(0,0,0,.55),transparent);color:#fff;z-index:3}
+.fxtop b{flex:1;font-size:17px}.fxcount{font-size:12px;opacity:.8;font-weight:700}
+.fxb{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.35);color:#fff;font-size:18px}
+.fxbot{position:absolute;left:0;right:0;bottom:0;padding:10px 0 calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(0,0,0,.7) 30%);z-index:3}
+.fxlist{display:flex;gap:9px;overflow-x:auto;padding:4px 14px 10px;scrollbar-width:none}.fxlist::-webkit-scrollbar{display:none}
+.fxit{flex:none;width:64px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff}
+.fxth{position:relative;width:60px;height:60px;border-radius:14px;overflow:hidden;isolation:isolate;border:2px solid transparent;background:#222}
+.fxth img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.fxth em{position:absolute;inset:0;background:linear-gradient(135deg,#7c3aed,#ec4899)}
+.fxit.on .fxth{border-color:#fff;box-shadow:0 0 0 2px #a855f7}
+.fxit small{font-size:10px;line-height:1.15;text-align:center;width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+.fxit.on small{font-weight:800;opacity:1}
+.fxctl{display:flex;align-items:center;justify-content:space-around;padding:4px 20px 0}
+.fxshot{width:76px;height:76px;border-radius:50%;border:5px solid #fff;display:grid;place-items:center;background:rgba(255,255,255,.15)}
+.fxshot i{width:58px;height:58px;border-radius:50%;background:#fff;display:block;transition:transform .1s}.fxshot:active i{transform:scale(.9)}
+.fxside{width:62px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;font-size:24px}.fxside small{font-size:11px;font-weight:700}
+`;document.head.appendChild(st)}
+/* ingresso: tasto + (Crea) */
+{const oc=openCreate;openCreate=function(only){const r=oc.apply(this,arguments);try{const ov=$$('#layer>.ov').pop();const menu=ov&&$('.menu',ov);if(menu&&!$('#cFx',menu)){
+  const im=$('#cImg',menu);const h=`<button id="cFx"><span class="mi" style="background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6);color:#fff">🎨</span><div>Fotocamera con filtri<small>Ti vedi dal vivo · ${FX.build().length} filtri · NUOVO</small></div></button>`;
+  if(im)im.insertAdjacentHTML('afterend',h);else menu.insertAdjacentHTML('afterbegin',h);
+  $('#cFx',menu).onclick=()=>{closeOv(ov);FX.open(only==='story'?'story':'')}}}catch(e){}return r}}
+
+/* v66: guida aggiornata con le novità (la rivedono tutti una volta) */
+GUIDE.V=2;
+GUIDE.S.splice(1,0,
+ ['🎨','Fotocamera con filtri — NUOVO','Tocca <b>+</b> e poi <b>Fotocamera con filtri</b>: ti vedi dal vivo e scegli tra 200 filtri (scorri in basso o strisci sullo schermo). Scatti, oppure prendi una foto dalla galleria, e la pubblichi come post o storia.'],
+ ['📊','Sondaggi — NUOVO','Nelle storie tocca <b>📊 Sondaggio</b> mentre la crei. In chat e nei gruppi tocca il <b>+</b> accanto al messaggio e scegli <b>Sondaggio</b>. Tutti votano con un tocco e vedono i risultati.'],
+ ['🎂','Compleanni — NUOVO','Puoi far vedere ai tuoi amici il giorno del tuo compleanno (mai l’anno). In alto nella home vedi chi compie gli anni, e se vuoi Vybe manda gli auguri da solo a mezzanotte.'],
+ ['🧑‍🎨','Avatar con l’IA — facoltativo','In <b>Modifica profilo</b> puoi creare un avatar dalla tua foto, in stile cartoon, anime, videogioco e altri. Lo usi solo se ti piace.']);
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
