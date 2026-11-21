@@ -5657,6 +5657,163 @@ VFIT.run();
 /* v59: la fascia sotto l'orologio prende lo stesso colore dell'app */
 {const st=document.createElement('style');st.textContent=`@media(max-width:519px){html,body{background:#07060c!important}}`;document.head.appendChild(st);const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.setAttribute('content','#07060c')}
 {const r=VFIT.run;VFIT.run=function(){r.apply(this,arguments);const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.setAttribute('content','#07060c')}}
+/* v60: ✨ Vybe Imagine — immagini vere con l'IA (crea da zero o trasforma una foto) */
+const IMAG={
+ st:null,res:[],
+ STY:[['real','📷','Realistico'],['cine','🎬','Cinema'],['ow','🌴','Open World'],['cartoon','🧸','Cartoon 3D'],['anime','🌸','Anime'],['comic','💥','Fumetto'],['pixel','👾','Pixel'],['clay','🟠','Plastilina'],['water','🎨','Acquerello'],['oil','🖼️','Quadro a olio'],['neon','🌃','Neon'],['sketch','✏️','Matita'],['lego','🧱','Mattoncini'],['fantasy','🐉','Fantasy'],['vintage','📼','Vintage'],['free','✍️','Libero']],
+ FMT:[['vert','Post 4:5'],['sq','Quadrato'],['story','Storia 9:16'],['wide','Orizzontale']],
+ IDEAS:['Un gatto astronauta che cammina su Marte','La mia città al tramonto con le luci al neon','Una macchina sportiva rossa sotto la pioggia di notte','Un drago gentile che dorme su una montagna di nuvole','Una spiaggia tropicale con l’acqua trasparente','Un ragazzo con gli occhiali da sole su uno skate a Miami'],
+ ERR:{day:'Hai usato tutte le immagini di oggi. Domani ne hai di nuove ✨',all:'Oggi su Vybe sono state create troppe immagini. Riprova domani.',credits:'Il servizio IA ha finito i crediti per ora. Riprova più tardi.',blocked:'Questa richiesta non si può creare. Prova a descriverla in un altro modo 💜',busy:'Il servizio è pieno in questo momento: riprova tra 20 secondi.',editoff:'Trasformare le foto non è ancora attivo. Per ora puoi creare immagini da zero.',short:'Scrivi qualcosa in più su cosa vuoi vedere.',img:'Questa foto è troppo grande, scegline un’altra.',auth:'Accedi di nuovo per usare Vybe Imagine.',nodb:'Server non raggiungibile, riprova.',banned:'Il tuo account non può usare questa funzione.'},
+ async status(){try{const r=await fetch('/api/img',{cache:'no-store'});if(!r.ok)throw 0;this.st=await r.json()}catch(e){this.st={on:false}}return this.st},
+ toData(im,max,q){const W=im.naturalWidth||im.width,H=im.naturalHeight||im.height,sc=Math.min(1,max/Math.max(W,H)),c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)},
+ loadUrl(u){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>rej(new Error('load'));im.src=u})},
+ async asMedia(u){const im=await this.loadUrl(u);let m=900,q=.8,e;for(let k=0;k<6;k++){e=encodeImg(im,m,q);if(e.url.length<230000)break;q=Math.max(.45,q-.1);m=Math.round(m*.85)}try{PICKHD.set(e.url,im)}catch(_){}return{kind:'image',url:e.url,w:e.w,h:e.h,ai:1}},
+ open(){const ov=openFull(`<div class="fhead"><button class="iconbtn" data-a="close">${ic('x')}</button><h2>✨ Vybe Imagine</h2><span class="imleft" id="imLeft"></span></div>
+ <div class="fbody imbody">
+  <div class="imhero"><b>Crea immagini pazzesche con l’IA</b><small>Scrivi un’idea, scegli uno stile e in pochi secondi hai la tua immagine. Poi la pubblichi come post o storia.</small></div>
+  <div class="imtabs" id="imTabs"><button data-m="new" class="on">Crea da zero</button><button data-m="edit">Trasforma una foto</button></div>
+  <div id="imEditBox" class="imedit" hidden><button class="imsrc" id="imSrc"><span>📷</span><b>Scegli una foto</b><small>La trasformo nello stile che vuoi</small></button><div id="imEditNote" class="imnote" hidden></div></div>
+  <label class="imlab">Cosa vuoi vedere?</label>
+  <textarea class="ta imta" id="imP" maxlength="600" placeholder="Es. io e i miei amici come personaggi di un videogioco, in macchina al tramonto…"></textarea>
+  <div class="imideas" id="imIdeas">${this.IDEAS.map((t,i)=>`<button data-i="${i}">${esc(t)}</button>`).join('')}</div>
+  <label class="imlab">Stile</label>
+  <div class="imsty" id="imSty">${this.STY.map(([k,e,n],i)=>`<button data-s="${k}" class="${k==='real'?'on':''}"><span>${e}</span>${n}</button>`).join('')}</div>
+  <label class="imlab">Formato</label>
+  <div class="imfmt" id="imFmt">${this.FMT.map(([k,n])=>`<button data-f="${k}" class="${k==='vert'?'on':''}">${n}</button>`).join('')}</div>
+  <button class="btn imgo" id="imGo">✨ Crea immagine</button>
+  <div id="imOut"></div>
+  <div class="imhist" id="imHist"></div>
+  <p class="imfoot">Le immagini sono create da un’intelligenza artificiale: possono contenere errori. Non creare immagini che prendono in giro o offendono altre persone.</p>
+  <div style="height:30px"></div>
+ </div>`,'imov');
+  let mode='new',style='real',fmt='vert',src=null,busy=false;
+  const $o=q=>$(q,ov),P=$o('#imP');
+  const paintLeft=n=>{const el=$o('#imLeft');if(el&&n!=null)el.textContent=n+' oggi'};
+  this.status().then(st=>{if(!st.on){$o('#imOut').innerHTML=`<div class="imnote">Vybe Imagine funziona nell’app installata (vybe-pink-pi.vercel.app). Qui non è disponibile.</div>`;$o('#imGo').disabled=true;return}
+   if(!st.edit){const n=$o('#imEditNote');n.hidden=false;n.textContent='Trasformare le foto non è ancora attivo: arriva presto. Intanto puoi creare immagini da zero.'}
+   vapi('/api/img',{op:'left'}).then(j=>paintLeft(j.left)).catch(()=>{})});
+  $o('#imTabs').onclick=e=>{const b=e.target.closest('[data-m]');if(!b)return;mode=b.dataset.m;$$('#imTabs button',ov).forEach(x=>x.classList.toggle('on',x===b));$o('#imEditBox').hidden=mode!=='edit';P.placeholder=mode==='edit'?'Cosa cambio? Es. mettici su una spiaggia, vestiti eleganti… (puoi anche lasciarlo vuoto)':'Es. io e i miei amici come personaggi di un videogioco, in macchina al tramonto…'};
+  $o('#imIdeas').onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;P.value=this.IDEAS[+b.dataset.i];P.focus()};
+  $o('#imSty').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;style=b.dataset.s;$$('#imSty button',ov).forEach(x=>x.classList.toggle('on',x===b))};
+  $o('#imFmt').onclick=e=>{const b=e.target.closest('[data-f]');if(!b)return;fmt=b.dataset.f;$$('#imFmt button',ov).forEach(x=>x.classList.toggle('on',x===b))};
+  const setSrc=(dataUrl,thumb)=>{src=dataUrl;$o('#imSrc').innerHTML=`<img src="${thumb||dataUrl}" alt=""><b>Foto scelta ✓</b><small>Tocca per cambiarla</small>`};
+  $o('#imSrc').onclick=()=>pickMedia('image').then(m=>{if(!m)return;let d=m.url;try{const im=PICKHD.get(m.url);if(im)d=this.toData(im,1280,.86)}catch(e){}setSrc(d,m.url)});
+  const render=()=>{$o('#imHist').innerHTML=this.res.length>1?`<label class="imlab">Create in questa sessione</label><div class="imgrid">${this.res.map((u,i)=>`<img src="${u}" data-h="${i}" alt="">`).join('')}</div>`:''};
+  const show=(u)=>{$o('#imOut').innerHTML=`<div class="imres"><img src="${u}" alt="Immagine creata con Vybe Imagine"><div class="imact">
+   <button class="btn" id="imPost">📸 Pubblica come post</button><button class="btn soft" id="imStory">🌙 Metti in storia</button>
+   <div class="imrow"><button class="btn soft" id="imMore">🪄 Modifica ancora</button><button class="btn soft" id="imAgain">🔄 Rifai</button><button class="btn soft" id="imSave">⬇️ Salva</button></div></div></div>`;
+   const wrap=async f=>{try{toast('Preparo l’immagine…');const m=await this.asMedia(u);closeOv(ov);f(m)}catch(e){toast('Non riesco ad aprire l’immagine, riprova')}};
+   $o('#imPost').onclick=()=>wrap(m=>composeMedia(m));$o('#imStory').onclick=()=>wrap(m=>composeStory(m));
+   $o('#imAgain').onclick=()=>go();
+   $o('#imMore').onclick=async()=>{try{const im=await this.loadUrl(u);setSrc(this.toData(im,1280,.88),u);$o('#imTabs [data-m="edit"]').click();P.value='';P.focus();ov.querySelector('.fbody').scrollTo({top:0,behavior:'smooth'})}catch(e){toast('Riprova')}};
+   $o('#imSave').onclick=async()=>{try{const b=await (await fetch(u)).blob();const f=new File([b],'vybe-imagine.'+(b.type.includes('png')?'png':'jpg'),{type:b.type});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e&&e.name==='AbortError')return}window.open(u,'_blank');toast('Tieni premuta l’immagine e scegli “Salva”')};
+   setTimeout(()=>$o('#imOut').scrollIntoView({behavior:'smooth',block:'start'}),60)};
+  $o('#imHist').onclick=e=>{const i=e.target.closest('[data-h]');if(i)show(this.res[+i.dataset.h])};
+  const go=async()=>{if(busy)return;const p=P.value.trim();
+   if(mode==='edit'&&!src){toast('Prima scegli una foto');return}
+   if(mode==='new'&&p.length<3){toast('Scrivi cosa vuoi vedere');P.focus();return}
+   try{if(S.acc.settings&&S.acc.settings.filter&&typeof isBad==='function'&&isBad(p)){toast('Il testo contiene parole offensive 💜');return}}catch(e){}
+   busy=true;const btn=$o('#imGo');btn.disabled=true;const t0=Date.now();
+   $o('#imOut').innerHTML=`<div class="imwait"><div class="imorb"></div><b id="imW">Sto disegnando la tua immagine…</b><small>Di solito ci vogliono 10–40 secondi. Non chiudere questa schermata.</small></div>`;
+   const msgs=['Sto disegnando la tua immagine…','Aggiungo luci e colori…','Sistemo i dettagli…','Quasi pronta ✨'];let mi=0;const iv=setInterval(()=>{const w=$o('#imW');if(w)w.textContent=msgs[Math.min(++mi,msgs.length-1)]},9000);
+   try{const j=await vapi('/api/img',Object.assign({prompt:p,style,fmt},mode==='edit'?{image:src}:{}));
+    this.res.unshift(j.url);this.res=this.res.slice(0,12);paintLeft(j.left);show(j.url);render();try{clog('img ok '+mode+' '+style+' '+Math.round((Date.now()-t0)/1000)+'s')}catch(e){}}
+   catch(e){const c=e&&e.code||'fail';$o('#imOut').innerHTML=`<div class="imnote err">${esc(this.ERR[c]||'Qualcosa è andato storto. Riprova tra poco.')}</div>`;try{clog('img fail '+c)}catch(_){}}
+   finally{clearInterval(iv);busy=false;btn.disabled=false}};
+  $o('#imGo').onclick=go;
+  return ov}
+};
+{const st=document.createElement('style');st.textContent=`
+.imov .fhead h2{background:var(--vy);-webkit-background-clip:text;background-clip:text;color:transparent}
+.imleft{font-size:12.5px;color:var(--muted);font-weight:700;white-space:nowrap}
+.imbody{padding:0 14px}
+.imhero{margin:10px 0 12px;padding:16px;border-radius:20px;background:linear-gradient(135deg,rgba(124,58,237,.35),rgba(236,72,153,.25));border:1px solid rgba(255,255,255,.08)}
+.imhero b{display:block;font-size:17px;margin-bottom:4px}.imhero small{font-size:13.5px;line-height:1.45;color:var(--muted)}
+.imtabs{display:flex;gap:6px;background:rgba(255,255,255,.05);padding:4px;border-radius:14px;margin-bottom:12px}
+.imtabs button{flex:1;height:38px;border-radius:11px;font-weight:700;font-size:14px;color:var(--muted)}
+.imtabs button.on{background:var(--vy);color:#fff}
+.imsrc{width:100%;display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;border:1.5px dashed rgba(255,255,255,.2);text-align:left;margin-bottom:10px}
+.imsrc span{font-size:28px}.imsrc img{width:56px;height:56px;object-fit:cover;border-radius:12px}
+.imsrc b{display:block;font-size:15px}.imsrc small{display:block;font-size:12.5px;color:var(--muted)}
+.imlab{display:block;font-size:13px;font-weight:800;color:var(--muted);margin:12px 2px 6px;text-transform:uppercase;letter-spacing:.04em}
+.imta{min-height:86px}
+.imideas{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}.imideas::-webkit-scrollbar{display:none}
+.imideas button{flex:none;font-size:12.5px;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--ink);max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imsty{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.imsty button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 2px;border-radius:14px;background:rgba(255,255,255,.06);font-size:11.5px;font-weight:700;color:var(--ink);border:1.5px solid transparent}
+.imsty button span{font-size:22px}.imsty button.on{border-color:#c084fc;background:rgba(168,85,247,.22)}
+.imfmt{display:flex;gap:6px;flex-wrap:wrap}
+.imfmt button{padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.06);font-size:13px;font-weight:700;color:var(--ink);border:1.5px solid transparent}
+.imfmt button.on{border-color:#c084fc;background:rgba(168,85,247,.22)}
+.imgo{margin-top:16px;height:52px;font-size:16.5px;background:var(--vy);box-shadow:var(--neon)}
+.imgo:disabled{opacity:.6}
+.imwait{margin-top:16px;padding:22px 14px;border-radius:20px;background:rgba(255,255,255,.05);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.imwait small{color:var(--muted);font-size:12.5px}
+.imorb{width:64px;height:64px;border-radius:50%;background:conic-gradient(#7c3aed,#ec4899,#f97316,#7c3aed);animation:imspin 1.4s linear infinite;margin-bottom:8px;filter:blur(.5px);box-shadow:0 0 40px rgba(168,85,247,.6)}
+@keyframes imspin{to{transform:rotate(360deg)}}
+.imres{margin-top:16px}.imres img{width:100%;border-radius:18px;display:block;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.imact{display:flex;flex-direction:column;gap:8px;margin-top:10px}.imrow{display:flex;gap:6px}.imrow .btn{flex:1;font-size:13px;padding:0 4px}
+.imnote{margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);font-size:13.5px;line-height:1.45;color:var(--ink)}
+.imnote.err{background:rgba(248,113,113,.14);color:#fecaca}
+.imgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.imgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}
+.imfoot{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:14px}
+`;document.head.appendChild(st)}
+/* ingresso: nel menu "Crea" */
+{const oc=openCreate;openCreate=function(only){const r=oc.apply(this,arguments);try{const ov=$$('#layer>.ov').pop();const menu=ov&&$('.menu',ov);if(menu&&!$('#cImg',menu)){
+  menu.insertAdjacentHTML('afterbegin',`<button id="cImg" class="imcr"><span class="mi" style="background:var(--vy);color:#fff">✨</span><div>Vybe Imagine<small>Crea immagini con l’IA · tanti stili · NUOVO</small></div></button>`);
+  $('#cImg',menu).onclick=()=>{closeOv(ov);IMAG.open()};
+  menu.insertAdjacentHTML('beforeend',`<button id="cGuide"><span class="mi">📖</span><div>Cosa puoi fare su Vybe<small>La guida a tutte le funzioni</small></div></button>`);
+  $('#cGuide',menu).onclick=()=>{closeOv(ov);GUIDE.open(false)}}}catch(e){}return r}}
+
+/* v61: prima di entrare — "Leggi con attenzione": tutto quello che puoi fare su Vybe */
+const GUIDE={V:1,
+ S:[
+  ['✨','Vybe Imagine — NUOVO','Crea immagini con l’intelligenza artificiale: scrivi un’idea, scegli uno stile (realistico, cinema, open world, cartoon 3D, anime, fumetto, pixel e tanti altri) e il formato. Poi la pubblichi come post o la metti in storia. Lo trovi nel tasto <b>+</b> in basso. Hai un numero di immagini al giorno.'],
+  ['📸','Post e Reels','Pubblica foto in alta qualità, intere e senza tagli (verticali e orizzontali). I video vanno nei <b>Reels</b>: fino a 3 minuti (10 con VYBE+). Puoi fare anche post di solo testo e aggiungere una canzone a ogni post.'],
+  ['🌙','Storie','Foto, video o testo con musica e adesivi. Spariscono dopo 24 ore. Tocca la tua foto in alto a sinistra per aggiungerne una.'],
+  ['❤️','Mi piace e commenti','Metti mi piace con un doppio tocco. Sotto ogni post puoi commentare e rispondere. Un commento offensivo si può segnalare, e chi lo scrive si può bloccare.'],
+  ['💬','Chat e gruppi','Scrivi in privato o crea gruppi. Puoi mandare foto, video e <b>messaggi vocali</b> (tieni premuto il microfono). Puoi anche reagire ai messaggi con le emoji e vedere quando un messaggio è stato <b>Visualizzato</b>.'],
+  ['📞','Chiamate e videochiamate','Chiama o fai una videochiamata dai tasti in alto nella chat, anche nei gruppi. Per sentire lo squillo con l’app chiusa, attiva le notifiche.'],
+  ['⏰','Messaggi programmati','Tocca la <b>luna</b> in una chat o in un gruppo: scrivi il messaggio (per esempio la buonanotte), scegli l’ora e se ripeterlo ogni giorno. Parte da solo.'],
+  ['🔴','Dirette','Vai in diretta e chatta con chi ti guarda in tempo reale. Le dirette sono permesse dai 16 anni in su.'],
+  ['👤','Profilo','Foto profilo, copertina intera, bio. Puoi rendere il profilo <b>privato</b>: allora solo chi approvi vede i tuoi post e le tue storie.'],
+  ['🤖','Vybe AI','Ti aiuta a scrivere didascalie, hashtag, titoli e idee per i Reel. Lo trovi nel tasto <b>+</b>.'],
+  ['🔔','Notifiche','Per ricevere messaggi, chiamate, commenti e mi piace anche con l’app chiusa: aggiungi Vybe alla schermata Home (Safari › Condividi › Aggiungi alla schermata Home) e consenti le notifiche.'],
+  ['🛡️','Sicurezza e regole','Vybe è dai 12 anni in su. Sotto i 16 anni puoi chattare solo con gli amici che vi seguite a vicenda. Le parole offensive vengono filtrate. Rispetta sempre gli altri: niente insulti, prese in giro, foto di altri senza permesso o contenuti volgari. Chi non rispetta le regole può essere bloccato.'],
+  ['🔒','Il tuo account','Non dare mai a nessuno la tua password o i codici che ricevi, nemmeno a chi dice di lavorare per Vybe. Se qualcosa non va, scrivilo a un adulto di fiducia.']
+ ],
+ seen(){try{if(S.acc&&S.acc.guideV>=this.V)return true}catch(e){}try{return +localStorage.getItem('vybe_guide_v')>=this.V}catch(e){return false}},
+ mark(){try{S.acc.guideV=this.V;save()}catch(e){}try{localStorage.setItem('vybe_guide_v',String(this.V))}catch(e){}},
+ maybe(){if(!this.seen()&&!$('.gdov'))setTimeout(()=>this.open(true),350)},
+ open(first){const ov=openFull(`<div class="fhead">${first?'<span style="width:40px"></span>':`<button class="iconbtn" data-a="close">${ic('x')}</button>`}<h2>Prima di entrare</h2><span style="width:40px"></span></div>
+ <div class="fbody gdbody" id="gdBody">
+  <div class="gdtop"><div class="gdlogo">Vybe</div><b>Leggi con attenzione</b><small>Qui c’è tutto quello che puoi fare su Vybe e le regole per stare bene insieme. Scorri fino in fondo.</small></div>
+  ${this.S.map(([e,t,d])=>`<div class="gdit"><span>${e}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('')}
+  <label class="gdok"><input type="checkbox" id="gdChk" ${first?'':'checked'}> <span>Ho letto tutto e rispetto le regole di Vybe</span></label>
+  <div style="height:90px"></div>
+ </div>
+ <div class="gdbar"><button class="btn" id="gdGo" disabled>${first?'Scorri fino in fondo per entrare':'Ho capito'}</button></div>`,'gdov');
+  const body=$('#gdBody',ov),go=$('#gdGo',ov),chk=$('#gdChk',ov);let bottom=!first;
+  const upd=()=>{if(!bottom&&body.scrollTop+body.clientHeight>=body.scrollHeight-40)bottom=true;go.disabled=!(bottom&&chk.checked);go.textContent=!bottom?'Scorri fino in fondo per entrare':!chk.checked?'Spunta la casella per entrare':(first?'Entra in Vybe ✨':'Ho capito')};
+  body.addEventListener('scroll',upd,{passive:true});chk.onchange=upd;setTimeout(upd,400);
+  go.onclick=()=>{if(go.disabled)return;this.mark();closeOv(ov)};
+  return ov}
+};
+{const st=document.createElement('style');st.textContent=`
+.gdbody{padding:0 16px}
+.gdtop{text-align:center;padding:14px 6px 8px}
+.gdlogo{font-family:'Pacifico',cursive,var(--font,system-ui);font-size:34px;font-weight:900;background:var(--vy);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gdtop b{display:block;font-size:21px;margin-top:4px}.gdtop small{display:block;font-size:14px;color:var(--muted);line-height:1.45;margin-top:4px}
+.gdit{display:flex;gap:12px;padding:13px 12px;margin-top:9px;border-radius:16px;background:rgba(255,255,255,.05)}
+.gdit>span{font-size:26px;flex:none;width:34px;text-align:center}
+.gdit>div>b{display:block;font-size:15.5px;margin-bottom:3px}.gdit p b{color:#e9d5ff}.gdit p{font-size:14px;line-height:1.5;color:var(--ink);opacity:.88;margin:0}
+.gdok{display:flex;gap:10px;align-items:flex-start;margin:18px 4px 0;font-size:14.5px;font-weight:700;line-height:1.4}
+.gdok input{width:22px;height:22px;flex:none;accent-color:#a855f7;margin-top:1px}
+.gdbar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,var(--bg) 70%,transparent)}
+.gdbar .btn{height:52px;font-size:16px;background:var(--vy)}.gdbar .btn:disabled{opacity:.55}
+`;document.head.appendChild(st)}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{GUIDE.maybe()}catch(e){}return r}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
