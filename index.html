@@ -6727,6 +6727,92 @@ FX.open=function(target){const L=this.build();const BEA=RFX.BEAUTY;
 `;document.head.appendChild(st)}
 {const oc=openCreate;openCreate=function(only){const r=oc.apply(this,arguments);try{const b=$('#cFx');if(b){const s=b.querySelector('small');if(s)s.textContent=`Maschere realistiche 3D, trucco e occhi colorati + ${FX.build().length} filtri colore · NUOVO`}}catch(e){}return r}}
 
+/* v73: 👥 più account sullo stesso telefono (massimo 4) — cambio rapido come Instagram.
+   Ogni account tiene i suoi dati separati: quando cambi, quello attuale viene messo da parte (salvato anche online) e si apre l'altro. */
+const MACC={MAX:4,KEYS:['vybe_cloud','vybe_push','vybe_pfask','vybe_nudge'],
+ list(){try{const L=JSON.parse(localStorage.getItem('vybe_slots')||'[]');return Array.isArray(L)?L.filter(x=>x&&x.id):[]}catch(e){return[]}},
+ setList(L){try{localStorage.setItem('vybe_slots',JSON.stringify(L.slice(0,this.MAX)))}catch(e){}},
+ id(a){return a?String(a.salt||a.username||''):''},
+ cur(){const a=S.acc||store.get('vybe_acc');return a&&a.username?a:null},
+ meta(a){let av='';try{const h=avHTML({n:a.name||a.username||'?',img:a.avatar||null,c:['#7c3aed','#ec4899']},44);if(h.length<60000)av=h}catch(e){}return{id:this.id(a),u:a.username,n:a.name||a.username,av,t:Date.now()}},
+ /* tiene aggiornata la scheda dell'account attivo nell'elenco */
+ touch(){const a=this.cur();if(!a)return;const L=this.list(),m=this.meta(a),i=L.findIndex(x=>x.id===m.id);if(i>=0)L[i]={...L[i],...m};else if(L.length<this.MAX)L.push(m);else return;this.setList(L)},
+ /* mette da parte l'account attivo */
+ async park(){const a=this.cur();if(!a)return null;
+  try{if(S.acc){save()}}catch(e){}
+  try{if(typeof Cloud!=='undefined'&&Cloud.on){if(Cloud.tmr){clearTimeout(Cloud.tmr);Cloud.tmr=0}await Promise.race([Cloud.save(),new Promise(r=>setTimeout(r,6000))])}}catch(e){}
+  const d={acc:JSON.parse(JSON.stringify(S.acc||a)),guard:store.get('vybe_guard'),ls:{},t:Date.now()};
+  this.KEYS.forEach(k=>{try{const v=localStorage.getItem(k);if(v!=null)d.ls[k]=v}catch(e){}});
+  const ok=await IDBS.set('slot_'+this.id(a),d);if(!ok)return null;this.touch();return this.id(a)},
+ clearActive(){store.del('vybe_acc');store.del('vybe_guard');this.KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});store.sdel('vybe_ses');store.sdel('vybe_young');return IDBS.set('acc',null)},
+ async load(id){const d=await IDBS.get('slot_'+id);if(!d||!d.acc||!d.acc.username)return false;
+  store.set('vybe_acc',d.acc);store.set('vybe_guard',d.guard||{fails:0,until:0,locks:0});
+  this.KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});Object.entries(d.ls||{}).forEach(([k,v])=>{try{localStorage.setItem(k,v)}catch(e){}});
+  store.sdel('vybe_ses');store.sdel('vybe_young');await IDBS.set('acc',JSON.parse(JSON.stringify(d.acc)));return true},
+ busy:false,
+ /* dopo il cambio nessun salvataggio automatico deve riscrivere l'account vecchio */
+ lockWrites(){this.locked=true;const ss=store.set,is=IDBS.set;store.set=function(k,v){if(MACC.locked&&(k==='vybe_acc'||k==='vybe_guard'))return true;return ss.apply(this,arguments)};IDBS.set=function(k){if(MACC.locked&&k==='acc')return Promise.resolve(true);return is.apply(this,arguments)}},
+ wait(t){closeAll();const ov=openFull(`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px"><div class="logo" style="font-size:40px">Vybe</div><div class="maccspin"></div><div style="opacity:.75;font-size:14px">${esc(t)}</div></div>`);return ov},
+ async switchTo(id){if(this.busy)return;const a=this.cur();if(a&&this.id(a)===id)return toast('Sei già in questo account');
+  const L=this.list(),tg=L.find(x=>x.id===id);if(!tg)return;this.busy=true;this.wait('Passo a @'+tg.u+'…');
+  try{if(a){const p=await this.park();if(!p){this.busy=false;closeAll();return toast('Non riesco a mettere da parte questo account, riprova')}}
+   if(!await this.load(id)){this.busy=false;closeAll();this.setList(this.list().filter(x=>x.id!==id));return toast('Questo account non è più su questo telefono: accedi di nuovo con email e password')}
+   store.sset('vybe_sw',tg.u);this.lockWrites();setTimeout(()=>location.reload(),150)}catch(e){this.busy=false;closeAll();toast('Qualcosa è andato storto, riprova')}},
+ async add(){if(this.busy)return;const L=this.list(),a=this.cur();const n=L.length+(a&&!L.some(x=>x.id===this.id(a))?1:0);
+  if(n>=this.MAX)return confirmSheet('Massimo 4 account',`Su questo telefono puoi avere al massimo ${this.MAX} account. Per aggiungerne un altro, prima rimuovine uno dall’elenco.`,'Ok',()=>{});
+  this.busy=true;this.wait('Preparo il nuovo account…');
+  try{if(a){const p=await this.park();if(!p){this.busy=false;closeAll();return toast('Non riesco a mettere da parte questo account, riprova')}store.sset('vybe_from',p)}
+   await this.clearActive();store.sset('vybe_adding','1');this.lockWrites();setTimeout(()=>location.reload(),150)}catch(e){this.busy=false;closeAll();toast('Qualcosa è andato storto, riprova')}},
+ remove(id){const L=this.list(),x=L.find(z=>z.id===id);if(!x)return;
+  confirmSheet('Rimuovere @'+x.u+' da questo telefono?','L’account non viene eliminato: potrai rientrare quando vuoi con email e password.','Rimuovi',async()=>{await IDBS.del('slot_'+id);this.setList(this.list().filter(z=>z.id!==id));toast('@'+x.u+' rimosso da questo telefono');if($('.maccsh'))this.sheet()})},
+ rows(curId){const L=this.list();return L.map(x=>`<div class="maccrow ${x.id===curId?'on':''}" data-id="${esc(x.id)}"><div class="maccav">${x.av||`<span class="av" style="width:44px;height:44px;font-size:17px;background:linear-gradient(135deg,#7c3aed,#ec4899)">${esc(initials(x.n||x.u||'?'))}</span>`}</div><div class="maccnm"><b>${esc(x.n||x.u)}</b><small>@${esc(x.u)}</small></div>${x.id===curId?'<span class="maccok">✓</span>':`<button class="maccrm" data-rm="${esc(x.id)}" aria-label="Rimuovi">✕</button>`}</div>`).join('')},
+ sheet(){this.touch();const a=this.cur(),cid=this.id(a),L=this.list();closeAll();
+  const full=L.length>=this.MAX;
+  const sh=openSheet(`<div class="maccsh"><div class="shead" style="text-align:center;font-weight:800;padding:4px 0 10px">Account su questo telefono <span style="opacity:.6">(${L.length}/${this.MAX})</span></div>
+   <div class="macclist">${this.rows(cid)}</div>
+   <button class="maccadd ${full?'dis':''}" id="maccAdd"><span>＋</span><div><b>Aggiungi account</b><small>${full?'Hai raggiunto il massimo di '+this.MAX+' account':'Crea un nuovo account o accedi a uno che hai già'}</small></div></button>
+   <p class="maccnote">Le notifiche arrivano per tutti gli account di questo telefono.</p></div>`);
+  sh.addEventListener('click',e=>{const rm=e.target.closest('[data-rm]');if(rm){e.stopPropagation();return this.remove(rm.dataset.rm)}const r=e.target.closest('.maccrow');if(r&&r.dataset.id!==cid){this.switchTo(r.dataset.id)}});
+  $('#maccAdd',sh).onclick=()=>this.add();return sh}
+};
+/* stile */
+{const st=document.createElement('style');st.textContent=`
+.maccsh{padding:0 4px 8px}
+.macclist{display:flex;flex-direction:column;gap:4px}
+.maccrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;cursor:pointer}
+.maccrow.on{background:rgba(168,85,247,.14)}
+.maccrow:active{background:rgba(255,255,255,.08)}
+.maccav .av{width:44px!important;height:44px!important;border-radius:50%;object-fit:cover}
+.maccnm{flex:1;min-width:0;display:flex;flex-direction:column}.maccnm b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.maccnm small{opacity:.6;font-size:13px}
+.maccok{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff;font-weight:900;font-size:14px}
+.maccrm{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:inherit;opacity:.7;font-size:13px}
+.maccadd{display:flex;align-items:center;gap:12px;width:100%;margin-top:8px;padding:12px;border-radius:16px;background:rgba(255,255,255,.06);color:inherit;text-align:left}
+.maccadd span{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:2px dashed rgba(255,255,255,.35);font-size:22px;flex:0 0 auto}
+.maccadd div{display:flex;flex-direction:column}.maccadd small{opacity:.6;font-size:12.5px}.maccadd.dis{opacity:.5}
+.maccnote{text-align:center;opacity:.5;font-size:12px;margin:12px 0 0}
+.maccspin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#c084fc;animation:maccs 1s linear infinite}@keyframes maccs{to{transform:rotate(360deg)}}
+.ptop b.maccsw{cursor:pointer;display:inline-flex;align-items:center;gap:4px}.ptop b.maccsw i{font-style:normal;font-size:13px;opacity:.7}
+.maccwel{display:flex;flex-direction:column;gap:6px;margin-top:6px}.maccwel .maccrow{background:rgba(255,255,255,.06)}
+.maccwlab{font-size:12px;font-weight:800;opacity:.6;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 0}
+`;document.head.appendChild(st)}
+/* l'account attivo entra nell'elenco appena si entra nell'app */
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{MACC.touch();store.sdel('vybe_adding');store.sdel('vybe_from');const sw=store.sget('vybe_sw');if(sw){store.sdel('vybe_sw');setTimeout(()=>toast('Sei entrato come @'+(S.acc&&S.acc.username||sw)+' 👋'),900)}}catch(e){}return r}}
+/* profilo: tocca il tuo nome utente in alto per cambiare account */
+{const rp=renderProfile;renderProfile=function(){const r=rp.apply(this,arguments);try{const b=$('#profileScroll .ptop b');if(b&&!b.classList.contains('maccsw')){b.classList.add('maccsw');b.insertAdjacentHTML('beforeend','<i>▾</i>');b.onclick=e=>{e.stopPropagation();MACC.sheet()}}}catch(e){}return r}}
+/* menu del profilo e impostazioni */
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#maccMenu',m)){m.insertAdjacentHTML('afterbegin','<button id="maccMenu"><span class="mi">👥</span><div>Cambia o aggiungi account<small>Fino a 4 account su questo telefono</small></div></button>');$('#maccMenu',m).addEventListener('click',e=>{e.stopPropagation();e.preventDefault();MACC.sheet()},true)}}catch(e){}return r}}
+{const os=openSettings;openSettings=function(){const r=os.apply(this,arguments);try{const sec=$$('#layer .sect').find(s=>s.textContent.trim()==='Account');if(sec&&!$('#maccSet')){sec.insertAdjacentHTML('afterend','<div class="trow2" id="maccSet" style="cursor:pointer"><div>Account su questo telefono<small>Cambia account o aggiungine uno (massimo 4)</small></div><span style="opacity:.6">›</span></div>');$('#maccSet').onclick=()=>MACC.sheet()}}catch(e){}return r}}
+/* schermate di benvenuto e di accesso: account salvati + "torna indietro" mentre ne aggiungi uno */
+MACC.authList=function(){try{const L=this.list();if(!L.length)return;const host=$('.welcome')||$('.auth-body');if(!host||$('.maccwel',host))return;
+ const cur=this.cur(),cid=cur?this.id(cur):'';const others=L.filter(x=>x.id!==cid);if(!others.length)return;
+ const adding=store.sget('vybe_adding')==='1';
+ const html=`<div class="maccwel"><div class="maccwlab">${adding?'Oppure torna a un tuo account':'Account su questo telefono'}</div>${others.map(x=>`<div class="maccrow" data-id="${esc(x.id)}"><div class="maccav">${x.av||`<span class="av" style="width:44px;height:44px;font-size:17px;background:linear-gradient(135deg,#7c3aed,#ec4899)">${esc(initials(x.n||x.u||'?'))}</span>`}</div><div class="maccnm"><b>${esc(x.n||x.u)}</b><small>@${esc(x.u)}</small></div><span style="opacity:.5">›</span></div>`).join('')}</div>`;
+ const sp=$('.spacer',host);if(sp)sp.insertAdjacentHTML('afterend',html);else host.insertAdjacentHTML('beforeend',html);
+ $('.maccwel',host).addEventListener('click',e=>{const r=e.target.closest('.maccrow');if(r)MACC.switchTo(r.dataset.id)})}catch(e){}};
+{const sw=showWelcome;showWelcome=function(){const r=sw.apply(this,arguments);MACC.authList();return r}}
+if(typeof showCloudLogin==='function'){const cl=showCloudLogin;showCloudLogin=function(){const r=cl.apply(this,arguments);MACC.authList();return r}}
+{const sl=showLogin;showLogin=function(){const r=sl.apply(this,arguments);MACC.authList();return r}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
