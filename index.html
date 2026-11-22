@@ -7163,6 +7163,79 @@ setInterval(()=>{try{if(S.acc&&!$('#vmapBtn'))FMAP.btn()}catch(e){}},1500);
 .leaflet-container{font-family:inherit}
 `;document.head.appendChild(st)}
 
+/* v77: 🗺️ VYBE MAP stile Bump — mappa vera in 3D (MapLibre + OpenFreeMap: gratis, senza chiave, nessun limite),
+   avatar degli amici e "🎵 sto ascoltando" con la copertina che gira e l'anteprima da ascoltare. */
+FMAP.lib=function(){if(window.maplibregl&&window.maplibregl.Map)return Promise.resolve(window.maplibregl);if(this.lp)return this.lp;
+ this.lp=new Promise(async(res,rej)=>{const V='4.7.1';if(!$('#mlCss')){await new Promise(ok=>{const c=document.createElement('link');c.id='mlCss';c.rel='stylesheet';c.href='https://cdn.jsdelivr.net/npm/maplibre-gl@'+V+'/dist/maplibre-gl.css';c.onload=ok;c.onerror=ok;document.head.appendChild(c);setTimeout(ok,4000)})}
+  const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/maplibre-gl@'+V+'/dist/maplibre-gl.js';s.onload=()=>window.maplibregl?res(window.maplibregl):rej();s.onerror=()=>{this.lp=null;rej()};document.head.appendChild(s)});return this.lp};
+FMAP.STYLE='https://tiles.openfreemap.org/styles/liberty';
+/* bolla dell'amico: avatar + musica che sta ascoltando */
+FMAP.el=function(w,l,me){const d=document.createElement('div');d.className='bmk'+(me?' me':'');const mu=l&&l.mu;
+ d.innerHTML=`${mu?`<div class="bmu" data-u="${esc(mu.u||'')}"><img src="${esc(mu.art)}" alt=""><div><b>${esc(mu.t.slice(0,26))}</b><small>${esc((mu.a||'').slice(0,24))}</small></div><i>▶</i></div>`:''}<div class="bav">${me?avHTML(ME(),54):avHTML(w,54)}</div><div class="bnm">${me?'Tu':esc(w.first||w.n||'')}${l&&l.t&&!me?` · ${this.ago(l.t)}`:''}</div>`;
+ const b=d.querySelector('.bmu');if(b)b.addEventListener('click',e=>{e.stopPropagation();this.play(mu,b)});return d};
+FMAP.play=function(mu,b){if(!mu||!mu.u)return;if(this.au&&this.auU===mu.u){this.au.pause();this.au=null;this.auU=null;$$('.bmu i').forEach(i=>i.textContent='▶');return}
+ if(this.au)this.au.pause();try{Music.stop()}catch(e){}this.au=new Audio(mu.u);this.auU=mu.u;this.au.play().catch(()=>{});$$('.bmu i').forEach(i=>i.textContent='▶');if(b)b.querySelector('i').textContent='❚❚';this.au.onended=()=>{if(b)b.querySelector('i').textContent='▶';this.au=null;this.auU=null}};
+FMAP.setMusic=function(go){musicPicker(null,async(id)=>{if(!id||id==='none'){try{await this.call({op:'muoff'})}catch(e){}this.myMu=null;go&&go();return}
+  if(!id.startsWith('it:'))return toast('Scegli una canzone cercandola (le basi Vybe non vanno sulla mappa)');const i=S.acc.itunes&&S.acc.itunes[id.slice(3)];if(!i)return;
+  const mu={t:i.t,a:i.a,art:i.art,u:i.u};try{await this.call({op:'mu',...mu});this.myMu=mu;toast('🎵 Ora gli amici vedono cosa ascolti');go&&go()}catch(e){toast('Non riesco a salvarla, riprova')}})};
+FMAP.open=async function(){if(!this.ok())return toast('Vybe Map funziona nell’app Vybe collegata online');try{clog('vmap2 open')}catch(e){}
+ const ov=openFull(`<div class="fmw"><div id="fmMap" class="fmmap"></div><div class="fmtop"><button class="iconbtn fmb" data-a="close">${ic('back')}</button><b>🗺️ Vybe Map</b><button class="iconbtn fmb" id="fm3d" aria-label="3D">3D</button><button class="iconbtn fmb" id="fmMe" aria-label="Dove sono">◎</button></div>
+  <div class="fmsheet"><div class="grab"></div><div id="fmStat"></div><button class="fmmus" id="fmMus">🎵 Cosa stai ascoltando?</button><div id="fmList" class="fmlist"></div></div><div class="fmload" id="fmLd"><div class="maccspin"></div><p>Carico la mappa…</p></div></div>`,'fmov');
+ let map=null,marks=[],data=null,watch=null,ML=null,fitN=0;ov.onclose=()=>{if(watch!=null)try{navigator.geolocation.clearWatch(watch)}catch(e){}clearInterval(this.tmr);if(this.au){this.au.pause();this.au=null}try{map&&map.remove()}catch(e){}};
+ ML=await this.lib().catch(()=>{try{clog('vmap2 lib fail')}catch(_){}return null});await new Promise(r=>setTimeout(r,380));if(!ov.isConnected)return;
+ if(ML){try{map=new ML.Map({container:$('#fmMap',ov),style:this.STYLE,center:[12.5,41.9],zoom:4.6,pitch:0,attributionControl:{compact:true}});
+   map.on('error',e=>{try{clog('vmap2 maperr '+String(e&&e.error&&e.error.message||'').slice(0,100))}catch(_){}});
+   map.once('load',()=>{const ld=$('#fmLd',ov);if(ld)ld.remove();try{clog('vmap2 load ok')}catch(e){}});setTimeout(()=>{const ld=$('#fmLd',ov);if(ld)ld.remove()},7000);
+   try{new ResizeObserver(()=>{try{map.resize()}catch(e){}}).observe($('#fmMap',ov))}catch(e){}}catch(e){map=null;try{clog('vmap2 init fail '+String(e&&e.message||e).slice(0,120))}catch(_){}}}
+ if(!map){const ld=$('#fmLd',ov);if(ld)ld.remove();$('#fmMap',ov).innerHTML='<div class="fmnomap">Non riesco a caricare la mappa. Controlla la connessione e riprova.</div>'}
+ const draw=()=>{const s=this.st();const people=data?data.locs.map(l=>({l,w:USERS['r_'+l.u]})).filter(x=>x.w):[];
+  if(map&&ML){marks.forEach(m=>m.remove());marks=[];const pts=[];
+   people.forEach(({l,w})=>{const el=this.el(w,l);el.addEventListener('click',()=>map.flyTo({center:[l.lo,l.la],zoom:Math.max(map.getZoom(),15.5),pitch:50,duration:1200}));marks.push(new ML.Marker({element:el,anchor:'bottom'}).setLngLat([l.lo,l.la]).addTo(map));pts.push([l.lo,l.la])});
+   const me=this.mine||(data&&data.me?{la:data.me.la,lo:data.me.lo}:null)||this.view;if(me){marks.push(new ML.Marker({element:this.el(null,{mu:this.myMu},true),anchor:'bottom'}).setLngLat([me.lo,me.la]).addTo(map));pts.push([me.lo,me.la])}
+   if(pts.length>fitN){fitN=pts.length;if(pts.length===1)map.jumpTo({center:pts[0],zoom:14.5});else{const b=new ML.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:{top:110,bottom:Math.round(innerHeight*.42),left:60,right:60},maxZoom:15,duration:0})}}}
+  const me=this.mine||(data&&data.me)||this.view;
+  $('#fmStat',ov).innerHTML=S.teen?`<div class="fmrow"><span>🛡️</span><div><b>Condivisione non disponibile</b><small>Per sicurezza gli account Teen non possono condividere la posizione. Puoi vedere gli amici che la condividono con te.</small></div></div>`:
+   `<div class="fmrow"><span>${s.on?'🟢':'👻'}</span><div><b>${s.on?'Gli amici ti vedono':'Modalità fantasma'}</b><small>${s.on?(s.mode==='a'?'Posizione approssimativa (circa 1 km)':'Posizione precisa')+' · '+(s.who==='all'?'tutti gli amici':s.who.length+' amici scelti'):'Solo tu vedi il tuo punto sulla mappa'}</small></div><button class="sw ${s.on?'on':''}" id="fmSw"></button></div>
+   ${s.on?`<div class="fmopts"><button id="fmMode">${s.mode==='a'?'📍 Passa a precisa':'🔵 Passa ad approssimativa'}</button><button id="fmWho">👥 Con chi</button></div>`:''}`;
+  const mb=$('#fmMus',ov);if(mb){mb.hidden=S.teen;mb.innerHTML=this.myMu?`<img src="${esc(this.myMu.art)}" alt=""><span><b>${esc(this.myMu.t)}</b><small>Stai ascoltando · tocca per cambiare</small></span>`:'🎵 Cosa stai ascoltando? <small>Fallo vedere agli amici</small>'}
+  if(!data)return;const n=data.friends.length;
+  $('#fmList',ov).innerHTML=people.length?people.sort((x,y)=>y.l.t-x.l.t).map(({l,w})=>`<div class="fmp" data-u="${l.u}">${avHTML(w,42)}<div><b>${esc(w.n)}</b><small>${l.mu?'🎵 '+esc(l.mu.t)+' · ':''}${this.ago(l.t)}${me?' · a '+this.dist(me,l):''}</small></div><span>›</span></div>`).join(''):
+   `<div class="fmempty">${n?'Hai '+n+(n===1?' amico':' amici')+' (vi seguite a vicenda), ma nessuno sta condividendo la posizione adesso. Quando la attivano compaiono qui.':'Per ora non hai amici sulla mappa: compaiono qui le persone che vi seguite a vicenda e che condividono la posizione con te.'}</div>`;
+  $$('.fmp',ov).forEach(r=>r.onclick=()=>{const l=data.locs.find(x=>x.u===r.dataset.u);if(l&&map)map.flyTo({center:[l.lo,l.la],zoom:15.5,pitch:50,duration:1200})});
+  const sw=$('#fmSw',ov);if(sw)sw.onclick=()=>s.on?this.off(()=>reload()):this.consent(()=>reload());
+  const md=$('#fmMode',ov);if(md)md.onclick=async()=>{s.mode=s.mode==='a'?'p':'a';save();await this.push(true);reload()};
+  const wh=$('#fmWho',ov);if(wh)wh.onclick=()=>this.who(data.friends,()=>reload())};
+ const reload=async()=>{try{data=await this.call({op:'get'});this.myMu=data.mu||null;draw()}catch(e){try{clog('vmap2 get fail '+(e&&e.code))}catch(_){}const fl=$('#fmList',ov);if(fl)fl.innerHTML=`<div class="fmempty">Non riesco a caricare gli amici (${esc(String(e&&e.code||'rete'))}). Riprova tra poco.</div>`}};
+ $('#fmMus',ov).onclick=()=>this.setMusic(()=>reload());
+ $('#fmMe',ov).onclick=async()=>{try{const c=await this.pos(true);this.view={la:c.latitude,lo:c.longitude};if(map)map.flyTo({center:[c.longitude,c.latitude],zoom:15.5,duration:1000});draw()}catch(e){toast('Non riesco a trovare dove sei: controlla il permesso della posizione')}};
+ $('#fm3d',ov).onclick=()=>{if(!map)return;const p=map.getPitch()>10?0:55;map.easeTo({pitch:p,bearing:p?-20:0,duration:900})};
+ draw();this.pos(false).then(c=>{this.view={la:c.latitude,lo:c.longitude};draw()}).catch(e=>{try{clog('vmap2 pos '+(e&&e.code))}catch(_){}});
+ await this.push(true);await reload();this.tmr=setInterval(()=>{if(ov.isConnected)reload()},30000);
+ if(this.st().on&&navigator.geolocation){try{watch=navigator.geolocation.watchPosition(()=>this.push(),()=>{},{enableHighAccuracy:this.st().mode==='p',maximumAge:60000})}catch(e){}}
+ return ov};
+{const st=document.createElement('style');st.textContent=`
+.fmmap{background:#eef0f3}
+.fmtop b{font-weight:900}
+#fm3d{font-size:13px;font-weight:900}
+.fmload{flex-direction:column;gap:10px;color:#fff;font-size:13px}
+.bmk{display:flex;flex-direction:column;align-items:center;cursor:pointer;filter:drop-shadow(0 8px 14px rgba(0,0,0,.28));animation:bmin .5s cubic-bezier(.2,1.5,.4,1)}
+@keyframes bmin{from{transform:scale(.2);opacity:0}}
+.bav{width:62px;height:62px;border-radius:50%;padding:4px;background:#fff;position:relative}
+.bav .av{width:54px!important;height:54px!important;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-weight:900;font-size:20px}
+.bmk.me .bav{background:linear-gradient(135deg,#22c55e,#06b6d4)}
+.bmk.me .bav::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:3px solid rgba(6,182,212,.45);animation:bpulse 2s ease-out infinite}
+@keyframes bpulse{from{transform:scale(.85);opacity:1}to{transform:scale(1.35);opacity:0}}
+.bnm{margin-top:4px;background:#fff;color:#111;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.bmu{display:flex;align-items:center;gap:7px;background:rgba(17,17,20,.92);color:#fff;padding:5px 9px 5px 5px;border-radius:999px;margin-bottom:6px;max-width:210px;backdrop-filter:blur(8px)}
+.bmu img{width:30px;height:30px;border-radius:50%;object-fit:cover;animation:bspin 6s linear infinite;border:2px solid #fff3}
+@keyframes bspin{to{transform:rotate(360deg)}}
+.bmu div{display:flex;flex-direction:column;min-width:0}.bmu b{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bmu small{font-size:10px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bmu i{font-style:normal;font-size:11px;width:22px;height:22px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;flex:0 0 auto}
+.fmmus{display:flex;align-items:center;gap:10px;width:100%;margin:4px 0 8px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(236,72,153,.2));color:#fff;font-weight:800;font-size:14px;text-align:left}
+.fmmus small{font-weight:500;opacity:.7;font-size:12px;margin-left:4px}.fmmus img{width:40px;height:40px;border-radius:10px;object-fit:cover}.fmmus span{display:flex;flex-direction:column}.fmmus span small{margin:0}
+.maplibregl-ctrl-attrib{font-size:10px}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
