@@ -6813,6 +6813,350 @@ MACC.authList=function(){try{const L=this.list();if(!L.length)return;const host=
 if(typeof showCloudLogin==='function'){const cl=showCloudLogin;showCloudLogin=function(){const r=cl.apply(this,arguments);MACC.authList();return r}}
 {const sl=showLogin;showLogin=function(){const r=sl.apply(this,arguments);MACC.authList();return r}}
 
+/* v74: 📊 RIEPILOGO DELLA SETTIMANA — tasto vicino a Vybe Chat, si può aprire 10 volte al giorno.
+   Tempo passato sull'app (contato dal telefono), mi piace, chi ti ha messo più like, post migliori, follower e visualizzazioni (numeri veri dal server). */
+const RECAP={MAX:10,
+ /* tempo sull'app: conto solo quando Vybe è aperta e in primo piano */
+ tick(){try{const a=S.acc;if(!a||S.locked||document.visibilityState!=='visible')return;if($('#main')&&$('#main').classList.contains('hidden'))return;
+  const now=Date.now();if(Date.now()-(this.lastAct||now)>120000)return;const d=dayKey();a.ut=a.ut||{};a.ut[d]=(a.ut[d]||0)+10;
+  const ks=Object.keys(a.ut).sort();while(ks.length>21)delete a.ut[ks.shift()];if(++this.n%6===0)save()}catch(e){}},
+ left(){const a=S.acc;if(!a)return 0;const d=dayKey();if(!a.rcp||a.rcp.d!==d)return this.MAX;return Math.max(0,this.MAX-(a.rcp.n||0))},
+ use(){const a=S.acc,d=dayKey();if(!a.rcp||a.rcp.d!==d)a.rcp={d,n:0};a.rcp.n++;save()},
+ btn(){if($('#recapBtn'))return;const c=$('#chatBtn');if(!c)return;c.insertAdjacentHTML('beforebegin','<button class="iconbtn" id="recapBtn" aria-label="Riepilogo della settimana"><span class="rcpico">📊</span></button>');$('#recapBtn').onclick=()=>this.open()},
+ days(n,off=0){const L=[];for(let i=n-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i-off);L.push({k:dayKey(d),d})}return L},
+ hm(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.round((s%3600)/60);return h?`${h} h ${m} min`:`${m} min`},
+ async data(){const a=S.acc,W=this.days(7),P=this.days(7,7);const sum=(m,L)=>L.reduce((s,x)=>s+((m||{})[x.k]||0),0);
+  let D=null;try{if(typeof CDB!=='undefined'&&CDB.isV()){try{await fsnapDaily()}catch(e){}D=await Promise.race([CDB.call({op:'stats'}),new Promise(r=>setTimeout(()=>r(null),7000))])}}catch(e){D=null}
+  const ut=a.ut||{},time=sum(ut,W),timeP=sum(ut,P),perDay=W.map(x=>({lab:['D','L','M','M','G','V','S'][x.d.getDay()],v:ut[x.k]||0}));
+  const me=typeof Real!=='undefined'&&Real.on?Real.uid:null;
+  /* chi ti ha messo più like (tra le persone reali) */
+  const fans=[];if(me){for(const u in Real.docs){if(u===me)continue;const n=(Real.docs[u].lk||[]).filter(k=>typeof k==='string'&&k.startsWith(me+'/')).length;const w=USERS['r_'+u];if(n&&w)fans.push({w,n})}fans.sort((x,y)=>y.n-x.n)}
+  /* post migliori: prima quelli di questa settimana */
+  const wk=Date.now()-7*86400000,own=(a.own||[]).filter(p=>p.type!=='ad');const score=p=>{const l=me?Real.likesOf(me,p.id):(p.likes||0);const v=D&&D.vt?(D.vt[typeof pk==='function'?pk(p.id):p.id]||0):(p.views||0);return{p,l,v,s:l*5+v}};
+  let best=own.filter(p=>p.time>=wk).map(score);const recent=!!best.length;if(!best.length)best=own.slice(0,20).map(score);best.sort((x,y)=>y.s-x.s);best=best.slice(0,3);
+  const fh=D&&D.fh||{},fk=Object.keys(fh).sort(),fol=me?Real.myFollowers().length:(a.followerIds||[]).length,f0=fk.find(k=>k>=W[0].k);
+  return{time,timeP,perDay,avg:time/7,likes:D?sum(D.ld,W):null,likesP:D?sum(D.ld,P):null,ldDay:W.map(x=>({lab:['D','L','M','M','G','V','S'][x.d.getDay()],v:D&&D.ld?(D.ld[x.k]||0):0})),
+   views:D?sum(D.vd,W):null,viewsP:D?sum(D.vd,P):null,sviews:D?sum(D.vds,W):null,fans:fans.slice(0,3),best,recent,fol,fGain:f0!=null?fol-fh[f0]:null,posts:own.filter(p=>p.time>=wk).length,
+   range:W[0].d.toLocaleDateString('it-IT',{day:'numeric',month:'short'})+' – '+W[6].d.toLocaleDateString('it-IT',{day:'numeric',month:'short'}),online:!!D}},
+ cmp(cur,prev){if(cur==null||prev==null)return'';if(!prev)return cur?'<i class="rcup">nuovo questa settimana</i>':'';const p=Math.round((cur-prev)/prev*100);return p>=0?`<i class="rcup">▲ ${p}% rispetto alla settimana scorsa</i>`:`<i class="rcdn">▼ ${-p}% rispetto alla settimana scorsa</i>`},
+ bars(L,col,fmtv){const mx=Math.max(1,...L.map(x=>x.v));return`<div class="rcbars">${L.map(x=>`<div><span style="height:${Math.max(4,Math.round(x.v/mx*100))}%;background:${col}"><em>${x.v?fmtv(x.v):''}</em></span><b>${x.lab}</b></div>`).join('')}</div>`},
+ thumb(p){if(p.type==='text'&&p.t)return`<div class="rcth rctx" style="background:${p.t.plain?'#26222f':p.t.bg}">${esc(String(p.t.t).slice(0,40))}</div>`;const src=p.img||p.poster||'';return src?`<img class="rcth" src="${src}" alt="">`:'<div class="rcth"></div>'},
+ slides(d){const me=S.acc,first=esc((me.name||me.username).split(' ')[0]);const S1=[];
+  S1.push({bg:'linear-gradient(160deg,#4c1d95,#be185d)',h:`<div class="rcbig">📊</div><h2>La tua settimana su Vybe</h2><p>${esc(d.range)}</p><p class="rcsm">Ciao ${first}! Tocca a destra per andare avanti, a sinistra per tornare indietro.</p>`});
+  S1.push({bg:'linear-gradient(160deg,#0f766e,#1e3a8a)',h:`<h3>⏱️ Tempo su Vybe</h3><div class="rcnum" data-n="${Math.round(d.time/60)}" data-u=" min">${this.hm(d.time)}</div>${this.cmp(d.time,d.timeP)}<p>In media <b>${this.hm(d.avg)}</b> al giorno</p>${this.bars(d.perDay,'linear-gradient(180deg,#5eead4,#14b8a6)',v=>Math.round(v/60)+'′')}${d.timeP===0&&d.time<3*3600?'<p class="rcsm">Vybe conta il tempo da quando hai questa versione: la prossima settimana il confronto sarà completo.</p>':''}`});
+  S1.push({bg:'linear-gradient(160deg,#9d174d,#7c2d12)',h:`<h3>❤️ Mi piace ricevuti</h3>${d.likes==null?'<p>Per vedere i mi piace della settimana serve essere collegati online.</p>':`<div class="rcnum" data-n="${d.likes}">${fmt(d.likes)}</div>${this.cmp(d.likes,d.likesP)}${this.bars(d.ldDay,'linear-gradient(180deg,#fda4af,#f43f5e)',v=>v)}`}`});
+  S1.push({bg:'linear-gradient(160deg,#7c3aed,#db2777)',h:`<h3>🏆 Chi ti ha messo più like</h3>${d.fans.length?`<div class="rcfans">${d.fans.map((f,i)=>`<div class="rcfan" style="animation-delay:${.15+i*.18}s"><span class="rcpos">${['🥇','🥈','🥉'][i]}</span>${avHTML(f.w,56)}<div><b>${esc(f.w.n)}</b><small>@${esc(f.w.u)}</small></div><em>${f.n} ❤️</em></div>`).join('')}</div>`:'<p>Ancora nessun like dalle persone reali. Pubblica qualcosa e fallo vedere ai tuoi amici! 📸</p>'}`});
+  S1.push({bg:'linear-gradient(160deg,#1e293b,#6d28d9)',h:`<h3>✨ ${d.recent?'I tuoi post migliori della settimana':'I tuoi post migliori'}</h3>${d.best.length?`<div class="rcbest">${d.best.map((b,i)=>`<div class="rcpost" data-id="${b.p.id}" style="animation-delay:${.15+i*.18}s">${this.thumb(b.p)}<div><b>#${i+1}</b><small>❤️ ${fmt(b.l)}${d.online?` · 👁️ ${fmt(b.v)}`:''}</small></div></div>`).join('')}</div>${d.recent?'':'<p class="rcsm">Questa settimana non hai pubblicato: ecco i tuoi migliori di sempre.</p>'}`:'<p>Non hai ancora pubblicato nessun post.</p>'}`});
+  S1.push({bg:'linear-gradient(160deg,#0369a1,#4338ca)',h:`<h3>👥 Follower e visualizzazioni</h3><div class="rcgrid"><div><b>${fmt(d.fol)}</b><small>follower</small>${d.fGain!=null&&d.fGain?`<i class="${d.fGain>0?'rcup':'rcdn'}">${d.fGain>0?'+':''}${d.fGain}</i>`:''}</div><div><b>${d.views==null?'—':fmt(d.views)}</b><small>visualizzazioni post</small></div><div><b>${d.sviews==null?'—':fmt(d.sviews)}</b><small>visualizzazioni storie</small></div><div><b>${d.posts}</b><small>post pubblicati</small></div></div>${d.views!=null?this.cmp(d.views,d.viewsP):''}`});
+  const tl=d.time>=10*3600?'Questa settimana sei stato/a parecchio su Vybe: ricordati di fare anche qualche pausa 💜':d.likes?'Settimana fantastica, continua così! 🚀':'Una settimana tranquilla. Prova a pubblicare una storia o un post! ✨';
+  S1.push({bg:'linear-gradient(160deg,#be185d,#4c1d95)',h:`<div class="rcbig">🎉</div><h2>Ecco la tua settimana</h2><div class="rcsum"><div>⏱️ <b>${this.hm(d.time)}</b></div><div>❤️ <b>${d.likes==null?'—':fmt(d.likes)}</b></div><div>👥 <b>${fmt(d.fol)}</b></div></div><p>${tl}</p><p class="rcsm" id="rcLeft"></p><button class="btn" id="rcClose" style="margin-top:8px">Chiudi</button>`});
+  return S1},
+ async open(){if(!S.acc)return;const left=this.left();
+  if(left<=0)return confirmSheet('Hai finito i riepiloghi di oggi',`Puoi aprire il riepilogo della settimana ${this.MAX} volte al giorno. Torna domani! 🌙`,'Ok',()=>{});
+  this.use();const ov=openFull(`<div class="rcwrap" id="rcW"><div class="rcbarsTop" id="rcT"></div><button class="rcx" data-a="close" aria-label="Chiudi">✕</button><div class="rcslide rcload"><div class="maccspin"></div><p>Preparo il tuo riepilogo…</p></div></div>`,'rcov');
+  const d=await this.data();if(!ov.isConnected)return;const SL=this.slides(d);let i=0,tm=0;const W=$('#rcW',ov),T=$('#rcT',ov);
+  T.innerHTML=SL.map(()=>'<i><b></b></i>').join('');
+  const show=k=>{i=Math.max(0,Math.min(SL.length-1,k));const s=SL[i];$$('.rcslide',W).forEach(e=>e.remove());W.insertAdjacentHTML('beforeend',`<div class="rcslide" style="background:${s.bg}">${s.h}</div>`);W.style.background=s.bg;
+   $$('i',T).forEach((e,j)=>{e.className=j<i?'done':j===i?'on':''});
+   $$('.rcnum[data-n]',W).forEach(el=>{const n=+el.dataset.n,txt=el.textContent;if(!(n>0))return;const t0=performance.now();const step=t=>{const k=Math.min(1,(t-t0)/900),e=1-Math.pow(1-k,3);el.textContent=k<1?fmt(Math.round(n*e))+(el.dataset.u||''):txt;if(k<1&&el.isConnected)requestAnimationFrame(step)};requestAnimationFrame(step)});
+   const l=$('#rcLeft',W);if(l){const r=this.left();l.textContent=r?`Oggi puoi riaprire il riepilogo ancora ${r} ${r===1?'volta':'volte'}.`:'Per oggi hai usato tutti i riepiloghi: torna domani!'}
+   const c=$('#rcClose',W);if(c)c.onclick=e=>{e.stopPropagation();closeOv(ov)};
+   $$('.rcpost',W).forEach(el=>el.onclick=e=>{e.stopPropagation();closeOv(ov);setTimeout(()=>openPost(el.dataset.id),350)});
+   clearTimeout(tm);if(i<SL.length-1)tm=setTimeout(()=>show(i+1),i===0?4500:7500)};
+  W.addEventListener('click',e=>{if(e.target.closest('button,.rcpost'))return;const x=e.clientX/innerWidth;show(x<.3?i-1:i+1)});
+  ov.onclose=()=>clearTimeout(tm);show(0)},
+ n:0,lastAct:Date.now()};
+['pointerdown','keydown','scroll','touchstart'].forEach(ev=>addEventListener(ev,()=>{RECAP.lastAct=Date.now()},{passive:true,capture:true}));
+setInterval(()=>RECAP.tick(),10000);
+setInterval(()=>{try{if(S.acc&&!$('#recapBtn'))RECAP.btn()}catch(e){}},1500);
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>RECAP.btn(),300);return r}}
+{const st=document.createElement('style');st.textContent=`
+#recapBtn .rcpico{font-size:21px;line-height:1}
+.rcov{background:#000}
+.rcwrap{position:absolute;inset:0;overflow:hidden;color:#fff;transition:background .5s}
+.rcbarsTop{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:4px;z-index:3}
+.rcbarsTop i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.3);overflow:hidden}.rcbarsTop i b{display:block;height:100%;width:0;background:#fff}
+.rcbarsTop i.done b{width:100%}.rcbarsTop i.on b{animation:rcprog 7.5s linear forwards}.rcbarsTop i:first-child.on b{animation-duration:4.5s}@keyframes rcprog{to{width:100%}}
+.rcx{position:absolute;right:12px;top:calc(env(safe-area-inset-top,0px) + 22px);z-index:4;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.25);color:#fff;font-size:17px}
+.rcslide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:calc(env(safe-area-inset-top,0px) + 70px) 26px 40px;gap:12px;animation:rcin .5s ease}
+@keyframes rcin{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+.rcslide h2{font-size:30px;line-height:1.15;font-weight:900}.rcslide h3{font-size:22px;font-weight:900}.rcslide p{font-size:15.5px;opacity:.92;max-width:330px;line-height:1.45}.rcslide .rcsm{font-size:12.5px;opacity:.7}
+.rcload{background:#111}
+.rcbig{font-size:72px;animation:rcpop .7s cubic-bezier(.2,1.6,.4,1)}@keyframes rcpop{from{transform:scale(.3);opacity:0}}
+.rcnum{font-size:52px;font-weight:900;letter-spacing:-.02em;text-shadow:0 6px 30px rgba(0,0,0,.25)}
+.rcup,.rcdn{font-style:normal;font-size:13px;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.18)}.rcdn{background:rgba(0,0,0,.22)}
+.rcbars{display:flex;align-items:flex-end;gap:8px;height:150px;width:100%;max-width:330px;margin-top:8px}
+.rcbars>div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.rcbars span{width:100%;border-radius:8px 8px 4px 4px;position:relative;animation:rcgrow .8s cubic-bezier(.2,.9,.3,1) both;transform-origin:bottom}@keyframes rcgrow{from{transform:scaleY(0)}}
+.rcbars em{position:absolute;top:-17px;left:50%;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:800;white-space:nowrap}.rcbars b{font-size:12px;opacity:.8}
+.rcfans,.rcbest{display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px}
+.rcfan{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.14);padding:10px 14px;border-radius:18px;text-align:left;animation:rcin .5s ease both}
+.rcfan div{flex:1;display:flex;flex-direction:column}.rcfan small{opacity:.75}.rcfan em{font-style:normal;font-weight:900;font-size:17px}.rcpos{font-size:26px}
+.rcpost{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.12);padding:8px;border-radius:16px;text-align:left;cursor:pointer;animation:rcin .5s ease both}
+.rcpost div{display:flex;flex-direction:column}.rcpost b{font-size:20px}.rcpost small{opacity:.85;font-size:13.5px}
+.rcth{width:74px;height:74px;border-radius:12px;object-fit:cover;background:#0003;flex:0 0 auto}.rctx{display:grid;place-items:center;font-size:10px;padding:6px;overflow:hidden;line-height:1.2}
+.rcgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:340px}.rcgrid div{background:rgba(255,255,255,.14);border-radius:18px;padding:16px 10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.rcgrid b{font-size:28px;font-weight:900}.rcgrid small{font-size:12.5px;opacity:.8}
+.rcsum{display:flex;gap:10px}.rcsum div{background:rgba(255,255,255,.16);padding:10px 14px;border-radius:16px;font-size:15px}
+`;document.head.appendChild(st)}
+
+/* v75: 🎬 EDITOR VIDEO (taglia, velocità, testo, musica) + i video ora vengono caricati davvero online,
+   così li vedono anche gli altri (prima restavano solo sul telefono di chi li pubblicava). */
+const VURX=/^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/v\/[A-Za-z0-9\/_.-]+\.(mp4|mov|webm)$/;
+const VUP={
+ ok(){return typeof CDB!=='undefined'&&CDB.isV&&CDB.isV()},
+ async call(o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
+  const r=await fetch('/api/vup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:CDB.sid},o))});
+  if(r.status===401&&!retry){CDB.sid=null;try{localStorage.removeItem(CDB.key())}catch(e){}if(!await CDB.auth())throw{code:'auth'};return this.call(o,true)}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status};return j},
+ type(b){const t=String(b&&b.type||'').split(';')[0].trim();return/^video\/(mp4|quicktime|webm)$/.test(t)?t:'video/mp4'},
+ async up(blob,onp){const type=this.type(blob);const j=await this.call({size:blob.size,type});
+  return await new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open('PUT','https://blob.vercel-storage.com/?pathname='+encodeURIComponent(j.path));
+   x.setRequestHeader('authorization','Bearer '+j.token);x.setRequestHeader('x-api-version','11');x.setRequestHeader('x-content-type',type);x.setRequestHeader('x-add-random-suffix','0');
+   x.upload.onprogress=e=>{if(e.lengthComputable&&onp)onp(e.loaded/e.total)};x.onerror=()=>rej({code:'net'});x.ontimeout=()=>rej({code:'net'});x.timeout=600000;
+   x.onload=()=>{let k={};try{k=JSON.parse(x.responseText)}catch(e){}if(x.status>=200&&x.status<300&&VURX.test(k.url||''))res(k.url);else rej({code:'put'+x.status})};x.send(blob)})},
+ posters(){const a=S.acc;a.vpost=a.vpost||{};const ks=Object.keys(a.vpost);while(ks.length>30)delete a.vpost[ks.shift()];return a.vpost}
+};
+const fmtT=s=>{s=Math.max(0,s||0);const m=Math.floor(s/60),x=Math.floor(s%60);return m+':'+String(x).padStart(2,'0')};
+const VED={
+ STY:[['ombra','Classico'],['box','Riquadro'],['neon','Neon'],['bold','Grande']],
+ COL:['#ffffff','#111111','#f43f5e','#f59e0b','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'],
+ SPD:[.5,1,1.5,2],
+ font(t,W){const px=Math.round(t.size*W);return(t.style==='bold'?'900 ':'800 ')+px+'px -apple-system,system-ui,sans-serif'},
+ /* disegna un testo (uguale in anteprima e nel video finale) */
+ drawText(x,t,W,H){const px=Math.round(t.size*W);x.save();x.font=this.font(t,W);x.textAlign='center';x.textBaseline='middle';const lines=String(t.t).split('\n').slice(0,4),lh=px*1.18,cx=t.x*W,cy=t.y*H-(lines.length-1)*lh/2;
+  if(t.style==='box'){const w=Math.max(...lines.map(l=>x.measureText(l).width))+px*.9,h=lines.length*lh+px*.45;x.fillStyle=t.c==='#111111'?'rgba(255,255,255,.92)':'rgba(0,0,0,.6)';x.beginPath();x.roundRect?x.roundRect(cx-w/2,cy-lh/2-px*.22,w,h,px*.35):x.rect(cx-w/2,cy-lh/2-px*.22,w,h);x.fill()}
+  lines.forEach((l,i)=>{const y=cy+i*lh;if(t.style==='neon'){x.shadowColor=t.c;x.shadowBlur=px*.6;x.fillStyle='#fff';x.fillText(l,cx,y);x.fillText(l,cx,y)}else{x.shadowColor='rgba(0,0,0,.55)';x.shadowBlur=t.style==='box'?0:px*.18;x.shadowOffsetY=t.style==='box'?0:px*.05;x.fillStyle=t.c;if(t.style==='bold'){x.lineWidth=px*.12;x.strokeStyle=t.c==='#111111'?'#fff':'#000';x.lineJoin='round';x.strokeText(l,cx,y)}x.fillText(l,cx,y)}});x.restore()},
+ open(m,done){const st={a:0,b:m.dur||0,sp:1,texts:[],mu:null,muName:'',vo:1,vm:.8,sel:-1};let alive=true;
+  const ov=openFull(`<div class="ved"><div class="vedtop"><button class="iconbtn" id="vedX">${ic('x')}</button><b>Modifica video</b><button class="pubbtn" id="vedNext">Avanti</button></div>
+   <div class="vedstage" id="vedSt"><div class="vedbox" id="vedBox"><video id="vedV" playsinline preload="auto" src="${m.url}"></video><canvas id="vedTxC"></canvas><div class="vedhit" id="vedHit"></div></div><button class="vedplay" id="vedPl">▶</button></div>
+   <div class="vedtl"><div class="vedthumbs" id="vedTh"></div><div class="vedsel" id="vedSel"><i class="vh l" data-h="a"></i><i class="vh r" data-h="b"></i></div><div class="vedph" id="vedPh"></div></div>
+   <div class="vedinfo" id="vedInfo"></div>
+   <div class="vedtools"><button data-t="speed">⏩<span>Velocità</span><small id="vedSpd">1x</small></button><button data-t="text">Aa<span>Testo</span><small id="vedTxn">—</small></button><button data-t="music">🎵<span>Musica</span><small id="vedMus">Nessuna</small></button><button data-t="vol">🔊<span>Volume</span><small id="vedVol">100%</small></button></div>
+   <div class="vedpanel" id="vedPan"></div></div>`,'vedov');
+  const $v=q=>$(q,ov),V=$v('#vedV'),TC=$v('#vedTxC'),tcx=TC.getContext('2d'),BOX=$v('#vedBox'),TL=$v('#vedSel'),PH=$v('#vedPh');let AM=null;
+  ov.onclose=()=>{alive=false;try{V.pause()}catch(e){}if(AM){AM.pause();AM=null}};$v('#vedX').onclick=()=>closeOv(ov);
+  const dur=()=>V.duration&&isFinite(V.duration)?V.duration:(m.dur||0);
+  const fit=()=>{const vw=V.videoWidth||m.w||9,vh=V.videoHeight||m.h||16,r=$v('#vedSt').getBoundingClientRect();const k=Math.min(r.width/vw,r.height/vh);const w=Math.round(vw*k),h=Math.round(vh*k);BOX.style.width=w+'px';BOX.style.height=h+'px';const d=Math.min(2,devicePixelRatio||1);TC.width=w*d;TC.height=h*d;TC.style.width=w+'px';TC.style.height=h+'px';drawTx()};
+  const drawTx=()=>{tcx.clearRect(0,0,TC.width,TC.height);st.texts.forEach((t,i)=>{this.drawText(tcx,t,TC.width,TC.height);if(i===st.sel){tcx.save();tcx.strokeStyle='rgba(255,255,255,.8)';tcx.setLineDash([6,5]);tcx.lineWidth=2;const px=t.size*TC.width,w=Math.min(TC.width*.96,px*Math.max(...String(t.t).split('\n').map(l=>l.length))*.62+px),h=String(t.t).split('\n').length*px*1.18+px*.4;tcx.strokeRect(t.x*TC.width-w/2,t.y*TC.height-h/2,w,h);tcx.restore()}});$v('#vedTxn').textContent=st.texts.length?st.texts.length+'':'—'};
+  const info=()=>{const L=(st.b-st.a)/st.sp;$v('#vedInfo').innerHTML=`${fmtT(st.a)} – ${fmtT(st.b)} · <b>${Math.round(L)} s</b>${st.sp!==1?' (con velocità '+st.sp+'x)':''}`;const D=dur()||1;TL.style.left=(st.a/D*100)+'%';TL.style.right=(100-st.b/D*100)+'%'};
+  const music=()=>{if(AM){AM.pause();AM=null}if(st.mu){AM=new Audio('/api/music?p='+encodeURIComponent(st.mu.u));AM.loop=true;AM.volume=st.vm;if(!V.paused){AM.currentTime=0;AM.play().catch(()=>{})}}$v('#vedMus').textContent=st.mu?st.mu.t.slice(0,14):'Nessuna'};
+  const play=()=>{if(V.currentTime<st.a||V.currentTime>=st.b-.05)V.currentTime=st.a;V.playbackRate=st.sp;V.volume=st.vo;V.play().catch(()=>{});if(AM){AM.currentTime=0;AM.volume=st.vm;AM.play().catch(()=>{})}$v('#vedPl').hidden=true};
+  const pause=()=>{V.pause();if(AM)AM.pause();$v('#vedPl').hidden=false};
+  $v('#vedPl').onclick=play;
+  V.addEventListener('loadedmetadata',()=>{if(!st.b||st.b>dur())st.b=dur();if(st.b-st.a>180)st.b=st.a+180;fit();info();thumbs()});
+  V.addEventListener('timeupdate',()=>{const D=dur()||1;PH.style.left=(V.currentTime/D*100)+'%';if(V.currentTime>=st.b-.05){V.currentTime=st.a;if(AM)AM.currentTime=0}});
+  addEventListener('resize',fit);try{new ResizeObserver(()=>fit()).observe($v('#vedSt'))}catch(e){}
+  /* tocca il video: pausa/play oppure scegli un testo; trascina per spostarlo */
+  const hit=$v('#vedHit');let drag=null;
+  const at=(e)=>{const r=BOX.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height}};
+  hit.addEventListener('pointerdown',e=>{const p=at(e);let k=-1;st.texts.forEach((t,i)=>{if(Math.abs(p.x-t.x)<.3&&Math.abs(p.y-t.y)<t.size*1.2)k=i});drag={k,p,moved:false,ox:k>=0?st.texts[k].x:0,oy:k>=0?st.texts[k].y:0};if(k>=0){st.sel=k;drawTx()}hit.setPointerCapture(e.pointerId)});
+  hit.addEventListener('pointermove',e=>{if(!drag||drag.k<0)return;const p=at(e);if(Math.abs(p.x-drag.p.x)+Math.abs(p.y-drag.p.y)>.01)drag.moved=true;const t=st.texts[drag.k];t.x=Math.min(.95,Math.max(.05,drag.ox+p.x-drag.p.x));t.y=Math.min(.95,Math.max(.05,drag.oy+p.y-drag.p.y));drawTx()});
+  hit.addEventListener('pointerup',()=>{if(!drag)return;const d=drag;drag=null;if(d.k>=0&&!d.moved)panel('text',d.k);else if(d.k<0){if(V.paused)play();else pause()}});
+  /* barra di taglio */
+  const tl=$v('.vedtl');let hd=null;
+  tl.addEventListener('pointerdown',e=>{const h=e.target.closest('.vh');const r=tl.getBoundingClientRect(),D=dur()||1,t=(e.clientX-r.left)/r.width*D;hd=h?h.dataset.h:(Math.abs(t-st.a)<Math.abs(t-st.b)?'a':'b');tl.setPointerCapture(e.pointerId);mv(e)});
+  const mv=e=>{if(!hd)return;const r=tl.getBoundingClientRect(),D=dur()||1;let t=Math.min(D,Math.max(0,(e.clientX-r.left)/r.width*D));if(hd==='a'){st.a=Math.min(t,st.b-1);if(st.b-st.a>180)st.b=st.a+180}else{st.b=Math.max(t,st.a+1);if(st.b-st.a>180)st.a=st.b-180}V.currentTime=hd==='a'?st.a:Math.max(st.a,st.b-.3);info()};
+  tl.addEventListener('pointermove',mv);tl.addEventListener('pointerup',()=>{if(hd){hd=null;V.currentTime=st.a}});
+  const thumbs=async()=>{const box=$v('#vedTh'),n=8,D=dur();if(!D)return;box.innerHTML='';const v2=document.createElement('video');v2.muted=true;v2.playsInline=true;v2.preload='auto';v2.src=m.url;
+   await new Promise(r=>{v2.onloadeddata=r;v2.onerror=r;setTimeout(r,4000)});const c=document.createElement('canvas');c.height=80;c.width=Math.round(80*(v2.videoWidth||9)/(v2.videoHeight||16))||45;const x=c.getContext('2d');
+   for(let i=0;i<n&&alive;i++){await new Promise(r=>{v2.onseeked=r;try{v2.currentTime=D*(i+.5)/n}catch(e){r()}setTimeout(r,1500)});try{x.drawImage(v2,0,0,c.width,c.height);box.insertAdjacentHTML('beforeend',`<img src="${c.toDataURL('image/jpeg',.6)}" alt="">`)}catch(e){box.insertAdjacentHTML('beforeend','<i></i>')}}v2.removeAttribute('src');v2.load()};
+  /* pannelli */
+  const P=$v('#vedPan');
+  const panel=(k,ti)=>{$$('.vedtools button',ov).forEach(b=>b.classList.toggle('on',b.dataset.t===k));
+   if(k==='speed'){P.innerHTML=`<div class="vedchips">${this.SPD.map(s=>`<button data-s="${s}" class="${st.sp===s?'on':''}">${s===.5?'🐢 0,5x':s===1?'1x':s===1.5?'1,5x':'⚡ 2x'}</button>`).join('')}</div><p class="vednote">Rallenta o velocizza tutto il video.</p>`;$$('[data-s]',P).forEach(b=>b.onclick=()=>{st.sp=+b.dataset.s;V.playbackRate=st.sp;$v('#vedSpd').textContent=String(st.sp).replace('.',',')+'x';info();panel('speed')})}
+   else if(k==='text'){if(ti==null&&st.sel<0&&st.texts.length<4){st.texts.push({t:'Scrivi qui',x:.5,y:.5,size:.075,style:'ombra',c:'#ffffff'});st.sel=st.texts.length-1}else if(ti!=null)st.sel=ti;else if(st.sel<0)st.sel=st.texts.length-1;const t=st.texts[st.sel];drawTx();if(!t){P.innerHTML='<p class="vednote">Puoi mettere al massimo 4 testi.</p>';return}
+    P.innerHTML=`<textarea class="ta vedin" id="vedT" maxlength="80" rows="2">${esc(t.t)}</textarea><div class="vedchips">${this.STY.map(([s,n])=>`<button data-y="${s}" class="${t.style===s?'on':''}">${n}</button>`).join('')}</div>
+     <div class="vedcols">${this.COL.map(c=>`<button data-c="${c}" style="background:${c}" class="${t.c===c?'on':''}"></button>`).join('')}</div>
+     <div class="vedrow"><span>Grandezza</span><input type="range" id="vedSz" min="0.04" max="0.16" step="0.005" value="${t.size}"></div>
+     <div class="vedrow2"><button class="btn soft" id="vedTNew" ${st.texts.length>=4?'disabled':''}>＋ Altro testo</button><button class="btn soft" id="vedTDel" style="color:#f87171">🗑️ Elimina</button></div><p class="vednote">Trascina il testo sul video per spostarlo.</p>`;
+    const ta=$v('#vedT');ta.oninput=()=>{t.t=ta.value||' ';drawTx()};ta.onfocus=()=>{if(t.t==='Scrivi qui'){ta.value='';t.t=' '}};
+    $$('[data-y]',P).forEach(b=>b.onclick=()=>{t.style=b.dataset.y;drawTx();$$('[data-y]',P).forEach(x=>x.classList.toggle('on',x===b))});
+    $$('[data-c]',P).forEach(b=>b.onclick=()=>{t.c=b.dataset.c;drawTx();$$('[data-c]',P).forEach(x=>x.classList.toggle('on',x===b))});
+    $v('#vedSz').oninput=e=>{t.size=+e.target.value;drawTx()};
+    $v('#vedTNew').onclick=()=>{st.sel=-1;panel('text')};$v('#vedTDel').onclick=()=>{st.texts.splice(st.sel,1);st.sel=-1;drawTx();P.innerHTML='';$$('.vedtools button',ov).forEach(b=>b.classList.remove('on'))}}
+   else if(k==='music'){pause();musicPicker(st.mu?'it:'+st.mu.id:null,(id,name)=>{if(!id||id==='none'){st.mu=null;music();return}if(!id.startsWith('it:')){toast('Nel video puoi mettere le canzoni cercate (le basi Vybe vanno solo nelle storie)');return}
+     const i=S.acc.itunes&&S.acc.itunes[id.slice(3)];if(!i||!i.u)return;st.mu={id:id.slice(3),t:i.t,a:i.a,u:i.u};st.muName=name;music();if(st.vo===1){st.vo=.35;V.volume=st.vo;$v('#vedVol').textContent='35%'}panel('vol')});P.innerHTML=''}
+   else if(k==='vol'){P.innerHTML=`<div class="vedrow"><span>🎬 Audio del video</span><input type="range" id="vedVo" min="0" max="1" step="0.05" value="${st.vo}"></div>${st.mu?`<div class="vedrow"><span>🎵 ${esc(st.mu.t.slice(0,18))}</span><input type="range" id="vedVm" min="0" max="1" step="0.05" value="${st.vm}"></div>`:'<p class="vednote">Aggiungi una canzone con 🎵 Musica per regolare anche il suo volume.</p>'}`;
+    $v('#vedVo').oninput=e=>{st.vo=+e.target.value;V.volume=st.vo;$v('#vedVol').textContent=Math.round(st.vo*100)+'%'};const vm=$v('#vedVm');if(vm)vm.oninput=e=>{st.vm=+e.target.value;if(AM)AM.volume=st.vm}}};
+  $$('.vedtools button',ov).forEach(b=>b.onclick=()=>panel(b.dataset.t));
+  /* avanti: se non hai cambiato niente e il video è leggero lo carico così com'è, altrimenti creo il video nuovo */
+  $v('#vedNext').onclick=async()=>{pause();const D=dur()||m.dur||0,changed=st.a>.15||st.b<D-.15||st.sp!==1||st.texts.length||st.mu||st.vo<1;
+   let blob=null;try{blob=await (await fetch(m.url)).blob()}catch(e){}
+   const light=blob&&blob.size<=58*1024*1024&&/^video\/(mp4|quicktime)/.test(blob.type||'video/mp4');
+   if(!changed&&light){closeOv(ov);return VED.finish(m,blob,null,done)}
+   const out=await VED.render(m,st,ov);if(!out)return;closeOv(ov);VED.finish({...m,w:out.w,h:out.h,dur:out.dur},out.blob,out.poster,done)};
+  if(V.readyState>=1){fit();info();thumbs()}
+  return ov},
+ /* crea il video finale: taglio, velocità, testi e musica "dentro" il file */
+ async render(m,st,ov){const prog=openFull(`<div class="vedprog"><div class="logo" style="font-size:34px">Vybe</div><div class="vedring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/><circle id="vrP" cx="50" cy="50" r="44" pathLength="100" stroke-dasharray="0 100"/></svg><b id="vrT">0%</b></div><p id="vrM">Creo il tuo video…</p><small>Tieni Vybe aperta finché non ha finito</small><button class="btn soft" id="vrX" style="margin-top:14px;width:auto;padding:0 22px">Annulla</button></div>`,'vedov');
+  let stop=false;$('#vrX',prog).onclick=()=>{stop=true};const setP=k=>{$('#vrP',prog).setAttribute('stroke-dasharray',Math.round(k*100)+' 100');$('#vrT',prog).textContent=Math.round(k*100)+'%'};
+  let ac=null;try{
+   const v=document.createElement('video');v.playsInline=true;v.preload='auto';v.src=m.url;v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';document.body.appendChild(v);
+   await new Promise(r=>{if(v.readyState>=2)return r();v.onloadeddata=r;v.onerror=r;setTimeout(r,6000)});
+   const vw=v.videoWidth||m.w||720,vh=v.videoHeight||m.h||1280;const k=Math.min(1,720/Math.min(vw,vh),1280/Math.max(vw,vh));const W=Math.round(vw*k/2)*2,H=Math.round(vh*k/2)*2;
+   const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+   ac=new (window.AudioContext||window.webkitAudioContext)();try{await ac.resume()}catch(e){}const dest=ac.createMediaStreamDestination();
+   try{const s1=ac.createMediaElementSource(v),g1=ac.createGain();g1.gain.value=st.vo;s1.connect(g1).connect(dest)}catch(e){}
+   let am=null;if(st.mu){am=new Audio('/api/music?p='+encodeURIComponent(st.mu.u));am.loop=true;am.preload='auto';try{const s2=ac.createMediaElementSource(am),g2=ac.createGain();g2.gain.value=st.vm;s2.connect(g2).connect(dest)}catch(e){}await new Promise(r=>{am.oncanplay=r;am.onerror=r;setTimeout(r,6000)})}
+   const vs=c.captureStream?c.captureStream(30):null;if(!vs||typeof MediaRecorder==='undefined')throw new Error('norec');
+   const tracks=[...vs.getVideoTracks(),...dest.stream.getAudioTracks()];const ms=new MediaStream(tracks);
+   const mt=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>{try{return MediaRecorder.isTypeSupported(t)}catch(e){return false}})||'';
+   const rec=new MediaRecorder(ms,mt?{mimeType:mt,videoBitsPerSecond:2500000,audioBitsPerSecond:128000}:{videoBitsPerSecond:2500000});const chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+   const draw=()=>{x.drawImage(v,0,0,W,H);st.texts.forEach(t=>VED.drawText(x,t,W,H))};
+   v.currentTime=st.a;await new Promise(r=>{v.onseeked=r;setTimeout(r,2000)});draw();const poster=(()=>{try{const p=document.createElement('canvas'),s=Math.min(1,360/W);p.width=Math.round(W*s);p.height=Math.round(H*s);p.getContext('2d').drawImage(c,0,0,p.width,p.height);return p.toDataURL('image/jpeg',.7)}catch(e){return null}})();
+   const done=new Promise(r=>{rec.onstop=r});rec.start(1000);v.playbackRate=st.sp;await v.play();if(am){am.currentTime=0;am.play().catch(()=>{})}
+   const total=st.b-st.a;await new Promise(res=>{const step=()=>{if(stop||v.ended||v.currentTime>=st.b-.03){res();return}draw();setP(Math.min(.99,(v.currentTime-st.a)/total));if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(step);else requestAnimationFrame(step)};if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(step);else requestAnimationFrame(step);
+    const guard=setInterval(()=>{if(!prog.isConnected)stop=true;if(stop||v.ended||v.currentTime>=st.b-.03){clearInterval(guard);res()}},250)});
+   v.pause();if(am)am.pause();rec.stop();await done;v.remove();try{ac.close()}catch(e){}
+   if(stop){closeOv(prog);toast('Video annullato');return null}
+   const blob=new Blob(chunks,{type:(mt||'video/mp4').split(';')[0]});closeOv(prog);if(blob.size<2000){toast('Non sono riuscito a creare il video, riprova');return null}
+   return{blob,poster,w:W,h:H,dur:total/st.sp}}
+  catch(e){console.log('ved',e);try{ac&&ac.close()}catch(_){}closeOv(prog);toast('Questo telefono non riesce a creare il video modificato. Prova senza modifiche.');return null}},
+ /* carica online e continua con la pubblicazione */
+ async finish(m,blob,poster,done){const url0=blob?URL.createObjectURL(blob):m.url;const base={...m,url:url0,ved:1,poster:poster||m.poster,temp:true};
+  if(!VUP.ok()||!blob)return done(base);
+  if(blob.size>58*1024*1024){toast('Video troppo pesante: accorcialo un po’ nell’editor');return done(base)}
+  const pr=openFull(`<div class="vedprog"><div class="logo" style="font-size:34px">Vybe</div><div class="vedring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/><circle id="vuP" cx="50" cy="50" r="44" pathLength="100" stroke-dasharray="0 100"/></svg><b id="vuT">0%</b></div><p>Carico il video online…</p><small>Così lo vedono anche i tuoi amici</small></div>`,'vedov');
+  try{const url=await VUP.up(blob,k=>{const e=$('#vuP',pr);if(e){e.setAttribute('stroke-dasharray',Math.round(k*100)+' 100');$('#vuT',pr).textContent=Math.round(k*100)+'%'}});closeOv(pr);
+   if(base.poster){VUP.posters()[url]=base.poster;save()}done({...base,url,temp:false})}
+  catch(e){closeOv(pr);confirmSheet('Video non caricato',e&&e.code==='slow'?'Hai caricato tanti video oggi: riprova domani.':'Non riesco a caricare il video adesso (controlla la connessione). Puoi pubblicarlo lo stesso, ma lo vedrai solo tu su questo telefono.','Pubblica lo stesso',()=>done(base))}}
+};
+/* ogni video scelto passa dall'editor */
+{const cm=composeMedia;composeMedia=function(m){if(m&&m.kind==='video'&&!m.ved)return VED.open(m,o=>cm(o));return cm(m)}}
+{const cs=composeStory;composeStory=function(m){if(m&&m.kind==='video'&&!m.ved)return VED.open(m,o=>cs(o));return cs(m)}}
+/* i post e le storie video arrivano agli altri */
+{const pl=Real.payload;Real.payload=async function(){const a=S.acc,P=VUP.posters();for(const f of (typeof myStories==='function'?myStories():[])){if(f.video&&VURX.test(f.video)&&!f.poster&&P[f.video])f.poster=P[f.video]}
+  for(const p of a.own||[]){if(p.type==='video'&&VURX.test(p.video||'')&&!p.poster&&P[p.video])p.poster=P[p.video]}
+  const d=await pl.apply(this,arguments);(d.posts||[]).forEach(x=>{const p=a.own.find(o=>o.id===x.id);if(p&&p.type==='video'&&VURX.test(p.video||''))x.v=p.video});
+  (d.st||[]).forEach(it=>{const f=(typeof myStories==='function'?myStories():[]).find(z=>z.time===it.t);if(f&&f.video&&VURX.test(f.video))it.v=f.video});return d}}
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);const src=Array.isArray(d&&d.posts)?d.posts:[];(o.posts||[]).forEach(p=>{const s=src.find(x=>x&&String(x.id||'').slice(0,40)===p.id);if(s&&typeof s.v==='string'&&VURX.test(s.v))p.v=s.v});
+  const ss=Array.isArray(d&&d.st)?d.st:[];(o.st||[]).forEach(f=>{const s=ss.find(x=>x&&+x.t===f.t);if(s&&typeof s.v==='string'&&VURX.test(s.v))f.v=s.v});return o}}
+{const sr=syncRealPosts;syncRealPosts=function(){const ch=sr.apply(this,arguments);for(const o of REALP){const w=USERS[o.author],rp=w&&w.posts&&w.posts[o.ri];if(rp&&rp.v){o.type='video';o.video=rp.v;o.poster=rp.hd||rp.img}}return ch}}
+{const rl=realStoryList;realStoryList=function(){const L=rl.apply(this,arguments);L.forEach(it=>{const w=it.who;(it.frames||[]).forEach((fr,i)=>{const s=w&&w.st&&w.st[i];if(s&&s.v)fr.video=s.v})});return L}}
+{const orp=openRealPost;openRealPost=function(id,i){const r=orp.apply(this,arguments);try{const w=USERS[id],p=w&&w.posts[i];if(p&&p.v){const sh=$$('#layer .rpost').pop();const im=sh&&$('.rpimg',sh);if(im){im.outerHTML=`<video class="rpimg" src="${p.v}" poster="${p.hd||p.img||''}" controls playsinline autoplay loop></video>`;const h=sh.querySelector('.rpcap.hint');if(h)h.remove()}}}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.vedov{background:#000}
+.ved{position:absolute;inset:0;display:flex;flex-direction:column;color:#fff;padding-bottom:env(safe-area-inset-bottom,0px)}
+.vedtop{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 6px}.vedtop b{flex:1;text-align:center;font-size:16px}
+.vedstage{flex:1;min-height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin:0 12px;overflow:hidden}
+.vedbox{position:relative;border-radius:18px;overflow:hidden;background:#111}.vedbox video{width:100%;height:100%;display:block;object-fit:fill}
+#vedTxC,.vedhit{position:absolute;left:0;top:0;width:100%;height:100%}.vedhit{touch-action:none}
+.vedplay{position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:24px;pointer-events:none}
+.vedtl{position:relative;height:52px;margin:12px 14px 4px;border-radius:10px;overflow:hidden;background:#1a1722;touch-action:none}
+.vedthumbs{display:flex;height:100%}.vedthumbs img,.vedthumbs i{flex:1;min-width:0;height:100%;object-fit:cover;opacity:.75}
+.vedsel{position:absolute;top:0;bottom:0;border:3px solid #facc15;border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.55)}
+.vh{position:absolute;top:-3px;bottom:-3px;width:18px;background:#facc15}.vh.l{left:-12px;border-radius:8px 0 0 8px}.vh.r{right:-12px;border-radius:0 8px 8px 0}
+.vh::after{content:'';position:absolute;left:7px;top:35%;bottom:35%;width:3px;border-radius:2px;background:#78350f}
+.vedph{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none}
+.vedinfo{text-align:center;font-size:13px;opacity:.85;margin:4px 0 8px}
+.vedtools{display:flex;gap:6px;padding:0 10px}.vedtools button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-size:20px}
+.vedtools button span{font-size:12px;font-weight:700}.vedtools button small{font-size:10.5px;opacity:.65;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vedtools button.on{background:rgba(168,85,247,.35)}
+.vedpanel{padding:8px 14px 10px;min-height:10px;max-height:30vh;overflow:auto;flex:0 0 auto}
+.vedchips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.vedchips button{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:13.5px}.vedchips button.on{background:#fff;color:#111}
+.vedcols{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}.vedcols button{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.35)}.vedcols button.on{outline:3px solid #a855f7;outline-offset:2px}
+.vedrow{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13px}.vedrow span{min-width:110px}.vedrow input{flex:1}
+.vedrow2{display:flex;gap:8px;margin-top:6px}.vedrow2 .btn{height:40px;font-size:14px}
+.vedin{width:100%;background:rgba(255,255,255,.08);color:#fff;border-radius:12px;min-height:54px}
+.vednote{font-size:12px;opacity:.6;margin:6px 0 0;text-align:center}
+.vedprog{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;text-align:center;padding:20px}
+.vedprog small{opacity:.6}
+.vedring{position:relative;width:120px;height:120px}.vedring svg{width:100%;height:100%;transform:rotate(-90deg)}.vedring circle{fill:none;stroke:rgba(255,255,255,.12);stroke-width:8}.vedring circle+circle{stroke:#c084fc;stroke-linecap:round;transition:stroke-dasharray .3s}
+.vedring b{position:absolute;inset:0;display:grid;place-items:center;font-size:24px}
+`;document.head.appendChild(st)}
+
+/* v76: 📍 MAPPA AMICI — vedi dove sono gli amici (vi seguite a vicenda) che hanno scelto di condividere la posizione.
+   Si attiva solo se vuoi, puoi sceglierla precisa o approssimativa (circa 1 km), e con chi. Gli account Teen non possono condividerla. */
+const FMAP={
+ st(){const a=S.acc;a.loc=a.loc||{on:false,mode:'a',who:'all'};return a.loc},
+ async call(o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
+  const r=await fetch('/api/loc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:CDB.sid},o))});
+  if(r.status===401&&!retry){CDB.sid=null;try{localStorage.removeItem(CDB.key())}catch(e){}if(!await CDB.auth())throw{code:'auth'};return this.call(o,true)}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status};return j},
+ ok(){return typeof CDB!=='undefined'&&CDB.isV&&CDB.isV()},
+ pos(high){return new Promise((res,rej)=>{if(!navigator.geolocation)return rej({code:'nogeo'});navigator.geolocation.getCurrentPosition(p=>res(p.coords),e=>rej({code:e&&e.code===1?'denied':'pos'}),{enableHighAccuracy:!!high,timeout:15000,maximumAge:60000})})},
+ /* invia la mia posizione (solo se l'ho attivata) */
+ async push(force){const s=this.st();if(!s.on||S.teen||!this.ok())return;if(!force&&Date.now()-(this.last||0)<180000)return;this.last=Date.now();
+  try{const c=await this.pos(s.mode==='p');this.mine={la:c.latitude,lo:c.longitude,t:Date.now()};await this.call({op:'set',la:c.latitude,lo:c.longitude,acc:c.accuracy,mode:s.mode,who:s.who==='all'?'all':s.who})}catch(e){if(e&&e.code==='denied'){s.on=false;save();toast('Posizione disattivata: Vybe non ha il permesso di usarla')}}},
+ L:null,lp:null,
+ lib(){if(window.L&&window.L.map)return Promise.resolve(window.L);if(this.lp)return this.lp;this.lp=new Promise((res,rej)=>{const css=document.createElement('link');css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
+  const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';s.onload=()=>window.L?res(window.L):rej();s.onerror=()=>{this.lp=null;rej()};document.head.appendChild(s)});return this.lp},
+ ago(t){const s=Math.max(0,(Date.now()-t)/1000);return s<90?'adesso':s<3600?Math.round(s/60)+' min fa':s<86400?Math.round(s/3600)+' h fa':'ieri'},
+ dist(a,b){const R=6371,dl=(b.la-a.la)*Math.PI/180,dn=(b.lo-a.lo)*Math.PI/180,x=Math.sin(dl/2)**2+Math.cos(a.la*Math.PI/180)*Math.cos(b.la*Math.PI/180)*Math.sin(dn/2)**2;const d=2*R*Math.asin(Math.sqrt(x));return d<1?Math.round(d*1000)+' m':d<10?d.toFixed(1).replace('.',',')+' km':Math.round(d)+' km'},
+ pin(w,me){const av=w?avHTML(w,44):avHTML(ME(),44);return`<div class="fmpin ${me?'me':''}"><div class="fmav">${av}</div><i></i></div>`},
+ async open(){if(!this.ok())return toast('La mappa funziona nell’app Vybe collegata online');
+  const ov=openFull(`<div class="fmw"><div id="fmMap" class="fmmap"></div><div class="fmtop"><button class="iconbtn fmb" data-a="close">${ic('back')}</button><b>📍 Mappa amici</b><button class="iconbtn fmb" id="fmMe" aria-label="Centra">◎</button></div>
+   <div class="fmsheet"><div class="grab"></div><div id="fmStat"></div><div id="fmList" class="fmlist"></div></div><div class="fmload" id="fmLd"><div class="maccspin"></div></div></div>`,'fmov');
+  let map=null,marks=[],data=null,watch=null;ov.onclose=()=>{if(watch!=null)try{navigator.geolocation.clearWatch(watch)}catch(e){}clearInterval(this.tmr)};
+  const L=await this.lib().catch(()=>null);$('#fmLd',ov).remove();
+  if(L){map=L.map($('#fmMap',ov),{zoomControl:false,attributionControl:true}).setView([41.9,12.5],5);
+   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);setTimeout(()=>map.invalidateSize(),300)}
+  else $('#fmMap',ov).innerHTML='<div class="fmnomap">Non riesco a caricare la mappa. Controlla la connessione.</div>';
+  const draw=fitAll=>{if(!data)return;const s=this.st();const people=data.locs.map(l=>({l,w:USERS['r_'+l.u]})).filter(x=>x.w);
+   if(map){marks.forEach(m=>m.remove());marks=[];const pts=[];
+    const add=(la,lo,html,click)=>{const m=L.marker([la,lo],{icon:L.divIcon({className:'',html,iconSize:[52,60],iconAnchor:[26,58]})}).addTo(map);if(click)m.on('click',click);marks.push(m);pts.push([la,lo])};
+    people.forEach(({l,w})=>{add(l.la,l.lo,this.pin(w),()=>map.flyTo([l.la,l.lo],Math.max(map.getZoom(),14)));if(l.mode==='a')marks.push(L.circle([l.la,l.lo],{radius:900,color:'#a855f7',weight:1,fillOpacity:.08}).addTo(map))});
+    const me=this.mine||(data.me?{la:data.me.la,lo:data.me.lo}:null);if(me)add(me.la,me.lo,this.pin(null,true));
+    if(fitAll&&pts.length){if(pts.length===1)map.setView(pts[0],13);else map.fitBounds(L.latLngBounds(pts),{padding:[70,70],maxZoom:14})}}
+   const me=this.mine||data.me;
+   $('#fmStat',ov).innerHTML=S.teen?`<div class="fmrow"><span>🛡️</span><div><b>Condivisione non disponibile</b><small>Per sicurezza gli account Teen non possono condividere la posizione. Puoi vedere gli amici che la condividono con te.</small></div></div>`:
+    `<div class="fmrow"><span>${s.on?'🟢':'👻'}</span><div><b>${s.on?'Stai condividendo la posizione':'Modalità fantasma'}</b><small>${s.on?(s.mode==='a'?'Approssimativa (circa 1 km)':'Precisa')+' · '+(s.who==='all'?'tutti gli amici':s.who.length+' amici scelti')+' · si aggiorna quando apri Vybe':'Nessuno vede dove sei'}</small></div><button class="sw ${s.on?'on':''}" id="fmSw"></button></div>
+    ${s.on?`<div class="fmopts"><button id="fmMode">${s.mode==='a'?'📍 Passa a precisa':'🔵 Passa ad approssimativa'}</button><button id="fmWho">👥 Con chi</button></div>`:''}`;
+   const n=data.friends.length;$('#fmList',ov).innerHTML=people.length?people.sort((x,y)=>y.l.t-x.l.t).map(({l,w})=>`<div class="fmp" data-u="${l.u}">${avHTML(w,42)}<div><b>${esc(w.n)}</b><small>${this.ago(l.t)}${l.mode==='a'?' · zona approssimativa':''}${me?' · a '+this.dist(me,l):''}</small></div><span>›</span></div>`).join(''):
+    `<div class="fmempty">${n?'Nessuno dei tuoi '+n+' amici sta condividendo la posizione in questo momento.':'Qui vedrai gli amici (le persone che vi seguite a vicenda) che condividono la posizione con te.'}</div>`;
+   $$('.fmp',ov).forEach(r=>r.onclick=()=>{const l=data.locs.find(x=>x.u===r.dataset.u);if(l&&map)map.flyTo([l.la,l.lo],15)});
+   const sw=$('#fmSw',ov);if(sw)sw.onclick=()=>s.on?this.off(()=>reload()):this.consent(()=>reload(true));
+   const md=$('#fmMode',ov);if(md)md.onclick=async()=>{s.mode=s.mode==='a'?'p':'a';save();await this.push(true);reload()};
+   const wh=$('#fmWho',ov);if(wh)wh.onclick=()=>this.who(data.friends,()=>reload())};
+  const reload=async fit=>{try{data=await this.call({op:'get'});draw(fit)}catch(e){$('#fmList',ov).innerHTML=`<div class="fmempty">${e&&e.code==='nodb'?'La mappa non è ancora attiva.':'Non riesco a caricare la mappa, riprova.'}</div>`}};
+  await this.push(true);await reload(true);this.tmr=setInterval(()=>{if(ov.isConnected)reload()},45000);
+  $('#fmMe',ov).onclick=async()=>{try{const c=await this.pos(true);if(map)map.flyTo([c.latitude,c.longitude],15)}catch(e){toast('Non riesco a trovare dove sei')}};
+  if(this.st().on&&navigator.geolocation){try{watch=navigator.geolocation.watchPosition(()=>this.push(),()=>{},{enableHighAccuracy:this.st().mode==='p',maximumAge:60000})}catch(e){}}
+  return ov},
+ consent(go){if(S.teen)return toast('Gli account Teen non possono condividere la posizione');
+  const sh=openSheet(`<div style="padding:6px 18px 18px;display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">📍 Condividere la tua posizione?</h3>
+   <div class="fmrule">👥 La vedono <b>solo i tuoi amici</b>: le persone che vi seguite a vicenda. Puoi anche sceglierne solo alcuni.</div>
+   <div class="fmrule">🔄 Si aggiorna <b>solo quando apri Vybe</b>, non in sottofondo.</div>
+   <div class="fmrule">👻 Puoi spegnerla quando vuoi: sparisce subito dalla mappa. Se non apri Vybe per 24 ore sparisce da sola.</div>
+   <div class="vedchips" style="justify-content:center"><button data-m="a" class="on">🔵 Approssimativa (~1 km)</button><button data-m="p">📍 Precisa</button></div>
+   <button class="btn" id="fmGo">Condividi con gli amici</button><button class="link" id="fmNo">Non ora</button></div>`);
+  let mode='a';$$('[data-m]',sh).forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$('[data-m]',sh).forEach(x=>x.classList.toggle('on',x===b))});$('#fmNo',sh).onclick=()=>closeOv(sh);
+  $('#fmGo',sh).onclick=async()=>{const s=this.st();s.on=true;s.mode=mode;save();closeOv(sh);try{await this.pos(mode==='p')}catch(e){s.on=false;save();return toast(e&&e.code==='denied'?'Per condividere la posizione permetti a Vybe di usarla (Impostazioni › Safari › Posizione)':'Non riesco a trovare dove sei')}await this.push(true);toast('Ora i tuoi amici vedono dove sei 📍');go&&go()}},
+ async off(go){const s=this.st();s.on=false;save();this.mine=null;try{await this.call({op:'off'})}catch(e){}toast('Modalità fantasma attiva 👻');go&&go()},
+ who(friends,go){const s=this.st(),sel=new Set(s.who==='all'?friends:s.who);const ws=friends.map(u=>({u,w:USERS['r_'+u]})).filter(x=>x.w);
+  const sh=openSheet(`<div style="padding:4px 16px 16px"><div class="shead">Con chi condividi</div><div class="vedchips"><button id="fwAll">Tutti</button><button id="fwNone">Nessuno</button></div>
+   <div class="fmlist">${ws.length?ws.map(({u,w})=>`<label class="fmp"><input type="checkbox" data-u="${u}" ${sel.has(u)?'checked':''}>${avHTML(w,38)}<div><b>${esc(w.n)}</b><small>@${esc(w.u)}</small></div></label>`).join(''):'<div class="fmempty">Non hai ancora amici (persone che vi seguite a vicenda).</div>'}</div><button class="btn" id="fwOk" style="margin-top:10px">Salva</button></div>`);
+  $('#fwAll',sh).onclick=()=>$$('[data-u]',sh).forEach(c=>c.checked=true);$('#fwNone',sh).onclick=()=>$$('[data-u]',sh).forEach(c=>c.checked=false);
+  $('#fwOk',sh).onclick=async()=>{const ch=$$('[data-u]',sh).filter(c=>c.checked).map(c=>c.dataset.u);s.who=ch.length===ws.length?'all':ch;save();closeOv(sh);await this.push(true);go&&go()}}
+};
+/* quando apri Vybe aggiorno la posizione (solo se l'hai attivata) */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>{try{FMAP.push()}catch(e){}},1500)});
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{FMAP.push()}catch(e){}},4000);return r}}
+/* entrate: menu del profilo + impostazioni */
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#fmMenu',m)){const a=$('#maccMenu',m);(a||m.firstElementChild).insertAdjacentHTML(a?'afterend':'beforebegin','<button id="fmMenu"><span class="mi">📍</span><div>Mappa amici<small>Vedi dove sono gli amici che condividono la posizione</small></div></button>');$('#fmMenu',m).addEventListener('click',e=>{e.stopPropagation();e.preventDefault();closeAll();setTimeout(()=>FMAP.open(),300)},true)}}catch(e){}return r}}
+{const os=openSettings;openSettings=function(){const r=os.apply(this,arguments);try{const sec=$$('#layer .sect').find(s=>s.textContent.trim()==='Privacy');if(sec&&!$('#fmSet')){const s=FMAP.st();sec.insertAdjacentHTML('afterend',`<div class="trow2" id="fmSet" style="cursor:pointer"><div>Posizione sulla mappa<small>${S.teen?'Non disponibile per gli account Teen':s.on?'Condivisa con gli amici · tocca per cambiare':'Spenta (modalità fantasma)'}</small></div><span style="opacity:.6">›</span></div>`);$('#fmSet').onclick=()=>{closeAll();setTimeout(()=>FMAP.open(),300)}}}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.fmov{background:#0b0a10}
+.fmw{position:absolute;inset:0}
+.fmmap{position:absolute;inset:0;background:#d9dde3}
+.fmnomap{display:grid;place-items:center;height:100%;color:#444;padding:30px;text-align:center}
+.fmtop{position:absolute;left:0;right:0;top:0;z-index:500;display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px 8px;pointer-events:none}
+.fmtop b{flex:1;text-align:center;font-size:16px;color:#111;text-shadow:0 1px 8px #fff}.fmb{pointer-events:auto;background:rgba(255,255,255,.92)!important;color:#111!important;border-radius:50%;box-shadow:0 4px 14px rgba(0,0,0,.2);font-size:20px}
+.fmsheet{position:absolute;left:0;right:0;bottom:0;z-index:500;max-height:46%;overflow:auto;background:#141119;color:#fff;border-radius:22px 22px 0 0;padding:6px 14px calc(env(safe-area-inset-bottom,0px) + 14px);box-shadow:0 -8px 30px rgba(0,0,0,.35)}
+.fmrow{display:flex;align-items:center;gap:12px;padding:8px 2px}.fmrow>span{font-size:24px}.fmrow>div{flex:1;display:flex;flex-direction:column}.fmrow small{opacity:.65;font-size:12.5px}
+.fmopts{display:flex;gap:8px;margin:2px 0 8px}.fmopts button{flex:1;padding:9px;border-radius:12px;background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-weight:700}
+.fmlist{display:flex;flex-direction:column;gap:4px}.fmp{display:flex;align-items:center;gap:12px;padding:8px 6px;border-radius:14px;cursor:pointer}.fmp:active{background:rgba(255,255,255,.06)}
+.fmp div{flex:1;display:flex;flex-direction:column}.fmp small{opacity:.6;font-size:12.5px}.fmp input{width:20px;height:20px;accent-color:#a855f7}
+.fmempty{opacity:.65;font-size:13.5px;text-align:center;padding:14px 8px}
+.fmload{position:absolute;inset:0;display:grid;place-items:center;z-index:600;background:#0b0a10}
+.fmpin{display:flex;flex-direction:column;align-items:center}.fmav{width:48px;height:48px;border-radius:50%;padding:3px;background:linear-gradient(135deg,#a855f7,#ec4899);box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.fmav .av{width:42px!important;height:42px!important;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-weight:800}
+.fmpin i{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #ec4899;margin-top:-1px}
+.fmpin.me .fmav{background:linear-gradient(135deg,#22c55e,#06b6d4)}.fmpin.me i{border-top-color:#06b6d4}
+.fmrule{font-size:14px;line-height:1.45;background:rgba(255,255,255,.06);padding:10px 12px;border-radius:14px}
+.leaflet-container{font-family:inherit}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
