@@ -7185,7 +7185,7 @@ FMAP.open=async function(){if(!this.ok())return toast('Vybe Map funziona nell’
  ML=await this.lib().catch(()=>{try{clog('vmap2 lib fail')}catch(_){}return null});await new Promise(r=>setTimeout(r,380));if(!ov.isConnected)return;
  if(ML){try{map=new ML.Map({container:$('#fmMap',ov),style:this.STYLE,center:[12.5,41.9],zoom:4.6,pitch:0,attributionControl:{compact:true}});
    map.on('error',e=>{try{clog('vmap2 maperr '+String(e&&e.error&&e.error.message||'').slice(0,100))}catch(_){}});
-   map.once('load',()=>{const ld=$('#fmLd',ov);if(ld)ld.remove();try{clog('vmap2 load ok')}catch(e){}});setTimeout(()=>{const ld=$('#fmLd',ov);if(ld)ld.remove()},7000);
+   map.once('load',()=>{const ld=$('#fmLd',ov);if(ld)ld.remove();try{map.resize()}catch(e){}try{const m=$('#fmMap',ov);clog('vmap2 load ok '+m.clientWidth+'x'+m.clientHeight)}catch(e){}});setTimeout(()=>{const ld=$('#fmLd',ov);if(ld)ld.remove()},7000);
    try{new ResizeObserver(()=>{try{map.resize()}catch(e){}}).observe($('#fmMap',ov))}catch(e){}}catch(e){map=null;try{clog('vmap2 init fail '+String(e&&e.message||e).slice(0,120))}catch(_){}}}
  if(!map){const ld=$('#fmLd',ov);if(ld)ld.remove();$('#fmMap',ov).innerHTML='<div class="fmnomap">Non riesco a caricare la mappa. Controlla la connessione e riprova.</div>'}
  const draw=()=>{const s=this.st();const people=data?data.locs.map(l=>({l,w:USERS['r_'+l.u]})).filter(x=>x.w):[];
@@ -7214,7 +7214,7 @@ FMAP.open=async function(){if(!this.ok())return toast('Vybe Map funziona nell’
  if(this.st().on&&navigator.geolocation){try{watch=navigator.geolocation.watchPosition(()=>this.push(),()=>{},{enableHighAccuracy:this.st().mode==='p',maximumAge:60000})}catch(e){}}
  return ov};
 {const st=document.createElement('style');st.textContent=`
-.fmmap{background:#eef0f3}
+.fmw .fmmap,.fmw .fmmap.maplibregl-map{position:absolute!important;left:0;top:0;right:0;bottom:0;width:100%!important;height:100%!important;background:#eef0f3}
 .fmtop b{font-weight:900}
 #fm3d{font-size:13px;font-weight:900}
 .fmload{flex-direction:column;gap:10px;color:#fff;font-size:13px}
