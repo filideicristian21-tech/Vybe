@@ -7235,14 +7235,14 @@ FMAP.open=async function(){if(!this.ok())return toast('Vybe Map funziona nell’
 .maplibregl-ctrl-attrib{font-size:10px}
 `;document.head.appendChild(st)}
 
-/* v78: 🔥 FIAMME (streak) come su Snapchat — giorni di fila in cui tu e un amico vi scrivete (tutti e due).
-   Quando la fiamma cresce parte una festa animata con emoji, e la puoi pubblicare nella storia. */
+/* v78: 🔥 FIAMME (streak) — la fai tu quando vuoi, una volta al giorno, col tasto 🔥 in alto nella chat (accanto alla videochiamata).
+   Il giorno conta quando la fate tutti e due. Parte una festa animata con emoji e la puoi pubblicare nella storia. */
 const FLM={
  st(){const a=S.acc;a.stk=a.stk||{};return a.stk},
  dk(t){return dayKey(new Date(t))},
  /* segno, giorno per giorno, chi ha scritto (1 = io, 2 = l'amico) */
  update(){if(!S.acc||typeof VC==='undefined'||!VC.on)return;const me=VC.me,st=this.st();let ch=false;const lim=Date.now()-400*86400000;
-  for(const c of VC.convs()){if(c.kind!=='d')continue;const r=st[c.u]||(st[c.u]={d:{},c:0});for(const m of c.msgs){if(!m.t||m.t<lim||(m.pl&&m.pl.sys))continue;const k=this.dk(m.t),b=m.from===me?1:2;if(((r.d[k]||0)&b)!==b){r.d[k]=(r.d[k]||0)|b;ch=true}}
+  for(const c of VC.convs()){if(c.kind!=='d')continue;const r=st[c.u]||(st[c.u]={d:{},c:0});for(const m of c.msgs){if(!m.t||m.t<lim||!m.pl||!m.pl.stk)continue;const k=this.dk(m.t),b=m.from===me?1:2;if(((r.d[k]||0)&b)!==b){r.d[k]=(r.d[k]||0)|b;ch=true}}
    const ks=Object.keys(r.d).sort();while(ks.length>420)delete r.d[ks.shift()]}
   if(ch)save();this.check()},
  /* quanti giorni di fila (vale anche se oggi non vi siete ancora scritti ma ieri sì) */
@@ -7250,16 +7250,28 @@ const FLM={
   while((r.d[dayKey(d)]||0)===3&&n<5000){n++;d.setDate(d.getDate()-1)}const risk=n>0&&!todayOk&&new Date().getHours()>=18;return{n,todayOk,risk}},
  /* nuova fiamma o fiamma cresciuta oggi: festa! */
  check(){const st=this.st();for(const u in st){const r=st[u],k=this.count(u);if(!k.n){if(r.c){r.c=0;save()}continue}
-   if(k.todayOk&&k.n>(r.c||0)){r.c=k.n;save();const w=USERS['r_'+u];if(w&&!this.showing)setTimeout(()=>this.party(w,k.n),600)}}},
+   }},
+ /* ho già fatto la streak oggi con questo amico? */
+ doneToday(u){const r=this.st()[u];return!!(r&&((r.d[this.dk(Date.now())]||0)&1))},
+ theyToday(u){const r=this.st()[u];return!!(r&&((r.d[this.dk(Date.now())]||0)&2))},
+ /* tasto 🔥 nella chat */
+ tap(u){const w=USERS['r_'+u];if(!w)return;this.update();const k=this.count(u),me=this.doneToday(u),they=this.theyToday(u);
+  if(me){return openSheet(`<div style="padding:6px 18px 20px;text-align:center;display:flex;flex-direction:column;gap:10px"><div style="font-size:56px">🔥</div><h3 style="font-size:20px">Streak di oggi già fatta ✅</h3><p class="sub" style="margin:0">${they?`Anche ${esc(w.first||w.n)} l’ha fatta: siete a <b>${k.n}</b> ${k.n===1?'giorno':'giorni di fila'}!`:`Ora tocca a ${esc(w.first||w.n)}: quando la fa anche lui/lei, la fiamma sale a <b>${k.n+1}</b>.`} Domani potrai rifarla.</p><button class="btn soft" id="stkSee">🎉 Rivedi la festa</button></div>`)&&setTimeout(()=>{const b=$('#stkSee');if(b)b.onclick=()=>{closeAll();setTimeout(()=>this.party(w,they?Math.max(1,k.n):k.n+1,!they),350)}},50)}
+  const sh=openSheet(`<div style="padding:6px 18px 20px;text-align:center;display:flex;flex-direction:column;gap:10px"><div class="stkbig">🔥</div><h3 style="font-size:21px">Fai la streak con ${esc(w.first||w.n)}?</h3>
+   <p class="sub" style="margin:0">${k.n?`Siete a <b>${k.n}</b> ${k.n===1?'giorno':'giorni di fila'}. `:''}${they?`${esc(w.first||w.n)} l’ha già fatta oggi: falla anche tu e la fiamma sale!`:'Si fa una volta al giorno. Quando la fate tutti e due, la fiamma sale di un giorno.'}</p>
+   <button class="btn" id="stkGo">🔥 Fai la streak</button><button class="link" id="stkNo">Non ora</button></div>`);
+  $('#stkNo',sh).onclick=()=>closeOv(sh);
+  $('#stkGo',sh).onclick=async()=>{const b=$('#stkGo',sh);b.disabled=true;try{await VC.send('d:'+u,{tx:'🔥 Ho fatto la streak di oggi!',stk:1})}catch(e){b.disabled=false;return toast('Non riesco a inviarla, riprova')}
+   const r=this.st()[u]||(this.st()[u]={d:{},c:0});const dk=this.dk(Date.now());r.d[dk]=(r.d[dk]||0)|1;save();closeOv(sh);const k2=this.count(u);setTimeout(()=>this.party(w,they?Math.max(1,k2.n):k.n+1,!they),350)}},
  badge(u){const k=this.count(u);if(!k.n)return'';return`<em class="stkb ${k.risk?'risk':''}" title="Giorni di fila">🔥${k.n}${k.risk?'⏳':''}</em>`},
  /* titoli speciali */
  title(n){return n>=365?'Un anno intero! 👑':n>=100?'100 giorni! Leggendari 💯':n>=50?'50 giorni di fila! 🚀':n>=30?'Un mese insieme! 🏆':n>=14?'Due settimane! ⚡':n>=7?'Una settimana! 🌟':n>=3?'La fiamma cresce! 🔥':n===1?'Nuova fiamma! ✨':'La fiamma continua! 🔥'},
  col(n){return n>=100?['#facc15','#f97316','#dc2626']:n>=30?['#f0abfc','#a855f7','#4c1d95']:n>=7?['#38bdf8','#6366f1','#1e1b4b']:['#fde047','#f97316','#be123c']},
- party(w,n){if(this.showing)return;this.showing=true;const C=this.col(n);
+ party(w,n,wait){if(this.showing)return;this.showing=true;const C=this.col(n);
   const ov=openFull(`<div class="stkw" style="--c1:${C[0]};--c2:${C[1]};--c3:${C[2]}"><canvas id="stkC"></canvas><button class="rcx" id="stkX" aria-label="Chiudi">✕</button>
    <div class="stkin"><div class="stkfl">🔥</div><div class="stknum" id="stkN">0</div><div class="stkday">${n===1?'giorno':'giorni di fila'}</div>
    <div class="stkav"><span>${avHTML(ME(),66)}</span><i>🔥</i><span>${avHTML(w,66)}</span></div>
-   <h2>${esc(this.title(n))}</h2><p>Tu e <b>${esc(w.first||w.n)}</b> vi scrivete da <b>${n}</b> ${n===1?'giorno':'giorni di fila'}. Scrivetevi ogni giorno per non spegnere la fiamma!</p>
+   <h2>${wait?'Streak fatta! 🔥':esc(this.title(n))}</h2><p>${wait?`Ora tocca a <b>${esc(w.first||w.n)}</b>: quando fa la streak anche lui/lei, la fiamma arriva a <b>${n}</b>!`:`Tu e <b>${esc(w.first||w.n)}</b> avete fatto la streak per <b>${n}</b> ${n===1?'giorno':'giorni di fila'}. Rifatela domani per non spegnere la fiamma!`}</p>
    <div class="stkbtn"><button class="btn" id="stkStory">📸 Pubblica nella storia</button><button class="btn soft" id="stkChat">💬 Scrivi a ${esc(w.first||w.n)}</button></div></div></div>`,'stkov');
   ov.onclose=()=>{this.showing=false;alive=false};let alive=true;$('#stkX',ov).onclick=()=>closeOv(ov);
   $('#stkChat',ov).onclick=()=>{closeOv(ov);setTimeout(()=>{try{openVConv('d:'+w.rid)}catch(e){}},350)};
@@ -7292,8 +7304,8 @@ const FLM={
   x.font='900 54px -apple-system,system-ui,sans-serif';x.fillText('Vybe',540,1840);
   try{return c.toDataURL('image/jpeg',.9)}catch(e){/* foto non utilizzabili: rifaccio con le iniziali */return noImg?null:this.card(w,n,true)}},
  list(){const st=this.st();return Object.keys(st).map(u=>({u,w:USERS['r_'+u],k:this.count(u)})).filter(x=>x.w&&x.k.n).sort((a,b)=>b.k.n-a.k.n)},
- sheet(){const L=this.list();openSheet(`<div class="shead">🔥 Le tue fiamme</div><div class="sbody">${L.length?L.map(x=>`<div class="urow" data-u="${x.u}">${avHTML(x.w,44)}<div><b>${esc(x.w.n)}</b><span>${x.k.n} ${x.k.n===1?'giorno':'giorni di fila'}${x.k.risk?' · ⏳ scrivetevi oggi o si spegne!':x.k.todayOk?' · oggi fatto ✅':' · oggi non vi siete ancora scritti'}</span></div><em class="stkb big">🔥${x.k.n}</em></div>`).join(''):'<div class="emptyc">Ancora nessuna fiamma. Scrivi a un amico oggi e fatti rispondere: domani riscrivetevi e la fiamma si accende! 🔥</div>'}
-   <p class="vednote" style="margin:14px 8px 4px">La fiamma conta i giorni di fila in cui vi scrivete <b>tutti e due</b>. Se un giorno uno dei due non scrive, si spegne.</p></div>`)}
+ sheet(){const L=this.list();openSheet(`<div class="shead">🔥 Le tue fiamme</div><div class="sbody">${L.length?L.map(x=>`<div class="urow" data-u="${x.u}">${avHTML(x.w,44)}<div><b>${esc(x.w.n)}</b><span>${x.k.n} ${x.k.n===1?'giorno':'giorni di fila'}${x.k.risk?' · ⏳ fate la streak oggi o si spegne!':x.k.todayOk?' · oggi fatta ✅':' · oggi ancora da fare'}</span></div><em class="stkb big">🔥${x.k.n}</em></div>`).join(''):'<div class="emptyc">Ancora nessuna fiamma. Apri la chat con un amico e tocca 🔥 in alto per fare la streak! 🔥</div>'}
+   <p class="vednote" style="margin:14px 8px 4px">Per fare la streak apri la chat con un amico e tocca <b>🔥</b> in alto, accanto alla videochiamata. Si fa una volta al giorno: il giorno conta quando la fate <b>tutti e due</b>. Se un giorno uno dei due non la fa, la fiamma si spegne.</p></div>`)}
 };
 /* aggiorno quando arrivano o partono messaggi */
 {const em=VC.emit.bind(VC);VC.emit=function(){const r=em.apply(this,arguments);clearTimeout(FLM.t);FLM.t=setTimeout(()=>{try{FLM.update()}catch(e){}},700);return r}}
@@ -7302,10 +7314,15 @@ setInterval(()=>{try{FLM.update()}catch(e){}},60000);
 {const deco=()=>{try{$$('.war[data-cid^="d:"]').forEach(e=>{const u=e.dataset.cid.slice(2),b=e.querySelector('.war1 b');if(!b)return;const h=FLM.badge(u),old=b.querySelector('.stkb');if(old){if(old.outerHTML!==h)old.outerHTML=h||'';}else if(h)b.insertAdjacentHTML('beforeend',' '+h)});
   $$('[data-stkcid]').forEach(o=>{const b=o.querySelector('#wci b');if(!b)return;const u=o.dataset.stkcid.slice(2),h=FLM.badge(u),old=b.querySelector('.stkb');if(old){if(old.outerHTML!==h)old.outerHTML=h||''}else if(h){b.insertAdjacentHTML('beforeend',' '+h);const nb=b.querySelector('.stkb');if(nb)nb.onclick=ev=>{ev.stopPropagation();FLM.sheet()}}})}catch(e){}};
  new MutationObserver(()=>{clearTimeout(deco.t);deco.t=setTimeout(deco,120)}).observe(document.body,{childList:true,subtree:true})}
-{const ov=openVConv;openVConv=function(cid){const r=ov.apply(this,arguments);try{const o=$$('#layer>.ovf').pop();if(o&&String(cid).startsWith('d:'))o.dataset.stkcid=cid}catch(e){}return r}}
+{const ov=openVConv;openVConv=function(cid){const r=ov.apply(this,arguments);try{const o=$$('#layer>.ovf').pop();if(o&&String(cid).startsWith('d:')){o.dataset.stkcid=cid;const put=()=>{const h=$('.wch',o);if(!h||$('#stkTap',o))return;const btns=[...h.querySelectorAll('button')].filter(b=>b.id!=='wcb'&&b.id!=='wcm');const ref=btns[0]||$('#wcm',o);
+    ref.insertAdjacentHTML('beforebegin','<button class="iconbtn stktap" id="stkTap" aria-label="Fai la streak">🔥</button>');$('#stkTap',o).onclick=e=>{e.stopPropagation();FLM.tap(cid.slice(2))};paint()};
+   const paint=()=>{const b=$('#stkTap',o);if(!b)return;const u=cid.slice(2);b.classList.toggle('done',FLM.doneToday(u));b.classList.toggle('pend',FLM.theyToday(u)&&!FLM.doneToday(u))};
+   put();setTimeout(put,400);setTimeout(put,1200);const iv=setInterval(()=>{if(!o.isConnected)return clearInterval(iv);put();paint()},2000)}}catch(e){}return r}}
 /* elenco delle fiamme dal menu del profilo */
 {const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#stkMenu',m)){const a=$('#fmMenu',m)||$('#maccMenu',m);(a||m.firstElementChild).insertAdjacentHTML(a?'afterend':'beforebegin','<button id="stkMenu"><span class="mi">🔥</span><div>Le tue fiamme<small>Giorni di fila in cui vi scrivete con gli amici</small></div></button>');$('#stkMenu',m).addEventListener('click',e=>{e.stopPropagation();e.preventDefault();closeAll();setTimeout(()=>FLM.sheet(),300)},true)}}catch(e){}return r}}
 {const st=document.createElement('style');st.textContent=`
+.stktap{font-size:22px;position:relative}.stktap.done{filter:grayscale(.2) drop-shadow(0 0 6px rgba(251,146,60,.8))}.stktap.done::after{content:'✓';position:absolute;right:2px;bottom:2px;font-size:10px;background:#22c55e;color:#fff;border-radius:50%;width:14px;height:14px;display:grid;place-items:center;font-weight:900}
+.stktap.pend{animation:stkwob 1s ease-in-out infinite}.stkbig{font-size:84px;animation:stkwob 1.4s ease-in-out infinite;filter:drop-shadow(0 0 22px rgba(255,160,0,.8))}
 .stkb{font-style:normal;font-size:13px;font-weight:900;color:#fb923c;white-space:nowrap;cursor:pointer}.stkb.risk{color:#fbbf24}.stkb.big{font-size:17px}
 .stkov{background:#000}
 .stkw{position:absolute;inset:0;overflow:hidden;color:#fff;background:radial-gradient(ellipse at 50% 30%,var(--c1),var(--c2) 45%,var(--c3));animation:stkbg 4s ease-in-out infinite alternate}
