@@ -7235,6 +7235,93 @@ FMAP.open=async function(){if(!this.ok())return toast('Vybe Map funziona nell’
 .maplibregl-ctrl-attrib{font-size:10px}
 `;document.head.appendChild(st)}
 
+/* v78: 🔥 FIAMME (streak) come su Snapchat — giorni di fila in cui tu e un amico vi scrivete (tutti e due).
+   Quando la fiamma cresce parte una festa animata con emoji, e la puoi pubblicare nella storia. */
+const FLM={
+ st(){const a=S.acc;a.stk=a.stk||{};return a.stk},
+ dk(t){return dayKey(new Date(t))},
+ /* segno, giorno per giorno, chi ha scritto (1 = io, 2 = l'amico) */
+ update(){if(!S.acc||typeof VC==='undefined'||!VC.on)return;const me=VC.me,st=this.st();let ch=false;const lim=Date.now()-400*86400000;
+  for(const c of VC.convs()){if(c.kind!=='d')continue;const r=st[c.u]||(st[c.u]={d:{},c:0});for(const m of c.msgs){if(!m.t||m.t<lim||(m.pl&&m.pl.sys))continue;const k=this.dk(m.t),b=m.from===me?1:2;if(((r.d[k]||0)&b)!==b){r.d[k]=(r.d[k]||0)|b;ch=true}}
+   const ks=Object.keys(r.d).sort();while(ks.length>420)delete r.d[ks.shift()]}
+  if(ch)save();this.check()},
+ /* quanti giorni di fila (vale anche se oggi non vi siete ancora scritti ma ieri sì) */
+ count(u){const r=this.st()[u];if(!r)return{n:0};const d=new Date();const today=this.dk(d);let n=0,todayOk=(r.d[today]||0)===3;if(!todayOk)d.setDate(d.getDate()-1);
+  while((r.d[dayKey(d)]||0)===3&&n<5000){n++;d.setDate(d.getDate()-1)}const risk=n>0&&!todayOk&&new Date().getHours()>=18;return{n,todayOk,risk}},
+ /* nuova fiamma o fiamma cresciuta oggi: festa! */
+ check(){const st=this.st();for(const u in st){const r=st[u],k=this.count(u);if(!k.n){if(r.c){r.c=0;save()}continue}
+   if(k.todayOk&&k.n>(r.c||0)){r.c=k.n;save();const w=USERS['r_'+u];if(w&&!this.showing)setTimeout(()=>this.party(w,k.n),600)}}},
+ badge(u){const k=this.count(u);if(!k.n)return'';return`<em class="stkb ${k.risk?'risk':''}" title="Giorni di fila">🔥${k.n}${k.risk?'⏳':''}</em>`},
+ /* titoli speciali */
+ title(n){return n>=365?'Un anno intero! 👑':n>=100?'100 giorni! Leggendari 💯':n>=50?'50 giorni di fila! 🚀':n>=30?'Un mese insieme! 🏆':n>=14?'Due settimane! ⚡':n>=7?'Una settimana! 🌟':n>=3?'La fiamma cresce! 🔥':n===1?'Nuova fiamma! ✨':'La fiamma continua! 🔥'},
+ col(n){return n>=100?['#facc15','#f97316','#dc2626']:n>=30?['#f0abfc','#a855f7','#4c1d95']:n>=7?['#38bdf8','#6366f1','#1e1b4b']:['#fde047','#f97316','#be123c']},
+ party(w,n){if(this.showing)return;this.showing=true;const C=this.col(n);
+  const ov=openFull(`<div class="stkw" style="--c1:${C[0]};--c2:${C[1]};--c3:${C[2]}"><canvas id="stkC"></canvas><button class="rcx" id="stkX" aria-label="Chiudi">✕</button>
+   <div class="stkin"><div class="stkfl">🔥</div><div class="stknum" id="stkN">0</div><div class="stkday">${n===1?'giorno':'giorni di fila'}</div>
+   <div class="stkav"><span>${avHTML(ME(),66)}</span><i>🔥</i><span>${avHTML(w,66)}</span></div>
+   <h2>${esc(this.title(n))}</h2><p>Tu e <b>${esc(w.first||w.n)}</b> vi scrivete da <b>${n}</b> ${n===1?'giorno':'giorni di fila'}. Scrivetevi ogni giorno per non spegnere la fiamma!</p>
+   <div class="stkbtn"><button class="btn" id="stkStory">📸 Pubblica nella storia</button><button class="btn soft" id="stkChat">💬 Scrivi a ${esc(w.first||w.n)}</button></div></div></div>`,'stkov');
+  ov.onclose=()=>{this.showing=false;alive=false};let alive=true;$('#stkX',ov).onclick=()=>closeOv(ov);
+  $('#stkChat',ov).onclick=()=>{closeOv(ov);setTimeout(()=>{try{openVConv('d:'+w.rid)}catch(e){}},350)};
+  $('#stkStory',ov).onclick=async()=>{const b=$('#stkStory',ov);b.disabled=true;b.textContent='Preparo la storia…';const url=await this.card(w,n);closeOv(ov);if(url)setTimeout(()=>composeStory({kind:'image',url,w:1080,h:1920}),380);else toast('Non riesco a creare l’immagine, riprova')};
+  try{navigator.vibrate&&navigator.vibrate([30,60,30,60,120])}catch(e){}
+  /* numero che sale */
+  const el=$('#stkN',ov),t0=performance.now();const up=t=>{const k=Math.min(1,(t-t0)/1300),e=1-Math.pow(1-k,3);el.textContent=Math.round(n*e);if(k<1&&alive)requestAnimationFrame(up)};requestAnimationFrame(up);
+  /* esplosione di emoji */
+  const cv=$('#stkC',ov),x=cv.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1);const fit=()=>{cv.width=innerWidth*dpr;cv.height=innerHeight*dpr};fit();
+  const EM=['🔥','🔥','🔥','✨','💥','🎉','⭐','❤️‍🔥','💫','🎊','⚡','💜'];const P=[];const R=Math.random;
+  const burst=(cx,cy,k)=>{for(let i=0;i<k;i++){const a=R()*Math.PI*2,s=(4+R()*11)*dpr;P.push({x:cx,y:cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s-6*dpr,g:.32*dpr,r:R()*6,vr:(R()-.5)*.3,sz:(18+R()*26)*dpr,ch:EM[(R()*EM.length)|0],l:1})}};
+  const W=()=>cv.width,H=()=>cv.height;burst(W()/2,H()*.3,70);setTimeout(()=>alive&&burst(W()*.2,H()*.5,40),450);setTimeout(()=>alive&&burst(W()*.8,H()*.45,40),800);setTimeout(()=>alive&&burst(W()/2,H()*.25,60),1300);
+  let rain=0;const loop=()=>{if(!alive)return;x.clearRect(0,0,W(),H());if(rain++%5===0&&rain<400)P.push({x:R()*W(),y:-30*dpr,vx:(R()-.5)*dpr,vy:(2+R()*3)*dpr,g:.02*dpr,r:R()*6,vr:(R()-.5)*.1,sz:(14+R()*16)*dpr,ch:EM[(R()*EM.length)|0],l:1,rain:1});
+   for(let i=P.length-1;i>=0;i--){const p=P[i];p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.vx*=.99;p.r+=p.vr;if(!p.rain)p.l-=.006;if(p.y>H()+60||p.l<=0){P.splice(i,1);continue}
+    x.save();x.globalAlpha=Math.max(0,Math.min(1,p.l*1.4));x.translate(p.x,p.y);x.rotate(p.r);x.font=`${p.sz}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`;x.textAlign='center';x.textBaseline='middle';x.fillText(p.ch,0,0);x.restore()}
+   requestAnimationFrame(loop)};requestAnimationFrame(loop)},
+ /* immagine 1080x1920 per la storia */
+ async card(w,n,noImg){const C=this.col(n),c=document.createElement('canvas');c.width=1080;c.height=1920;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,1080,1920);g.addColorStop(0,C[0]);g.addColorStop(.45,C[1]);g.addColorStop(1,C[2]);x.fillStyle=g;x.fillRect(0,0,1080,1920);
+  const rg=x.createRadialGradient(540,700,50,540,700,700);rg.addColorStop(0,'rgba(255,255,255,.35)');rg.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=rg;x.fillRect(0,0,1080,1920);
+  const em=(ch,px,cx,cy,rot,a)=>{x.save();x.globalAlpha=a??1;x.translate(cx,cy);x.rotate(rot||0);x.font=`${px}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`;x.textAlign='center';x.textBaseline='middle';x.fillText(ch,0,0);x.restore()};
+  const R=(s=>()=>(s=(s*9301+49297)%233280)/233280)(n*77+7);for(let i=0;i<46;i++)em(['🔥','✨','⭐','💫','🎉'][i%5],40+R()*70,R()*1080,R()*1920,R()*6,.35+R()*.4);
+  em('🔥',420,540,600);x.fillStyle='#fff';x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(0,0,0,.35)';x.shadowBlur=30;
+  x.font='900 300px -apple-system,system-ui,sans-serif';x.fillText(String(n),540,1000);x.font='800 70px -apple-system,system-ui,sans-serif';x.fillText(n===1?'GIORNO':'GIORNI DI FILA',540,1170);x.shadowBlur=0;
+  const load=src=>new Promise(r=>{if(!src)return r(null);const im=new Image();im.crossOrigin='anonymous';im.onload=()=>r(im);im.onerror=()=>r(null);im.src=src;setTimeout(()=>r(null),5000)});
+  const av=async(p,cx,cy)=>{x.save();x.beginPath();x.arc(cx,cy,130,0,7);x.fillStyle='#fff';x.fill();x.beginPath();x.arc(cx,cy,118,0,7);x.clip();const im=noImg?null:await load(p.img);
+   if(im)x.drawImage(im,cx-118,cy-118,236,236);else{const gg=x.createLinearGradient(cx-118,cy-118,cx+118,cy+118);gg.addColorStop(0,(p.c||['#7c3aed'])[0]);gg.addColorStop(1,(p.c||['','#ec4899'])[1]);x.fillStyle=gg;x.fillRect(cx-118,cy-118,236,236);x.fillStyle='#fff';x.font='900 96px -apple-system,system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(initials(p.n||'?'),cx,cy+4)}x.restore()};
+  await av(ME(),330,1420);await av(w,750,1420);em('🔥',130,540,1420);
+  x.fillStyle='#fff';x.font='800 60px -apple-system,system-ui,sans-serif';x.textAlign='center';x.fillText(`@${S.acc.username}  ×  @${w.u}`,540,1640);x.font='700 46px -apple-system,system-ui,sans-serif';x.globalAlpha=.85;x.fillText(this.title(n).replace(/\s*\S+$/,''),540,1720);x.globalAlpha=1;
+  x.font='900 54px -apple-system,system-ui,sans-serif';x.fillText('Vybe',540,1840);
+  try{return c.toDataURL('image/jpeg',.9)}catch(e){/* foto non utilizzabili: rifaccio con le iniziali */return noImg?null:this.card(w,n,true)}},
+ list(){const st=this.st();return Object.keys(st).map(u=>({u,w:USERS['r_'+u],k:this.count(u)})).filter(x=>x.w&&x.k.n).sort((a,b)=>b.k.n-a.k.n)},
+ sheet(){const L=this.list();openSheet(`<div class="shead">🔥 Le tue fiamme</div><div class="sbody">${L.length?L.map(x=>`<div class="urow" data-u="${x.u}">${avHTML(x.w,44)}<div><b>${esc(x.w.n)}</b><span>${x.k.n} ${x.k.n===1?'giorno':'giorni di fila'}${x.k.risk?' · ⏳ scrivetevi oggi o si spegne!':x.k.todayOk?' · oggi fatto ✅':' · oggi non vi siete ancora scritti'}</span></div><em class="stkb big">🔥${x.k.n}</em></div>`).join(''):'<div class="emptyc">Ancora nessuna fiamma. Scrivi a un amico oggi e fatti rispondere: domani riscrivetevi e la fiamma si accende! 🔥</div>'}
+   <p class="vednote" style="margin:14px 8px 4px">La fiamma conta i giorni di fila in cui vi scrivete <b>tutti e due</b>. Se un giorno uno dei due non scrive, si spegne.</p></div>`)}
+};
+/* aggiorno quando arrivano o partono messaggi */
+{const em=VC.emit.bind(VC);VC.emit=function(){const r=em.apply(this,arguments);clearTimeout(FLM.t);FLM.t=setTimeout(()=>{try{FLM.update()}catch(e){}},700);return r}}
+setInterval(()=>{try{FLM.update()}catch(e){}},60000);
+/* 🔥 accanto ai nomi nella lista delle chat e in alto nella chat aperta */
+{const deco=()=>{try{$$('.war[data-cid^="d:"]').forEach(e=>{const u=e.dataset.cid.slice(2),b=e.querySelector('.war1 b');if(!b)return;const h=FLM.badge(u),old=b.querySelector('.stkb');if(old){if(old.outerHTML!==h)old.outerHTML=h||'';}else if(h)b.insertAdjacentHTML('beforeend',' '+h)});
+  $$('[data-stkcid]').forEach(o=>{const b=o.querySelector('#wci b');if(!b)return;const u=o.dataset.stkcid.slice(2),h=FLM.badge(u),old=b.querySelector('.stkb');if(old){if(old.outerHTML!==h)old.outerHTML=h||''}else if(h){b.insertAdjacentHTML('beforeend',' '+h);const nb=b.querySelector('.stkb');if(nb)nb.onclick=ev=>{ev.stopPropagation();FLM.sheet()}}})}catch(e){}};
+ new MutationObserver(()=>{clearTimeout(deco.t);deco.t=setTimeout(deco,120)}).observe(document.body,{childList:true,subtree:true})}
+{const ov=openVConv;openVConv=function(cid){const r=ov.apply(this,arguments);try{const o=$$('#layer>.ovf').pop();if(o&&String(cid).startsWith('d:'))o.dataset.stkcid=cid}catch(e){}return r}}
+/* elenco delle fiamme dal menu del profilo */
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#stkMenu',m)){const a=$('#fmMenu',m)||$('#maccMenu',m);(a||m.firstElementChild).insertAdjacentHTML(a?'afterend':'beforebegin','<button id="stkMenu"><span class="mi">🔥</span><div>Le tue fiamme<small>Giorni di fila in cui vi scrivete con gli amici</small></div></button>');$('#stkMenu',m).addEventListener('click',e=>{e.stopPropagation();e.preventDefault();closeAll();setTimeout(()=>FLM.sheet(),300)},true)}}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.stkb{font-style:normal;font-size:13px;font-weight:900;color:#fb923c;white-space:nowrap;cursor:pointer}.stkb.risk{color:#fbbf24}.stkb.big{font-size:17px}
+.stkov{background:#000}
+.stkw{position:absolute;inset:0;overflow:hidden;color:#fff;background:radial-gradient(ellipse at 50% 30%,var(--c1),var(--c2) 45%,var(--c3));animation:stkbg 4s ease-in-out infinite alternate}
+@keyframes stkbg{to{background-position:0 40px;filter:saturate(1.25)}}
+#stkC{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.stkin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:calc(env(safe-area-inset-top,0px) + 30px) 24px calc(env(safe-area-inset-bottom,0px) + 24px);gap:6px;z-index:1}
+.stkfl{font-size:120px;line-height:1;animation:stkfl 1.1s cubic-bezier(.2,1.6,.4,1),stkwob 1.6s ease-in-out 1.1s infinite;filter:drop-shadow(0 0 30px rgba(255,180,0,.9))}
+@keyframes stkfl{from{transform:scale(0) rotate(-40deg)}}@keyframes stkwob{50%{transform:scale(1.08) rotate(3deg)}}
+.stknum{font-size:96px;font-weight:900;line-height:1;text-shadow:0 8px 40px rgba(0,0,0,.35);animation:rcpop .8s cubic-bezier(.2,1.6,.4,1) .2s both}
+.stkday{font-size:16px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;opacity:.9}
+.stkav{display:flex;align-items:center;gap:6px;margin:16px 0 6px;animation:rcin .6s ease .5s both}.stkav span{padding:4px;border-radius:50%;background:#fff}.stkav .av{width:66px!important;height:66px!important;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-weight:900}
+.stkav i{font-style:normal;font-size:36px;animation:stkwob 1.2s ease-in-out infinite}
+.stkin h2{font-size:28px;font-weight:900;animation:rcin .6s ease .7s both}.stkin p{font-size:15px;opacity:.92;max-width:320px;line-height:1.45;animation:rcin .6s ease .85s both}
+.stkbtn{display:flex;flex-direction:column;gap:8px;width:100%;max-width:330px;margin-top:14px;animation:rcin .6s ease 1s both}.stkbtn .btn.soft{background:rgba(255,255,255,.2);color:#fff}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
