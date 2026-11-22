@@ -7079,36 +7079,39 @@ const FMAP={
  async push(force){const s=this.st();if(!s.on||S.teen||!this.ok())return;if(!force&&Date.now()-(this.last||0)<180000)return;this.last=Date.now();
   try{const c=await this.pos(s.mode==='p');this.mine={la:c.latitude,lo:c.longitude,t:Date.now()};await this.call({op:'set',la:c.latitude,lo:c.longitude,acc:c.accuracy,mode:s.mode,who:s.who==='all'?'all':s.who})}catch(e){if(e&&e.code==='denied'){s.on=false;save();toast('Posizione disattivata: Vybe non ha il permesso di usarla')}}},
  L:null,lp:null,
- lib(){if(window.L&&window.L.map)return Promise.resolve(window.L);if(this.lp)return this.lp;this.lp=new Promise((res,rej)=>{const css=document.createElement('link');css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
+ lib(){if(window.L&&window.L.map)return Promise.resolve(window.L);if(this.lp)return this.lp;this.lp=new Promise(async(res,rej)=>{if(!$('#fmCss')){await new Promise(ok=>{const css=document.createElement('link');css.id='fmCss';css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';css.onload=ok;css.onerror=ok;document.head.appendChild(css);setTimeout(ok,4000)})}
   const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';s.onload=()=>window.L?res(window.L):rej();s.onerror=()=>{this.lp=null;rej()};document.head.appendChild(s)});return this.lp},
  ago(t){const s=Math.max(0,(Date.now()-t)/1000);return s<90?'adesso':s<3600?Math.round(s/60)+' min fa':s<86400?Math.round(s/3600)+' h fa':'ieri'},
  dist(a,b){const R=6371,dl=(b.la-a.la)*Math.PI/180,dn=(b.lo-a.lo)*Math.PI/180,x=Math.sin(dl/2)**2+Math.cos(a.la*Math.PI/180)*Math.cos(b.la*Math.PI/180)*Math.sin(dn/2)**2;const d=2*R*Math.asin(Math.sqrt(x));return d<1?Math.round(d*1000)+' m':d<10?d.toFixed(1).replace('.',',')+' km':Math.round(d)+' km'},
  pin(w,me){const av=w?avHTML(w,44):avHTML(ME(),44);return`<div class="fmpin ${me?'me':''}"><div class="fmav">${av}</div><i></i></div>`},
- async open(){if(!this.ok())return toast('La mappa funziona nell’app Vybe collegata online');
-  const ov=openFull(`<div class="fmw"><div id="fmMap" class="fmmap"></div><div class="fmtop"><button class="iconbtn fmb" data-a="close">${ic('back')}</button><b>📍 Mappa amici</b><button class="iconbtn fmb" id="fmMe" aria-label="Centra">◎</button></div>
+ async open(){if(!this.ok())return toast('Vybe Map funziona nell’app Vybe collegata online');try{clog('vmap open')}catch(e){}
+  const ov=openFull(`<div class="fmw"><div id="fmMap" class="fmmap"></div><div class="fmtop"><button class="iconbtn fmb" data-a="close">${ic('back')}</button><b>🗺️ Vybe Map</b><button class="iconbtn fmb" id="fmMe" aria-label="Centra">◎</button></div>
    <div class="fmsheet"><div class="grab"></div><div id="fmStat"></div><div id="fmList" class="fmlist"></div></div><div class="fmload" id="fmLd"><div class="maccspin"></div></div></div>`,'fmov');
   let map=null,marks=[],data=null,watch=null;ov.onclose=()=>{if(watch!=null)try{navigator.geolocation.clearWatch(watch)}catch(e){}clearInterval(this.tmr)};
-  const L=await this.lib().catch(()=>null);$('#fmLd',ov).remove();
-  if(L){map=L.map($('#fmMap',ov),{zoomControl:false,attributionControl:true}).setView([41.9,12.5],5);
-   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);setTimeout(()=>map.invalidateSize(),300)}
-  else $('#fmMap',ov).innerHTML='<div class="fmnomap">Non riesco a caricare la mappa. Controlla la connessione.</div>';
+  const L=await this.lib().catch(e=>{try{clog('vmap lib fail')}catch(_){}return null});await new Promise(r=>setTimeout(r,380));const ld=$('#fmLd',ov);if(ld)ld.remove();if(!ov.isConnected)return;
+  if(L){try{map=L.map($('#fmMap',ov),{zoomControl:false,attributionControl:true}).setView([41.9,12.5],5);
+   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);[100,500,1200].forEach(t=>setTimeout(()=>{try{map.invalidateSize()}catch(e){}},t));
+   try{new ResizeObserver(()=>{try{map.invalidateSize()}catch(e){}}).observe($('#fmMap',ov))}catch(e){}try{clog('vmap map ok '+innerWidth+'x'+innerHeight)}catch(e){}}catch(e){map=null;try{clog('vmap map fail '+String(e&&e.message||e).slice(0,120))}catch(_){}}}
+  if(!map)$('#fmMap',ov).innerHTML='<div class="fmnomap">Non riesco a caricare la mappa. Controlla la connessione e riprova.</div>';
+  /* il tuo punto: lo vedi sempre tu (agli altri arriva solo se condividi) */
+  this.pos(false).then(c=>{this.view={la:c.latitude,lo:c.longitude};if(!data||!(data.locs||[]).length){if(map)map.setView([c.latitude,c.longitude],14)}draw()}).catch(e=>{try{clog('vmap pos '+(e&&e.code))}catch(_){}});
   const draw=fitAll=>{if(!data)return;const s=this.st();const people=data.locs.map(l=>({l,w:USERS['r_'+l.u]})).filter(x=>x.w);
    if(map){marks.forEach(m=>m.remove());marks=[];const pts=[];
     const add=(la,lo,html,click)=>{const m=L.marker([la,lo],{icon:L.divIcon({className:'',html,iconSize:[52,60],iconAnchor:[26,58]})}).addTo(map);if(click)m.on('click',click);marks.push(m);pts.push([la,lo])};
     people.forEach(({l,w})=>{add(l.la,l.lo,this.pin(w),()=>map.flyTo([l.la,l.lo],Math.max(map.getZoom(),14)));if(l.mode==='a')marks.push(L.circle([l.la,l.lo],{radius:900,color:'#a855f7',weight:1,fillOpacity:.08}).addTo(map))});
-    const me=this.mine||(data.me?{la:data.me.la,lo:data.me.lo}:null);if(me)add(me.la,me.lo,this.pin(null,true));
+    const me=this.mine||(data.me?{la:data.me.la,lo:data.me.lo}:null)||this.view;if(me)add(me.la,me.lo,this.pin(null,true));
     if(fitAll&&pts.length){if(pts.length===1)map.setView(pts[0],13);else map.fitBounds(L.latLngBounds(pts),{padding:[70,70],maxZoom:14})}}
-   const me=this.mine||data.me;
+   const me=this.mine||data.me||this.view;
    $('#fmStat',ov).innerHTML=S.teen?`<div class="fmrow"><span>🛡️</span><div><b>Condivisione non disponibile</b><small>Per sicurezza gli account Teen non possono condividere la posizione. Puoi vedere gli amici che la condividono con te.</small></div></div>`:
     `<div class="fmrow"><span>${s.on?'🟢':'👻'}</span><div><b>${s.on?'Stai condividendo la posizione':'Modalità fantasma'}</b><small>${s.on?(s.mode==='a'?'Approssimativa (circa 1 km)':'Precisa')+' · '+(s.who==='all'?'tutti gli amici':s.who.length+' amici scelti')+' · si aggiorna quando apri Vybe':'Nessuno vede dove sei'}</small></div><button class="sw ${s.on?'on':''}" id="fmSw"></button></div>
     ${s.on?`<div class="fmopts"><button id="fmMode">${s.mode==='a'?'📍 Passa a precisa':'🔵 Passa ad approssimativa'}</button><button id="fmWho">👥 Con chi</button></div>`:''}`;
-   const n=data.friends.length;$('#fmList',ov).innerHTML=people.length?people.sort((x,y)=>y.l.t-x.l.t).map(({l,w})=>`<div class="fmp" data-u="${l.u}">${avHTML(w,42)}<div><b>${esc(w.n)}</b><small>${this.ago(l.t)}${l.mode==='a'?' · zona approssimativa':''}${me?' · a '+this.dist(me,l):''}</small></div><span>›</span></div>`).join(''):
-    `<div class="fmempty">${n?'Nessuno dei tuoi '+n+' amici sta condividendo la posizione in questo momento.':'Qui vedrai gli amici (le persone che vi seguite a vicenda) che condividono la posizione con te.'}</div>`;
+   const n=data.friends.length;if(!$('#fmList',ov))return;$('#fmList',ov).innerHTML=people.length?people.sort((x,y)=>y.l.t-x.l.t).map(({l,w})=>`<div class="fmp" data-u="${l.u}">${avHTML(w,42)}<div><b>${esc(w.n)}</b><small>${this.ago(l.t)}${l.mode==='a'?' · zona approssimativa':''}${me?' · a '+this.dist(me,l):''}</small></div><span>›</span></div>`).join(''):
+    `<div class="fmempty">${n?'Hai '+n+(n===1?' amico':' amici')+' (vi seguite a vicenda), ma nessuno sta condividendo la posizione adesso. Quando la attivano compaiono qui.':'Per ora non hai amici sulla mappa: compaiono qui le persone che vi seguite a vicenda e che condividono la posizione con te.'}</div>`;
    $$('.fmp',ov).forEach(r=>r.onclick=()=>{const l=data.locs.find(x=>x.u===r.dataset.u);if(l&&map)map.flyTo([l.la,l.lo],15)});
    const sw=$('#fmSw',ov);if(sw)sw.onclick=()=>s.on?this.off(()=>reload()):this.consent(()=>reload(true));
    const md=$('#fmMode',ov);if(md)md.onclick=async()=>{s.mode=s.mode==='a'?'p':'a';save();await this.push(true);reload()};
    const wh=$('#fmWho',ov);if(wh)wh.onclick=()=>this.who(data.friends,()=>reload())};
-  const reload=async fit=>{try{data=await this.call({op:'get'});draw(fit)}catch(e){$('#fmList',ov).innerHTML=`<div class="fmempty">${e&&e.code==='nodb'?'La mappa non è ancora attiva.':'Non riesco a caricare la mappa, riprova.'}</div>`}};
+  const reload=async fit=>{try{data=await this.call({op:'get'});try{if(fit)clog('vmap get ok fr='+data.friends.length+' locs='+data.locs.length)}catch(_){}draw(fit)}catch(e){try{clog('vmap get fail '+(e&&e.code))}catch(_){}const fl=$('#fmList',ov);if(fl)fl.innerHTML=`<div class="fmempty">${e&&e.code==='nodb'?'Vybe Map non è ancora attiva.':'Non riesco a caricare gli amici sulla mappa ('+esc(String(e&&e.code||'rete'))+'). Riprova tra poco.'}</div>`}};
   await this.push(true);await reload(true);this.tmr=setInterval(()=>{if(ov.isConnected)reload()},45000);
   $('#fmMe',ov).onclick=async()=>{try{const c=await this.pos(true);if(map)map.flyTo([c.latitude,c.longitude],15)}catch(e){toast('Non riesco a trovare dove sei')}};
   if(this.st().on&&navigator.geolocation){try{watch=navigator.geolocation.watchPosition(()=>this.push(),()=>{},{enableHighAccuracy:this.st().mode==='p',maximumAge:60000})}catch(e){}}
@@ -7121,7 +7124,7 @@ const FMAP={
    <div class="vedchips" style="justify-content:center"><button data-m="a" class="on">🔵 Approssimativa (~1 km)</button><button data-m="p">📍 Precisa</button></div>
    <button class="btn" id="fmGo">Condividi con gli amici</button><button class="link" id="fmNo">Non ora</button></div>`);
   let mode='a';$$('[data-m]',sh).forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$('[data-m]',sh).forEach(x=>x.classList.toggle('on',x===b))});$('#fmNo',sh).onclick=()=>closeOv(sh);
-  $('#fmGo',sh).onclick=async()=>{const s=this.st();s.on=true;s.mode=mode;save();closeOv(sh);try{await this.pos(mode==='p')}catch(e){s.on=false;save();return toast(e&&e.code==='denied'?'Per condividere la posizione permetti a Vybe di usarla (Impostazioni › Safari › Posizione)':'Non riesco a trovare dove sei')}await this.push(true);toast('Ora i tuoi amici vedono dove sei 📍');go&&go()}},
+  $('#fmGo',sh).onclick=async()=>{const s=this.st();s.on=true;s.mode=mode;save();closeOv(sh);try{await this.pos(mode==='p')}catch(e){s.on=false;save();return toast(e&&e.code==='denied'?'Per condividere la posizione permetti a Vybe di usarla (Impostazioni › Safari › Posizione)':'Non riesco a trovare dove sei')}await this.push(true);toast('Ora i tuoi amici ti vedono su Vybe Map 🗺️');go&&go()}},
  async off(go){const s=this.st();s.on=false;save();this.mine=null;try{await this.call({op:'off'})}catch(e){}toast('Modalità fantasma attiva 👻');go&&go()},
  who(friends,go){const s=this.st(),sel=new Set(s.who==='all'?friends:s.who);const ws=friends.map(u=>({u,w:USERS['r_'+u]})).filter(x=>x.w);
   const sh=openSheet(`<div style="padding:4px 16px 16px"><div class="shead">Con chi condividi</div><div class="vedchips"><button id="fwAll">Tutti</button><button id="fwNone">Nessuno</button></div>
@@ -7132,9 +7135,12 @@ const FMAP={
 /* quando apri Vybe aggiorno la posizione (solo se l'hai attivata) */
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>{try{FMAP.push()}catch(e){}},1500)});
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{FMAP.push()}catch(e){}},4000);return r}}
+/* tasto Vybe Map in alto, subito accanto al riepilogo della settimana */
+FMAP.btn=function(){if($('#vmapBtn'))return;const r=$('#recapBtn');if(!r)return;r.insertAdjacentHTML('afterend','<button class="iconbtn" id="vmapBtn" aria-label="Vybe Map"><span class="rcpico">🗺️</span></button>');$('#vmapBtn').onclick=()=>FMAP.open()};
+setInterval(()=>{try{if(S.acc&&!$('#vmapBtn'))FMAP.btn()}catch(e){}},1500);
 /* entrate: menu del profilo + impostazioni */
-{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#fmMenu',m)){const a=$('#maccMenu',m);(a||m.firstElementChild).insertAdjacentHTML(a?'afterend':'beforebegin','<button id="fmMenu"><span class="mi">📍</span><div>Mappa amici<small>Vedi dove sono gli amici che condividono la posizione</small></div></button>');$('#fmMenu',m).addEventListener('click',e=>{e.stopPropagation();e.preventDefault();closeAll();setTimeout(()=>FMAP.open(),300)},true)}}catch(e){}return r}}
-{const os=openSettings;openSettings=function(){const r=os.apply(this,arguments);try{const sec=$$('#layer .sect').find(s=>s.textContent.trim()==='Privacy');if(sec&&!$('#fmSet')){const s=FMAP.st();sec.insertAdjacentHTML('afterend',`<div class="trow2" id="fmSet" style="cursor:pointer"><div>Posizione sulla mappa<small>${S.teen?'Non disponibile per gli account Teen':s.on?'Condivisa con gli amici · tocca per cambiare':'Spenta (modalità fantasma)'}</small></div><span style="opacity:.6">›</span></div>`);$('#fmSet').onclick=()=>{closeAll();setTimeout(()=>FMAP.open(),300)}}}catch(e){}return r}}
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#fmMenu',m)){const a=$('#maccMenu',m);(a||m.firstElementChild).insertAdjacentHTML(a?'afterend':'beforebegin','<button id="fmMenu"><span class="mi">🗺️</span><div>Vybe Map<small>Vedi dove sono gli amici che condividono la posizione</small></div></button>');$('#fmMenu',m).addEventListener('click',e=>{e.stopPropagation();e.preventDefault();closeAll();setTimeout(()=>FMAP.open(),300)},true)}}catch(e){}return r}}
+{const os=openSettings;openSettings=function(){const r=os.apply(this,arguments);try{const sec=$$('#layer .sect').find(s=>s.textContent.trim()==='Privacy');if(sec&&!$('#fmSet')){const s=FMAP.st();sec.insertAdjacentHTML('afterend',`<div class="trow2" id="fmSet" style="cursor:pointer"><div>Posizione su Vybe Map<small>${S.teen?'Non disponibile per gli account Teen':s.on?'Condivisa con gli amici · tocca per cambiare':'Spenta (modalità fantasma)'}</small></div><span style="opacity:.6">›</span></div>`);$('#fmSet').onclick=()=>{closeAll();setTimeout(()=>FMAP.open(),300)}}}catch(e){}return r}}
 {const st=document.createElement('style');st.textContent=`
 .fmov{background:#0b0a10}
 .fmw{position:absolute;inset:0}
