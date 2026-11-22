@@ -7339,6 +7339,17 @@ setInterval(()=>{try{FLM.update()}catch(e){}},60000);
 .stkbtn{display:flex;flex-direction:column;gap:8px;width:100%;max-width:330px;margin-top:14px;animation:rcin .6s ease 1s both}.stkbtn .btn.soft{background:rgba(255,255,255,.2);color:#fff}
 `;document.head.appendChild(st)}
 
+/* v79 – notifica push dedicata alle fiamme: chi riceve la streak vede "🔥 ha fatto la streak con te" e, toccandola, si apre proprio quella chat */
+{let stkNow=0;const nn=NOTIF.notify.bind(NOTIF);
+ NOTIF.notify=function(o){if(stkNow&&o&&o.kind==='msg'&&!o.g)return;return nn(o)};
+ const vs=VC.send.bind(VC);
+ VC.send=async function(cid,pl){const k=!!(pl&&pl.stk&&/^d:/.test(cid||''));if(k)stkNow=1;
+  try{const r=await vs(cid,pl);if(k)nn({kind:'stk',to:[cid.slice(2)]});return r}finally{if(k)stkNow=0}};
+ const ng=notifGo;
+ notifGo=function(u){try{const p=new URL(u,location.href).searchParams,w=p.get('u')||'';
+   if(p.get('n')==='chat'&&/^v[0-9a-f]{24}$/.test(w)){setTimeout(()=>{try{openVConv('d:'+w)}catch(e){try{openVChat()}catch(_){}}},700);return}}catch(e){}
+  return ng(u)}}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
