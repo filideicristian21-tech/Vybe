@@ -7350,6 +7350,36 @@ setInterval(()=>{try{FLM.update()}catch(e){}},60000);
    if(p.get('n')==='chat'&&/^v[0-9a-f]{24}$/.test(w)){setTimeout(()=>{try{openVConv('d:'+w)}catch(e){try{openVChat()}catch(_){}}},700);return}}catch(e){}
   return ng(u)}}
 
+/* v80 – "vi seguite ma non potete scrivervi": se hai il profilo privato e segui chi ti aveva chiesto di seguirti, la richiesta è accettata
+   (per i Teen resta l'approvazione manuale); e quando non si può scrivere, Vybe spiega il motivo preciso con il tasto per risolverlo */
+const MUT={
+ why(u){const d=Real.docs[u];if(!d)return{k:'gone'};const me=Real.uid,a=S.acc,w=USERS['r_'+u]||{},n=esc(w.first||w.n||'');
+  if((a.rblock||[]).includes(u))return{k:'block',t:`Hai bloccato ${n}.`};
+  const iF=(a.rfw||[]).includes(u),iOn=iF&&Real.approvedBy(u,me),tF=(d.fw||[]).includes(me),tOn=tF&&Real.approvedBy(me,u);
+  if(iOn&&tOn)return{k:'ok'};
+  if(tF&&!tOn)return{k:'accept',t:`${n} ti ha chiesto di seguirti, ma non hai ancora accettato.`,b:'✅ Accetta la richiesta'};
+  if(iF&&!iOn)return{k:'wait',t:`Hai mandato la richiesta a ${n}: deve ancora accettarla (ha il profilo privato). Appena accetta, potete scrivervi.`};
+  if(!iF&&tOn)return{k:'follow',t:`${n} ti segue, ma tu non segui ancora ${n}.`,b:'➕ Ricambia e segui'};
+  if(!iF)return{k:'follow',t:`Per scrivervi dovete seguirvi a vicenda: segui ${n} e chiedi di ricambiare.`,b:'➕ Segui'};
+  return{k:'they',t:`${n} non ti segue ancora: quando ricambia, potete scrivervi.`}},
+ label(u){const r=this.why(u);return{accept:'Ti ha chiesto di seguirti: accetta',wait:'Richiesta inviata: deve accettare',follow:'Non lo segui ancora',they:'Non ti segue ancora',block:'Bloccato'}[r.k]||'Dovete seguirvi a vicenda'},
+ sheet(u){const r=this.why(u);if(r.k==='ok'){closeAll();setTimeout(()=>openVConv('d:'+u),300);return}
+  const sh=openSheet(`<div style="padding:8px 20px 22px;text-align:center;display:flex;flex-direction:column;gap:12px"><div style="font-size:46px">💬</div><p style="margin:0;line-height:1.45">${r.t||'Non potete ancora scrivervi.'}</p>${r.b?`<button class="btn" id="mutGo">${r.b}</button>`:''}<button class="link" id="mutNo">Ok</button></div>`);
+  $('#mutNo',sh).onclick=()=>closeOv(sh);const g=$('#mutGo',sh);if(g)g.onclick=()=>{try{if(r.k==='accept'){Real.accept('r_'+u);(S.acc.notifs||[]).forEach(x=>{if(x.u==='r_'+u&&x.type==='req'&&!x.done){x.done=true;x.type='follow';x.text='ha iniziato a seguirti'}});save()}else Real.follow('r_'+u)}catch(e){}closeOv(sh);
+   setTimeout(()=>{const r2=this.why(u);toast(r2.k==='ok'?'Fatto! Ora potete scrivervi 💬':r2.k==='wait'?'Richiesta inviata':'Fatto')},400)}},
+ /* se ho il profilo privato e io seguo chi mi ha chiesto di seguirmi, accetto la sua richiesta */
+ heal(){try{if(!Real.on||!S.acc||S.teen||!Real.meNeedOk())return;const a=S.acc,me=Real.uid;let ch=0;
+  for(const u of a.rfw||[]){const d=Real.docs[u];if(!d||(a.rblock||[]).includes(u)||(a.rok||[]).includes(u))continue;if((d.fw||[]).includes(me)){a.rok.push(u);ch++;
+   (a.notifs||[]).forEach(n=>{if(n.u==='r_'+u&&n.type==='req'&&!n.done){n.done=true;n.type='follow';n.text='ha iniziato a seguirti'}})}}
+  if(ch){save();Real.publishSoon(300);try{Real.refreshUI()}catch(e){}}}catch(e){}}};
+{const f=Real.follow.bind(Real);Real.follow=function(id){const r=f(id);setTimeout(()=>MUT.heal(),300);return r}}
+setInterval(()=>MUT.heal(),15000);setTimeout(()=>MUT.heal(),4000);
+/* tocchi una persona "non disponibile" nella nuova chat: spiego il perché */
+document.addEventListener('click',e=>{const r=e.target.closest&&e.target.closest('.urow.dim[data-u][data-ok="0"]');if(!r)return;e.stopPropagation();e.preventDefault();MUT.sheet(r.dataset.u)},true);
+/* testo sotto il nome e campo della chat bloccato: motivo preciso */
+new MutationObserver(()=>{try{$$('.urow.dim[data-u][data-ok="0"]').forEach(r=>{const s=r.querySelector('span');const t=MUT.label(r.dataset.u);if(s&&s.textContent!==t)s.textContent=t});
+ const i=$('#wcin.ro textarea,#wcin.ro input'),o=i&&i.closest('[data-stkcid]');if(o&&/^d:/.test(o.dataset.stkcid)){const u=o.dataset.stkcid.slice(2),t=MUT.label(u);if(i.placeholder!==t){i.placeholder=t;const box=$('#wcin',o);if(box&&!box._mut){box._mut=1;box.addEventListener('click',()=>MUT.sheet(u))}}}}catch(e){}}).observe(document.body,{childList:true,subtree:true});
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
