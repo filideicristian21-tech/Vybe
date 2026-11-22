@@ -6813,7 +6813,7 @@ MACC.authList=function(){try{const L=this.list();if(!L.length)return;const host=
 if(typeof showCloudLogin==='function'){const cl=showCloudLogin;showCloudLogin=function(){const r=cl.apply(this,arguments);MACC.authList();return r}}
 {const sl=showLogin;showLogin=function(){const r=sl.apply(this,arguments);MACC.authList();return r}}
 
-/* v74: 📊 RIEPILOGO DELLA SETTIMANA — tasto vicino a Vybe Chat, si può aprire 10 volte al giorno.
+/* v74: 📊 RIEPILOGO DELLA SETTIMANA — tasto vicino a Vybe Chat, si apre quante volte vuoi.
    Tempo passato sull'app (contato dal telefono), mi piace, chi ti ha messo più like, post migliori, follower e visualizzazioni (numeri veri dal server). */
 const RECAP={MAX:10,
  /* tempo sull'app: conto solo quando Vybe è aperta e in primo piano */
@@ -6852,14 +6852,13 @@ const RECAP={MAX:10,
   S1.push({bg:'linear-gradient(160deg,#be185d,#4c1d95)',h:`<div class="rcbig">🎉</div><h2>Ecco la tua settimana</h2><div class="rcsum"><div>⏱️ <b>${this.hm(d.time)}</b></div><div>❤️ <b>${d.likes==null?'—':fmt(d.likes)}</b></div><div>👥 <b>${fmt(d.fol)}</b></div></div><p>${tl}</p><p class="rcsm" id="rcLeft"></p><button class="btn" id="rcClose" style="margin-top:8px">Chiudi</button>`});
   return S1},
  async open(){if(!S.acc)return;const left=this.left();
-  if(left<=0)return confirmSheet('Hai finito i riepiloghi di oggi',`Puoi aprire il riepilogo della settimana ${this.MAX} volte al giorno. Torna domani! 🌙`,'Ok',()=>{});
   this.use();const ov=openFull(`<div class="rcwrap" id="rcW"><div class="rcbarsTop" id="rcT"></div><button class="rcx" data-a="close" aria-label="Chiudi">✕</button><div class="rcslide rcload"><div class="maccspin"></div><p>Preparo il tuo riepilogo…</p></div></div>`,'rcov');
   const d=await this.data();if(!ov.isConnected)return;const SL=this.slides(d);let i=0,tm=0;const W=$('#rcW',ov),T=$('#rcT',ov);
   T.innerHTML=SL.map(()=>'<i><b></b></i>').join('');
   const show=k=>{i=Math.max(0,Math.min(SL.length-1,k));const s=SL[i];$$('.rcslide',W).forEach(e=>e.remove());W.insertAdjacentHTML('beforeend',`<div class="rcslide" style="background:${s.bg}">${s.h}</div>`);W.style.background=s.bg;
    $$('i',T).forEach((e,j)=>{e.className=j<i?'done':j===i?'on':''});
    $$('.rcnum[data-n]',W).forEach(el=>{const n=+el.dataset.n,txt=el.textContent;if(!(n>0))return;const t0=performance.now();const step=t=>{const k=Math.min(1,(t-t0)/900),e=1-Math.pow(1-k,3);el.textContent=k<1?fmt(Math.round(n*e))+(el.dataset.u||''):txt;if(k<1&&el.isConnected)requestAnimationFrame(step)};requestAnimationFrame(step)});
-   const l=$('#rcLeft',W);if(l){const r=this.left();l.textContent=r?`Oggi puoi riaprire il riepilogo ancora ${r} ${r===1?'volta':'volte'}.`:'Per oggi hai usato tutti i riepiloghi: torna domani!'}
+   const l=$('#rcLeft',W);if(l)l.textContent='Puoi riaprire il riepilogo quando vuoi dal tasto 📊.'
    const c=$('#rcClose',W);if(c)c.onclick=e=>{e.stopPropagation();closeOv(ov)};
    $$('.rcpost',W).forEach(el=>el.onclick=e=>{e.stopPropagation();closeOv(ov);setTimeout(()=>openPost(el.dataset.id),350)});
    clearTimeout(tm);if(i<SL.length-1)tm=setTimeout(()=>show(i+1),i===0?4500:7500)};
