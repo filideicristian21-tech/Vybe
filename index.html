@@ -7380,6 +7380,194 @@ document.addEventListener('click',e=>{const r=e.target.closest&&e.target.closest
 new MutationObserver(()=>{try{$$('.urow.dim[data-u][data-ok="0"]').forEach(r=>{const s=r.querySelector('span');const t=MUT.label(r.dataset.u);if(s&&s.textContent!==t)s.textContent=t});
  const i=$('#wcin.ro textarea,#wcin.ro input'),o=i&&i.closest('[data-stkcid]');if(o&&/^d:/.test(o.dataset.stkcid)){const u=o.dataset.stkcid.slice(2),t=MUT.label(u);if(i.placeholder!==t){i.placeholder=t;const box=$('#wcin',o);if(box&&!box._mut){box._mut=1;box.addEventListener('click',()=>MUT.sheet(u))}}}}catch(e){}}).observe(document.body,{childList:true,subtree:true});
 
+/* v81 – 🗺️ VYBE MAP nuova grafica: mappa scura, etichette in vetro, percorso vero fino all'amico (OSRM, gratis) disegnato con animazione,
+   pannello in basso con ricerca, filtri e scheda "arrivo". Animazioni: curve forti ease-out / drawer iOS, durate brevi, pressione 0.97,
+   niente scale(0), rispetto di "Riduci movimento". */
+FMAP.STYLE='https://tiles.openfreemap.org/styles/positron';
+FMAP.RM=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
+FMAP.bez=(x1,y1,x2,y2)=>t=>{let a=0,b=1,m=t;for(let i=0;i<20;i++){m=(a+b)/2;const u=1-m,x=3*u*u*m*x1+3*u*m*m*x2+m*m*m;if(x<t)a=m;else b=m}const u=1-m;return 3*u*u*m*y1+3*u*m*m*y2+m*m*m};
+FMAP.EIO=FMAP.bez(.77,0,.175,1);FMAP.EOUT=FMAP.bez(.23,1,.32,1);
+FMAP.km=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dl=r(b.la-a.la),dn=r(b.lo-a.lo),h=Math.sin(dl/2)**2+Math.cos(r(a.la))*Math.cos(r(b.la))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+FMAP.fkm=k=>k<1?Math.round(k*1000/10)*10+' m':(k<10?k.toFixed(1).replace('.',','):Math.round(k))+' km';
+FMAP.fmin=s=>{const m=Math.max(1,Math.round(s/60));return m<60?m+' min':Math.floor(m/60)+' h '+(m%60?m%60+' min':'')};
+/* colori scuri sopra lo stile chiaro (così resta leggibile e uguale su ogni telefono) */
+FMAP.dark=function(map){let L=[];try{L=map.getStyle().layers||[]}catch(e){return}
+ const P=(id,k,v)=>{try{map.setPaintProperty(id,k,v)}catch(e){}},LY=(id,k,v)=>{try{map.setLayoutProperty(id,k,v)}catch(e){}};
+ for(const l of L){const id=l.id,s=id.toLowerCase();if(/^vmr/.test(id))continue;
+  if(l.type==='background')P(id,'background-color','#17181b');
+  else if(l.type==='fill'){P(id,'fill-color',/water/.test(s)?'#0d0e10':/building/.test(s)?'#222327':/park|wood|grass|landcover|landuse/.test(s)?'#1b1d1e':'#1d1e21');P(id,'fill-outline-color','rgba(0,0,0,0)');if(/building/.test(s))P(id,'fill-opacity',.9)}
+  else if(l.type==='fill-extrusion'){P(id,'fill-extrusion-color','#26272c');P(id,'fill-extrusion-opacity',.85)}
+  else if(l.type==='line'){if(/water|river|stream|canal/.test(s))P(id,'line-color','#101113');else if(/boundary|admin/.test(s)){P(id,'line-color','#3d3f45');P(id,'line-opacity',.6)}
+   else if(/motorway|trunk|primary|major/.test(s))P(id,'line-color','#4b4d54');else if(/rail|transit/.test(s)){P(id,'line-color','#2c2d32');P(id,'line-opacity',.6)}else P(id,'line-color','#34363b')}
+  else if(l.type==='symbol'){P(id,'text-color',/water|ocean|sea|lake/.test(s)?'#4b5563':'#8b8e95');P(id,'text-halo-color','#17181b');P(id,'text-halo-width',1.2);if(/poi/.test(s))LY(id,'visibility','none');
+   if(/place|city|town|village|country|state/.test(s))LY(id,'text-letter-spacing',.12)}}};
+/* percorso vero (strada) o, se non arriva, una curva morbida */
+FMAP.route=async function(a,b){const k=a.lo+','+a.la+';'+b.lo+','+b.la;this.rc=this.rc||{};if(this.rc[k])return this.rc[k];
+ try{const ac=new AbortController();const t=setTimeout(()=>ac.abort(),6000);const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+k+'?overview=full&geometries=geojson&steps=false',{signal:ac.signal});clearTimeout(t);
+  const j=await r.json();const R=j&&j.routes&&j.routes[0];if(R&&R.geometry&&R.geometry.coordinates.length>1){const o={c:R.geometry.coordinates,s:R.duration,m:R.distance,via:(R.legs&&R.legs[0]&&R.legs[0].summary||'').split(',')[0].trim(),real:1};this.rc[k]=o;return o}}catch(e){}
+ const c=[],n=48,mx=(a.lo+b.lo)/2,my=(a.la+b.la)/2,dx=b.lo-a.lo,dy=b.la-a.la,cx=mx-dy*.22,cy=my+dx*.22;
+ for(let i=0;i<=n;i++){const t=i/n,u=1-t;c.push([u*u*a.lo+2*u*t*cx+t*t*b.lo,u*u*a.la+2*u*t*cy+t*t*b.la])}
+ const km=this.km(a,b);return{c,s:km/35*3600,m:km*1000,via:'',real:0}};
+FMAP.el=function(w,l,me){const d=document.createElement('div');d.className='vmk'+(me?' me':'');
+ if(me){d.innerHTML='<div class="vmin"><div class="vmdot"><i></i></div></div>';return d}
+ const mu=l&&l.mu;d.innerHTML=`<div class="vmin"><div class="vmtag"><span class="vmav">${avHTML(w,30)}</span><span class="vmtx"><b>${esc(w.first||w.n||'')}</b><small>${mu?'🎵 '+esc(String(mu.t).slice(0,22)):esc(this.ago(l.t))}</small></span>${mu?`<button class="vmpl" aria-label="Ascolta">▶</button>`:''}</div><div class="vmstem"></div><div class="vmpt"></div></div>`;
+ const b=d.querySelector('.vmpl');if(b)b.addEventListener('click',e=>{e.stopPropagation();this.play(mu,b)});return d};
+FMAP.play=function(mu,b){if(!mu||!mu.u)return;const I=()=>$$('.vmpl,.bmu i').forEach(i=>i.textContent='▶');if(this.au&&this.auU===mu.u){this.au.pause();this.au=null;this.auU=null;I();return}
+ if(this.au)this.au.pause();try{Music.stop()}catch(e){}this.au=new Audio(mu.u);this.auU=mu.u;this.au.play().catch(()=>{});I();if(b)b.textContent='❚❚';this.au.onended=()=>{I();this.au=null;this.auU=null}};
+FMAP.open=async function(){if(!this.ok())return toast('Vybe Map funziona nell’app Vybe collegata online');try{clog('vmap3 open')}catch(e){}
+ const RM=this.RM();
+ const ov=openFull(`<div class="fmw vmw"><div id="fmMap" class="fmmap"></div>
+  <div class="vmtop"><button class="vmbtn" data-a="close" aria-label="Chiudi">${ic('back')}</button><div class="vmttl">Vybe Map</div><button class="vmbtn" id="fm3d" aria-label="3D">3D</button><button class="vmbtn" id="fmMe" aria-label="Dove sono">${ic('send',18,2)}</button></div>
+  <div class="vmsheet" id="vmS"><div class="vmgrab" id="vmG"><i></i></div>
+   <div class="vmsearch"><span class="vmsi">${ic('search',18,2)}</span><input id="vmQ" placeholder="Cerca un amico…" autocomplete="off" autocapitalize="off"><button class="vmvis" id="vmVis"></button></div>
+   <div class="vmchips" id="vmC"><button data-f="all" class="on">👥 Tutti</button><button data-f="near">📍 Vicino a me</button><button data-f="mu">🎵 In ascolto</button></div>
+   <div id="vmCard"></div>
+   <div class="vmmore"><button class="vmmus" id="fmMus"></button><div id="fmStat"></div><div id="fmList" class="vmlist"></div></div>
+  </div>
+  <div class="fmload" id="fmLd"><div class="maccspin"></div><p>Carico la mappa…</p></div></div>`,'fmov vmov');
+ let map=null,ML=null,marks={},meMark=null,data=null,watch=null,fitN=0,sel=null,filt='all',q='',rtok=0,raf=0,lastR=null;
+ const S2=$('#vmS',ov);requestAnimationFrame(()=>requestAnimationFrame(()=>S2.classList.add('vmup')));
+ ov.onclose=()=>{if(watch!=null)try{navigator.geolocation.clearWatch(watch)}catch(e){}clearInterval(this.tmr);cancelAnimationFrame(raf);if(this.au){this.au.pause();this.au=null}try{map&&map.remove()}catch(e){}};
+ ML=await this.lib().catch(()=>{try{clog('vmap3 lib fail')}catch(_){}return null});await new Promise(r=>setTimeout(r,200));if(!ov.isConnected)return;
+ if(ML){try{map=new ML.Map({container:$('#fmMap',ov),style:this.STYLE,center:[12.5,41.9],zoom:4.6,pitch:0,attributionControl:{compact:true}});
+   const dk=()=>this.dark(map);map.once('style.load',dk);map.on('error',e=>{try{clog('vmap3 maperr '+String(e&&e.error&&e.error.message||'').slice(0,100))}catch(_){}});
+   map.once('load',()=>{dk();const ld=$('#fmLd',ov);if(ld)ld.classList.add('out');setTimeout(()=>{const l2=$('#fmLd',ov);if(l2)l2.remove()},260);try{map.resize()}catch(e){}
+    try{map.addSource('vmr',{type:'geojson',lineMetrics:true,data:{type:'FeatureCollection',features:[]}});
+     map.addLayer({id:'vmr-glow',type:'line',source:'vmr',layout:{'line-cap':'round','line-join':'round'},paint:{'line-width':12,'line-blur':4,'line-gradient':['step',['line-progress'],'rgba(79,140,255,.22)',1,'rgba(79,140,255,0)']}});
+     map.addLayer({id:'vmr-line',type:'line',source:'vmr',layout:{'line-cap':'round','line-join':'round'},paint:{'line-width':4.5,'line-gradient':['step',['line-progress'],'#4f8cff',1,'rgba(79,140,255,0)']}})}catch(e){}
+    if(sel)showRoute(sel);try{const m=$('#fmMap',ov);clog('vmap3 load ok '+m.clientWidth+'x'+m.clientHeight)}catch(e){}});
+   setTimeout(()=>{const ld=$('#fmLd',ov);if(ld)ld.remove()},7000);try{new ResizeObserver(()=>{try{map.resize()}catch(e){}}).observe($('#fmMap',ov))}catch(e){}}catch(e){map=null;try{clog('vmap3 init fail '+String(e&&e.message||e).slice(0,120))}catch(_){}}}
+ if(!map){const ld=$('#fmLd',ov);if(ld)ld.remove();$('#fmMap',ov).innerHTML='<div class="fmnomap">Non riesco a caricare la mappa. Controlla la connessione e riprova.</div>'}
+ const myPos=()=>this.mine||(data&&data.me?{la:data.me.la,lo:data.me.lo}:null)||this.view;
+ const people=()=>data?data.locs.map(l=>({l,w:USERS['r_'+l.u]})).filter(x=>x.w):[];
+ const pad=()=>({top:120,bottom:Math.round(S2.getBoundingClientRect().height)+30,left:50,right:50});
+ /* percorso: lo disegno dall'inizio alla fine in 700ms */
+ const setRoute=(c,p)=>{try{const s=map.getSource('vmr');if(!s)return;s.setData({type:'Feature',geometry:{type:'LineString',coordinates:c}});const q=Math.max(.001,Math.min(1,p));map.setPaintProperty('vmr-line','line-gradient',['step',['line-progress'],'#4f8cff',q,'rgba(79,140,255,0)']);map.setPaintProperty('vmr-glow','line-gradient',['step',['line-progress'],'rgba(79,140,255,.22)',q,'rgba(79,140,255,0)'])}catch(e){}};
+ const clearRoute=()=>{cancelAnimationFrame(raf);try{const s=map&&map.getSource('vmr');if(s)s.setData({type:'FeatureCollection',features:[]})}catch(e){}};
+ const showRoute=async(u)=>{const me=myPos(),l=data&&data.locs.find(x=>x.u===u);if(!l)return;const tok=++rtok;lastR=null;
+  card(u,null);if(!me){if(map)map.flyTo({center:[l.lo,l.la],zoom:15,pitch:45,duration:RM?0:1100,easing:this.EIO});return}
+  const r=await this.route(me,l);if(tok!==rtok||!ov.isConnected)return;lastR=r;card(u,r);if(!map||!map.getSource||!map.getSource('vmr'))return;
+  const b=new ML.LngLatBounds(r.c[0],r.c[0]);r.c.forEach(p=>b.extend(p));map.fitBounds(b,{padding:pad(),maxZoom:16,duration:RM?0:900,easing:this.EIO});
+  cancelAnimationFrame(raf);if(RM){setRoute(r.c,1);return}const t0=performance.now()+250;const st=n=>{const k=Math.min(1,Math.max(0,(n-t0)/700));setRoute(r.c,this.EOUT(k));if(k<1)raf=requestAnimationFrame(st)};setRoute(r.c,0);raf=requestAnimationFrame(st)};
+ /* scheda "arrivo" dell'amico selezionato */
+ const card=(u,r)=>{const box=$('#vmCard',ov);if(!u){box.innerHTML='';box._h='';return}const l=data&&data.locs.find(x=>x.u===u),w=USERS['r_'+u];if(!l||!w){box.innerHTML='';box._h='';return}
+  const me=myPos(),km=me?this.km(me,l):null,mins=r?Math.max(1,Math.round(r.s/60)):null,ring=mins==null?0:Math.min(1,mins/60);
+  const html=`<div class="vmcard swap"><span class="vmarrow">${ic('send',18,2.2)}</span><div class="vmci"><b>${esc(w.first||w.n)} · ${km!=null?'a '+this.fkm(r?r.m/1000:km):this.ago(l.t)}</b><small>${r?(r.real?'≈ '+this.fmin(r.s)+' in auto'+(r.via?' · via '+esc(r.via):''):'≈ '+this.fmin(r.s)+' in auto · in linea d’aria'):(me?'Calcolo il percorso…':'Attiva la posizione per il percorso')}${l.mu?' · 🎵 '+esc(String(l.mu.t).slice(0,24)):''}</small></div>
+   <div class="vmring" style="--p:${ring}"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5"/><circle class="pr" cx="18" cy="18" r="15.5"/></svg><b>${mins!=null?(mins>99?'99+':mins):'…'}</b><small>min</small></div></div>
+   <div class="vmacts"><button id="vmChat">💬 Scrivi</button><button id="vmGo">🧭 Vai</button><button id="vmX" aria-label="Chiudi">✕</button></div>`;
+  if(box._h===html)return;const had=!!box.firstChild;box._h=html;box.innerHTML=html;if(!had){const c=box.querySelector('.vmcard');c&&c.classList.remove('swap')}$('#vmChat',box).onclick=()=>{try{openVConv('d:'+u)}catch(e){toast('Apri Vybe Chat per scrivergli')}};
+  $('#vmGo',box).onclick=()=>{const url='https://maps.apple.com/?daddr='+l.la+','+l.lo+(me?'&saddr='+me.la+','+me.lo:'');window.open(url,'_blank')};
+  $('#vmX',box).onclick=()=>select(null)};
+ const select=u=>{sel=u;Object.entries(marks).forEach(([k,m])=>m.getElement().classList.toggle('sel',k===u));if(!u){rtok++;clearRoute();card(null);return}showRoute(u)};
+ const list=()=>{const me=myPos();let P=people();if(q)P=P.filter(({w})=>(String(w.n||'')+' '+String(w.u||'')).toLowerCase().includes(q));
+  if(filt==='mu')P=P.filter(x=>x.l.mu);if(filt==='near'&&me)P=P.filter(x=>this.km(me,x.l)<5);
+  P.sort((x,y)=>filt==='near'&&me?this.km(me,x.l)-this.km(me,y.l):y.l.t-x.l.t);const n=data?data.friends.length:0;
+  $('#fmList',ov).innerHTML=P.length?P.map(({l,w},i)=>`<button class="vmp${l.u===sel?' on':''}" data-u="${l.u}" style="--i:${Math.min(i,6)}">${avHTML(w,40)}<span class="vmpx"><b>${esc(w.n)}</b><small>${l.mu?'🎵 '+esc(l.mu.t)+' · ':''}${this.ago(l.t)}${me?' · '+this.fkm(this.km(me,l)):''}</small></span><i>›</i></button>`).join(''):
+   `<div class="fmempty">${!data?'Carico gli amici…':q||filt!=='all'?'Nessun amico corrisponde.':n?'Hai '+n+(n===1?' amico':' amici')+' (vi seguite a vicenda), ma nessuno sta condividendo la posizione adesso.':'Qui compaiono le persone che vi seguite a vicenda e che condividono la posizione con te.'}</div>`;
+  $$('.vmp',ov).forEach(r=>r.onclick=()=>{snap(false);select(r.dataset.u)})};
+ const draw=()=>{const s=this.st(),P=people();
+  if(map&&ML){const keep=new Set();P.forEach(({l,w},i)=>{keep.add(l.u);let m=marks[l.u];const el=this.el(w,l);if(m){const E=m.getElement();if(E._h!==el.innerHTML){E._h=el.innerHTML;E.replaceChildren(...el.childNodes);const v=E.querySelector('.vmin');v&&v.classList.add('st')}m.setLngLat([l.lo,l.la])}
+    else{el._h=el.innerHTML;el.style.setProperty('--d',(i*45)+'ms');el.addEventListener('click',()=>select(l.u===sel?null:l.u));m=marks[l.u]=new ML.Marker({element:el,anchor:'bottom'}).setLngLat([l.lo,l.la]).addTo(map)}
+    m.getElement().classList.toggle('sel',l.u===sel)});
+   Object.keys(marks).forEach(k=>{if(!keep.has(k)){marks[k].remove();delete marks[k]}});
+   const me=myPos();if(me){if(!meMark)meMark=new ML.Marker({element:this.el(null,null,true),anchor:'center'}).setLngLat([me.lo,me.la]).addTo(map);else meMark.setLngLat([me.lo,me.la])}
+   const pts=P.map(({l})=>[l.lo,l.la]);if(me)pts.push([me.lo,me.la]);
+   if(pts.length>fitN&&!sel){fitN=pts.length;if(pts.length===1)map.jumpTo({center:pts[0],zoom:14.5});else{const b=new ML.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:pad(),maxZoom:15,duration:0})}}}
+  const vb=$('#vmVis',ov);vb.hidden=S.teen;vb.className='vmvis'+(s.on?' on':'');vb.innerHTML=s.on?'<i></i>Visibile ▾':'👻 Fantasma ▾';
+  $('#fmStat',ov).innerHTML=S.teen?`<div class="fmrow"><span>🛡️</span><div><b>Condivisione non disponibile</b><small>Per sicurezza gli account Teen non possono condividere la posizione. Puoi vedere gli amici che la condividono con te.</small></div></div>`:
+   `<div class="fmrow"><span>${s.on?'🟢':'👻'}</span><div><b>${s.on?'Gli amici ti vedono':'Modalità fantasma'}</b><small>${s.on?(s.mode==='a'?'Posizione approssimativa (circa 1 km)':'Posizione precisa')+' · '+(s.who==='all'?'tutti gli amici':s.who.length+' amici scelti'):'Solo tu vedi il tuo punto sulla mappa'}</small></div><button class="sw ${s.on?'on':''}" id="fmSw"></button></div>
+   ${s.on?`<div class="fmopts"><button id="fmMode">${s.mode==='a'?'📍 Passa a precisa':'🔵 Passa ad approssimativa'}</button><button id="fmWho">👥 Con chi</button></div>`:''}`;
+  const mb=$('#fmMus',ov);mb.hidden=S.teen;mb.innerHTML=this.myMu?`<img src="${esc(this.myMu.art)}" alt=""><span><b>${esc(this.myMu.t)}</b><small>Stai ascoltando · tocca per cambiare</small></span>`:'<span class="vmmi">🎵</span><span><b>Cosa stai ascoltando?</b><small>Fallo vedere agli amici sulla mappa</small></span>';
+  list();if(sel)card(sel,lastR);
+  const sw=$('#fmSw',ov);if(sw)sw.onclick=()=>s.on?this.off(()=>reload()):this.consent(()=>reload());
+  const md=$('#fmMode',ov);if(md)md.onclick=async()=>{s.mode=s.mode==='a'?'p':'a';save();await this.push(true);reload()};
+  const wh=$('#fmWho',ov);if(wh)wh.onclick=()=>data&&this.who(data.friends,()=>reload())};
+ const reload=async()=>{try{data=await this.call({op:'get'});this.myMu=data.mu||null;if(sel&&!data.locs.some(x=>x.u===sel))select(null);draw()}catch(e){try{clog('vmap3 get fail '+(e&&e.code))}catch(_){}const fl=$('#fmList',ov);if(fl)fl.innerHTML=`<div class="fmempty">Non riesco a caricare gli amici (${esc(String(e&&e.code||'rete'))}). Riprova tra poco.</div>`}};
+ /* pannello: tocca la maniglia o trascinalo per aprirlo/chiuderlo (velocità come su iPhone) */
+ const snap=open=>{S2.classList.toggle('open',open);S2.style.transform=''};
+ {const G=$('#vmG',ov);let y0=0,t0=0,dy=0,drag=false,h=0;
+  G.addEventListener('pointerdown',e=>{drag=true;y0=e.clientY;t0=performance.now();dy=0;h=S2.querySelector('.vmmore').offsetHeight;S2.classList.add('drag');try{G.setPointerCapture(e.pointerId)}catch(_){}});
+  G.addEventListener('pointermove',e=>{if(!drag)return;dy=e.clientY-y0;const open=S2.classList.contains('open');/* attrito: dove il pannello non può andare si muove poco */
+   const v=open?(dy>0?dy:dy*.15):(dy<0?dy*.4:dy*.15);S2.style.transform=`translateY(calc(var(--sy) + ${v}px))`});
+  const end=()=>{if(!drag)return;drag=false;S2.classList.remove('drag');const dt=performance.now()-t0,vel=Math.abs(dy)/Math.max(1,dt),open=S2.classList.contains('open');
+   if(Math.abs(dy)<6&&dt<300)return snap(!open);if(open)snap(!(dy>0&&(vel>.11||dy>Math.max(60,h*.3))));else snap(dy<0&&(vel>.11||-dy>40))};
+  G.addEventListener('pointerup',end);G.addEventListener('pointercancel',end)}
+ $('#vmQ',ov).addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();if(q)snap(true);list()});
+ $('#vmQ',ov).addEventListener('focus',()=>snap(true));
+ $$('#vmC button',ov).forEach(b=>b.onclick=()=>{filt=b.dataset.f;$$('#vmC button',ov).forEach(x=>x.classList.toggle('on',x===b));if(filt==='near'&&!myPos())toast('Attiva la posizione per vedere chi è vicino');snap(true);list()});
+ $('#vmVis',ov).onclick=()=>{snap(true);const s=this.st();if(!s.on)this.consent(()=>reload());else{const r=$('#fmStat',ov);r.classList.remove('flash');void r.offsetWidth;r.classList.add('flash')}};
+ $('#fmMus',ov).onclick=()=>this.setMusic(()=>reload());
+ $('#fmMe',ov).onclick=async()=>{try{const c=await this.pos(true);this.view={la:c.latitude,lo:c.longitude};if(map)map.flyTo({center:[c.longitude,c.latitude],zoom:15.5,duration:RM?0:1000,easing:this.EIO});draw()}catch(e){toast('Non riesco a trovare dove sei: controlla il permesso della posizione')}};
+ $('#fm3d',ov).onclick=e=>{if(!map)return;const p=map.getPitch()>10?0:55;e.currentTarget.classList.toggle('on',!!p);map.easeTo({pitch:p,bearing:p?-18:0,duration:RM?0:900,easing:this.EIO})};
+ draw();this.pos(false).then(c=>{this.view={la:c.latitude,lo:c.longitude};draw()}).catch(e=>{try{clog('vmap3 pos '+(e&&e.code))}catch(_){}});
+ await this.push(true);await reload();this.tmr=setInterval(()=>{if(ov.isConnected)reload()},30000);
+ if(this.st().on&&navigator.geolocation){try{watch=navigator.geolocation.watchPosition(()=>this.push(),()=>{},{enableHighAccuracy:this.st().mode==='p',maximumAge:60000})}catch(e){}}
+ ov._vm={select,snap,draw,card};return ov};
+{const st=document.createElement('style');st.textContent=`
+.vmov{--eo:cubic-bezier(.23,1,.32,1);--eio:cubic-bezier(.77,0,.175,1);--edr:cubic-bezier(.32,.72,0,1);background:#17181b}
+.vmw .fmmap,.vmw .fmmap.maplibregl-map{position:absolute!important;inset:0;width:100%!important;height:100%!important;background:#17181b}
+.vmw .fmload{background:#17181b;transition:opacity .25s var(--eo)}.vmw .fmload.out{opacity:0}
+.vmw .maplibregl-ctrl-attrib{background:rgba(23,24,27,.7)!important;color:#777}.vmw .maplibregl-ctrl-attrib a{color:#888}
+.vmtop{position:absolute;left:0;right:0;top:0;z-index:500;display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;pointer-events:none}
+.vmttl{flex:1;text-align:center;color:#fff;font-weight:800;font-size:15px;letter-spacing:.2px;opacity:.92;text-shadow:0 1px 10px rgba(0,0,0,.6)}
+.vmbtn{pointer-events:auto;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:12.5px;background:rgba(40,41,46,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);box-shadow:0 6px 20px rgba(0,0,0,.35);transition:transform .16s var(--eo),background-color .15s ease}
+.vmbtn:active,.vmchips button:active,.vmp:active,.vmacts button:active,.vmvis:active,.vmmus:active{transform:scale(.97)}
+.vmbtn.on{background:rgba(79,140,255,.85)}
+/* segnaposto amici: etichetta in vetro + gambo + punto */
+.vmk{cursor:pointer}.vmin{display:flex;flex-direction:column;align-items:center;opacity:0;transform:translateY(6px) scale(.94);transform-origin:50% 100%;animation:vmIn .3s var(--eo) forwards;animation-delay:var(--d,0ms)}
+@keyframes vmIn{to{opacity:1;transform:none}}
+.vmin.st{animation:none;opacity:1;transform:none}
+.vmtag{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:999px;background:rgba(44,45,50,.78);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);box-shadow:0 8px 24px rgba(0,0,0,.45);color:#fff;max-width:220px;transition:transform .2s var(--eo),background-color .2s ease}
+.vmk.sel .vmtag{background:rgba(79,140,255,.92);transform:translateY(-4px) scale(1.04)}
+.vmav{width:30px;height:30px;border-radius:50%;overflow:hidden;flex:0 0 auto;box-shadow:0 0 0 2px rgba(255,255,255,.85)}
+.vmav .av{width:30px!important;height:30px!important;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-weight:900;font-size:12px}
+.vmtx{display:flex;flex-direction:column;min-width:0;line-height:1.15}.vmtx b{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vmtx small{font-size:10.5px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vmpl{width:22px;height:22px;border-radius:50%;background:#fff;color:#111;font-size:9.5px;display:grid;place-items:center;flex:0 0 auto;transition:transform .16s var(--eo)}.vmpl:active{transform:scale(.9)}
+.vmstem{width:2px;height:10px;background:linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.15))}
+.vmpt{width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(79,140,255,.9),0 2px 8px rgba(0,0,0,.5)}
+/* io: punto blu con alone */
+.vmk.me .vmdot{position:relative;width:20px;height:20px;border-radius:50%;background:#4f8cff;box-shadow:0 0 0 3px #fff,0 2px 10px rgba(0,0,0,.5)}
+.vmk.me .vmdot i{position:absolute;inset:-14px;border-radius:50%;background:rgba(79,140,255,.28);animation:vmPulse 2.4s var(--eo) infinite}
+@keyframes vmPulse{from{transform:scale(.6);opacity:1}to{transform:scale(1.6);opacity:0}}
+/* pannello in basso */
+.vmsheet{--sy:0px;position:absolute;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);z-index:500;border-radius:28px;padding:4px 12px 12px;background:rgba(30,31,35,.86);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border:1px solid rgba(255,255,255,.08);box-shadow:0 18px 50px rgba(0,0,0,.55);color:#fff;
+ transform:translateY(calc(100% + 30px));transition:transform .5s var(--edr);max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px);display:flex;flex-direction:column}
+.vmsheet>*{flex-shrink:0}.vmsheet>.vmmore{flex:1 1 auto;min-height:0}
+.vmsheet.vmup{transform:translateY(var(--sy))}.vmsheet.drag{transition:none}
+.vmsheet:not(.open) .vmmore{display:none}.vmsheet.open .vmmore{overflow:auto;animation:vmFade .25s var(--eo)}
+@keyframes vmFade{from{opacity:0;transform:translateY(8px)}}
+.vmgrab{display:grid;place-items:center;height:20px;cursor:grab;touch-action:none}.vmgrab i{width:38px;height:5px;border-radius:9px;background:rgba(255,255,255,.25)}
+.vmsearch{display:flex;align-items:center;gap:8px;height:48px;padding:0 6px 0 14px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.06)}
+.vmsi{opacity:.75;display:grid}.vmsearch input{flex:1;min-width:0;background:none;border:0;color:#fff;font-size:15.5px;outline:none}.vmsearch input::placeholder{color:rgba(255,255,255,.6)}
+.vmvis{display:flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;background:#0d0e10;color:#fff;font-size:12.5px;font-weight:700;white-space:nowrap;transition:transform .16s var(--eo),background-color .15s ease}
+.vmvis i{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.25)}
+.vmchips{display:flex;gap:6px;overflow-x:auto;padding:10px 2px 6px;scrollbar-width:none}.vmchips::-webkit-scrollbar{display:none}
+.vmchips button{flex:0 0 auto;padding:7px 12px;border-radius:999px;font-size:13px;font-weight:700;color:rgba(255,255,255,.82);background:rgba(255,255,255,.05);transition:transform .16s var(--eo),background-color .15s ease,color .15s ease}
+.vmchips button.on{background:#fff;color:#111}
+.vmcard{display:flex;align-items:center;gap:12px;margin-top:6px;padding:12px;border-radius:20px;background:rgba(255,255,255,.07);animation:vmCard .25s var(--eo)}
+.vmcard.swap{animation:vmSwap .2s var(--eo)}
+@keyframes vmCard{from{opacity:0;transform:translateY(8px)}}@keyframes vmSwap{from{opacity:.4;filter:blur(2px)}}
+.vmarrow{width:38px;height:38px;border-radius:12px;background:rgba(79,140,255,.16);color:#4f8cff;display:grid;place-items:center;flex:0 0 auto}
+.vmci{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.vmci b{font-size:14.5px}.vmci small{font-size:12px;opacity:.65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vmring{position:relative;width:46px;height:46px;flex:0 0 auto;display:grid;place-items:center;align-content:center}
+.vmring svg{position:absolute;inset:0;transform:rotate(-90deg)}.vmring circle{fill:none;stroke:rgba(255,255,255,.12);stroke-width:3}
+.vmring circle.pr{stroke:#4f8cff;stroke-linecap:round;stroke-dasharray:97.4;stroke-dashoffset:calc(97.4 * (1 - var(--p)));transition:stroke-dashoffset .5s var(--eo)}
+.vmring b{font-size:13px;line-height:1}.vmring small{font-size:8.5px;opacity:.6;line-height:1}
+.vmacts{display:flex;gap:6px;margin-top:8px;animation:vmCard .25s var(--eo)}.vmacts button{flex:1;height:40px;border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:800;font-size:13.5px;transition:transform .16s var(--eo),background-color .15s ease}
+.vmacts #vmChat{background:#4f8cff}.vmacts #vmX{flex:0 0 44px}
+.vmmore{display:flex;flex-direction:column;gap:6px;padding-top:8px;min-height:0}
+.vmmus{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:18px;background:linear-gradient(135deg,rgba(168,85,247,.22),rgba(236,72,153,.16));color:#fff;text-align:left;transition:transform .16s var(--eo)}
+.vmmus img{width:40px;height:40px;border-radius:10px;object-fit:cover}.vmmus span{display:flex;flex-direction:column}.vmmus small{font-size:12px;opacity:.65}.vmmi{font-size:22px}
+#fmStat.flash{animation:vmFlash .6s var(--eo)}@keyframes vmFlash{30%{background:rgba(79,140,255,.18)}}#fmStat{border-radius:14px}
+.vmlist{display:flex;flex-direction:column;gap:2px}
+.vmp{display:flex;align-items:center;gap:12px;padding:8px;border-radius:16px;color:#fff;text-align:left;transition:transform .16s var(--eo),background-color .15s ease}
+.vmp.on{background:rgba(79,140,255,.16)}.vmp .vmpx{flex:1;display:flex;flex-direction:column;min-width:0}.vmp>.av,.vmp>img{width:40px!important;height:40px!important;flex:0 0 40px;border-radius:50%;object-fit:cover}.vmp small{opacity:.6;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vmp i{font-style:normal;opacity:.4}
+@media (hover:hover) and (pointer:fine){.vmp:hover{background:rgba(255,255,255,.05)}.vmbtn:hover{background:rgba(60,61,66,.85)}}
+@media (prefers-reduced-motion:reduce){.vmin{animation:vmFadeOnly .2s ease forwards;transform:none}@keyframes vmFadeOnly{to{opacity:1}}
+ .vmk.me .vmdot i{animation:none;opacity:.35}.vmsheet{transition:opacity .2s ease}.vmsheet:not(.vmup){transform:none;opacity:0}.vmk.sel .vmtag{transform:none}
+ .vmcard,.vmacts,.vmsheet.open .vmmore{animation:vmFadeOnly .2s ease}.bmu img{animation:none}}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
