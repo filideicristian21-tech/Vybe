@@ -2261,7 +2261,7 @@ function videoMeta(url){return new Promise(res=>{const v=document.createElement(
  v.onerror=()=>fin();setTimeout(()=>fin(),8000)})}
 function pickMedia(kind='any'){return new Promise(res=>{const inp=$('#filePick');inp.accept=kind==='image'?'image/*':kind==='audio'?'audio/*':'image/*,video/*';inp.value='';
  inp.onchange=async()=>{const f=inp.files[0];if(!f)return res(null);try{
-  if(f.type.startsWith('video/')){if(f.size>80e6){toast('Video troppo pesante (max 80 MB)');return res(null)}const local=URL.createObjectURL(f),m=await videoMeta(local);
+  if(f.type.startsWith('video/')){if(f.size>3e9){toast('Video troppo pesante');return res(null)}const local=URL.createObjectURL(f),m=await videoMeta(local);
    if(m.dur>(vplusActive()?600:180)){toast(vplusActive()?'Video troppo lungo: massimo 10 minuti':'Video troppo lungo: massimo 3 minuti (10 con VYBE+)');return res(null)}let url=null;
    if(Assets.ready&&/^video\/(mp4|webm)$/.test(f.type)&&f.size<=20*1024*1024){toast('Caricamento del video…');url=await Assets.put(f)}
    if(!url&&!S.tempWarned){S.tempWarned=1;toast('Il video resta finché non chiudi l’app (per salvarlo serve un MP4 sotto i 20 MB)')}
@@ -6902,7 +6902,7 @@ setInterval(()=>{try{if(S.acc&&!$('#recapBtn'))RECAP.btn()}catch(e){}},1500);
 
 /* v75: 🎬 EDITOR VIDEO (taglia, velocità, testo, musica) + i video ora vengono caricati davvero online,
    così li vedono anche gli altri (prima restavano solo sul telefono di chi li pubblicava). */
-const VURX=/^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/v\/[A-Za-z0-9\/_.-]+\.(mp4|mov|webm)$/;
+const VURX=/^https:\/\/([a-z0-9]+\.public\.blob\.vercel-storage\.com|[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/vybe)\/v\/[A-Za-z0-9\/_.-]+\.(mp4|mov|webm)$/;
 const VUP={
  ok(){return typeof CDB!=='undefined'&&CDB.isV&&CDB.isV()},
  async call(o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
@@ -6911,6 +6911,10 @@ const VUP={
   const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status};return j},
  type(b){const t=String(b&&b.type||'').split(';')[0].trim();return/^video\/(mp4|quicktime|webm)$/.test(t)?t:'video/mp4'},
  async up(blob,onp){const type=this.type(blob);const j=await this.call({size:blob.size,type});
+  if(j.sb)return await new Promise((res,rej)=>{if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/upload\/sign\//.test(j.up||'')||!VURX.test(j.pub||''))return rej({code:'url'});const x=new XMLHttpRequest();x.open('PUT',j.up);
+   x.setRequestHeader('Content-Type',type);x.setRequestHeader('x-upsert','false');x.setRequestHeader('cache-control','max-age=31536000');
+   x.upload.onprogress=e=>{if(e.lengthComputable&&onp)onp(e.loaded/e.total)};x.onerror=()=>rej({code:'net'});x.ontimeout=()=>rej({code:'net'});x.timeout=900000;
+   x.onload=()=>{if(x.status>=200&&x.status<300)res(j.pub);else rej({code:'put'+x.status})};x.send(blob)});
   return await new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open('PUT','https://blob.vercel-storage.com/?pathname='+encodeURIComponent(j.path));
    x.setRequestHeader('authorization','Bearer '+j.token);x.setRequestHeader('x-api-version','11');x.setRequestHeader('x-content-type',type);x.setRequestHeader('x-add-random-suffix','0');
    x.upload.onprogress=e=>{if(e.lengthComputable&&onp)onp(e.loaded/e.total)};x.onerror=()=>rej({code:'net'});x.ontimeout=()=>rej({code:'net'});x.timeout=600000;
@@ -6983,7 +6987,7 @@ const VED={
   /* avanti: se non hai cambiato niente e il video è leggero lo carico così com'è, altrimenti creo il video nuovo */
   $v('#vedNext').onclick=async()=>{pause();const D=dur()||m.dur||0,changed=st.a>.15||st.b<D-.15||st.sp!==1||st.texts.length||st.mu||st.vo<1;
    let blob=null;try{blob=await (await fetch(m.url)).blob()}catch(e){}
-   const light=blob&&blob.size<=58*1024*1024&&/^video\/(mp4|quicktime)/.test(blob.type||'video/mp4');
+   const light=blob&&blob.size<=48*1024*1024&&/^video\/(mp4|quicktime)/.test(blob.type||'video/mp4');
    if(!changed&&light){closeOv(ov);return VED.finish(m,blob,null,done)}
    const out=await VED.render(m,st,ov);if(!out)return;closeOv(ov);VED.finish({...m,w:out.w,h:out.h,dur:out.dur},out.blob,out.poster,done)};
   if(V.readyState>=1){fit();info();thumbs()}
@@ -7002,7 +7006,7 @@ const VED={
    const vs=c.captureStream?c.captureStream(30):null;if(!vs||typeof MediaRecorder==='undefined')throw new Error('norec');
    const tracks=[...vs.getVideoTracks(),...dest.stream.getAudioTracks()];const ms=new MediaStream(tracks);
    const mt=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>{try{return MediaRecorder.isTypeSupported(t)}catch(e){return false}})||'';
-   const rec=new MediaRecorder(ms,mt?{mimeType:mt,videoBitsPerSecond:2500000,audioBitsPerSecond:128000}:{videoBitsPerSecond:2500000});const chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+   const VB=Math.max(600000,Math.min(2500000,Math.floor(44*8e6/Math.max(1,(st.b-st.a)/st.sp))-128000));const rec=new MediaRecorder(ms,mt?{mimeType:mt,videoBitsPerSecond:VB,audioBitsPerSecond:128000}:{videoBitsPerSecond:VB});const chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
    const draw=()=>{x.drawImage(v,0,0,W,H);st.texts.forEach(t=>VED.drawText(x,t,W,H))};
    v.currentTime=st.a;await new Promise(r=>{v.onseeked=r;setTimeout(r,2000)});draw();const poster=(()=>{try{const p=document.createElement('canvas'),s=Math.min(1,360/W);p.width=Math.round(W*s);p.height=Math.round(H*s);p.getContext('2d').drawImage(c,0,0,p.width,p.height);return p.toDataURL('image/jpeg',.7)}catch(e){return null}})();
    const done=new Promise(r=>{rec.onstop=r});rec.start(1000);v.playbackRate=st.sp;await v.play();if(am){am.currentTime=0;am.play().catch(()=>{})}
@@ -7016,7 +7020,7 @@ const VED={
  /* carica online e continua con la pubblicazione */
  async finish(m,blob,poster,done){const url0=blob?URL.createObjectURL(blob):m.url;const base={...m,url:url0,ved:1,poster:poster||m.poster,temp:true};
   if(!VUP.ok()||!blob)return done(base);
-  if(blob.size>58*1024*1024){toast('Video troppo pesante: accorcialo un po’ nell’editor');return done(base)}
+  if(blob.size>49*1024*1024){toast('Video troppo pesante: accorcialo un po’ nell’editor');return done(base)}
   const pr=openFull(`<div class="vedprog"><div class="logo" style="font-size:34px">Vybe</div><div class="vedring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/><circle id="vuP" cx="50" cy="50" r="44" pathLength="100" stroke-dasharray="0 100"/></svg><b id="vuT">0%</b></div><p>Carico il video online…</p><small>Così lo vedono anche i tuoi amici</small></div>`,'vedov');
   try{const url=await VUP.up(blob,k=>{const e=$('#vuP',pr);if(e){e.setAttribute('stroke-dasharray',Math.round(k*100)+' 100');$('#vuT',pr).textContent=Math.round(k*100)+'%'}});closeOv(pr);
    if(base.poster){VUP.posters()[url]=base.poster;save()}done({...base,url,temp:false})}
