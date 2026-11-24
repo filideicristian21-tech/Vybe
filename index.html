@@ -2417,7 +2417,7 @@ function openStory(start,listOverride){const list=listOverride||storyList();if(!
   $('#mst',ov).innerHTML=info?`<div class="msticker ${Music.muted?'paused':''}"><span class="mcov" style="background:linear-gradient(135deg,${info.c[0]},${info.c[1]})">${ic('music',15,2)}</span><div><b>${esc(info.title)}</b><span>${esc(info.artist)}</span></div><div class="eq"><i></i><i></i><i></i><i></i></div></div>`:'';
   Music.set(f.video&&!info?null:mid);
   const mu=$('#smute',ov);if(mu)mu.onclick=()=>{const v=Music.toggleMute();if(vid&&!info)vid.muted=v;mu.innerHTML=ic(v?'mute':'vol',22,2);const k=$('.msticker',ov);if(k)k.classList.toggle('paused',v)};
-  $('#rx',ov).innerHTML='';
+  $('#rx',ov).innerHTML='';try{setTimeout(()=>{if(typeof STV!=='undefined')STV.shown(s,f,ov)},0)}catch(e){}
   if(s.mine){const n=(f.viewers||[]).length;$('#sf',ov).innerHTML=`<div class="sviews" id="sv">${ic('eye',20)} Vista da ${n} ${n===1?'persona':'persone'}</div><span style="flex:1"></span>${s.hl?'':`<button id="toHl" class="pill acc">${ic('plus',13,2.4)} In evidenza</button>`}`;
    $('#sv',ov).onclick=()=>{paused=true;const L=(f.viewers||[]).map(v=>({w:USERS[v.u!=null?v.u:v],r:v.r}));const sh=openSheet(`<div class="shead">Visualizzazioni · ${L.length}</div><div class="sbody">${L.length?L.map(x=>`<div class="urow" data-a="user" data-u="${x.w.id}">${avHTML(x.w,42)}<div><b>${esc(x.w.u)}</b><span>${esc(x.w.n)}</span></div>${x.r?`<span style="font-size:24px">${x.r}</span>`:''}</div>`).join(''):'<div class="emptyc">Ancora nessuna visualizzazione</div>'}</div>`);sh.onclose=()=>paused=false};
    const th=$('#toHl',ov);if(th)th.onclick=()=>{paused=true;pickHighlight([f.time],()=>paused=false)}}
@@ -7989,6 +7989,105 @@ new MutationObserver(()=>{try{if(MSEL.on){if(!MSEL.ov||!MSEL.ov.isConnected)MSEL
 .msel .wrow.msel-on::before{background:#a855f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3 3 7-7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;box-shadow:none}
 .msel #wcin{opacity:.35;pointer-events:none}
 `;document.head.appendChild(st)}
+
+/* v88 – correzioni: visualizzazioni vere di storie e post, posizione reale sulla Vybe Map, barra Liquid Glass più fluida */
+/* ===== 1. VISUALIZZAZIONI ===== */
+const STV={vc:{},
+ key(t){return 's'+String(t).replace(/\D/g,'').slice(0,16)},
+ /* chiamata dal visualizzatore ogni volta che appare una storia */
+ shown(s,f,ov){if(!s||!f)return;
+  if(!s.mine){if(f.rs){try{markRealStory(f)}catch(e){}}return}
+  if(!CDB.isV()||!f.time)return;const k=this.key(f.time),tok=k+'|'+Date.now();ov._stv=tok;
+  const paint=L=>{if(ov._stv!==tok||!ov.isConnected)return;const sv=$('#sv',ov);if(!sv)return;const loc=(f.viewers||[]).length,n=Math.max(loc,L.length);
+   sv.innerHTML=`${ic('eye',20)} Vista da ${n} ${n===1?'persona':'persone'}`;
+   sv.onclick=e=>{e.stopPropagation();peopleSheet('👁 Chi ha visto la storia',L,'Nessuno l’ha ancora vista')}};
+  const c=this.vc[k];if(c&&Date.now()-c.t<20000)return paint(c.L);if(c)paint(c.L);
+  CDB.call({op:'viewers',k}).then(j=>{const L=(j.L||[]).filter(u=>u!==Real.uid);this.vc[k]={t:Date.now(),L};paint(L)}).catch(()=>{})}};
+/* i numeri 👁 sotto i tuoi post e le tue storie arrivano dal server (prima restavano a zero) */
+const VSYNC={t:0,async run(force){if(!CDB.isV()||!S.acc||!Real.on)return;if(!force&&Date.now()-this.t<90000)return;this.t=Date.now();
+  try{const j=await CDB.call({op:'stats'});const vt=j.vt||{};let ch=false;
+   (S.acc.own||[]).forEach(p=>{const n=+vt[pk(p.id)]||0;if(n>(p.views||0)){p.views=n;ch=true}});
+   (S.acc.stories||[]).forEach(f=>{const n=+vt[STV.key(f.time)]||0;if(n>(f.vN||0)){f.vN=n;ch=true}});
+   if(ch){save();try{renderGrid(true)}catch(e){}try{renderProfile()}catch(e){}}}catch(e){}}};
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>VSYNC.run(true),5000);return r}}
+setInterval(()=>{if(document.visibilityState==='visible')VSYNC.run()},100000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>VSYNC.run(),1500)});
+/* ===== 2. POSIZIONE REALE ===== */
+FMAP.pos=function(high){return new Promise((res,rej)=>{if(!navigator.geolocation)return rej({code:'nogeo'});navigator.geolocation.getCurrentPosition(p=>res(p.coords),e=>rej({code:e&&e.code===1?'denied':'pos'}),{enableHighAccuracy:!!high,timeout:20000,maximumAge:high?15000:60000})})};
+FMAP.granted=async function(){try{const p=await navigator.permissions.query({name:'geolocation'});return p.state==='granted'}catch(e){return false}};
+/* mentre Vybe è aperta la posizione si aggiorna da sola (solo se l'hai attivata e il permesso c'è già: niente richieste continue) */
+{const ph=FMAP.push.bind(FMAP);FMAP.push=async function(force){if(!force&&Date.now()-(this.last||0)<80000)return;return ph(true)}}
+FMAP.tick=async function(){const s=this.st();if(!s.on||S.teen||!this.ok()||document.visibilityState!=='visible')return;if(!(await this.granted())&&!document.querySelector('.vmov'))return;this.push()};
+setInterval(()=>{try{FMAP.tick()}catch(e){}},90000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>{try{FMAP.tick()}catch(e){}},2500)});
+/* nuova condivisione: parte con la posizione esatta (si può sempre scegliere approssimativa) */
+{const cs=FMAP.consent.bind(FMAP);FMAP.consent=function(go){const r=cs(go);try{const p=[...document.querySelectorAll('[data-m="p"]')].pop();if(p)p.click()}catch(e){}return r}}
+/* chi aveva "approssimativa": una volta sola gli chiedo se vuole quella esatta */
+FMAP.askPrecise=function(){const s=this.st();if(!s.on||S.teen||s.mode!=='a'||s.askedP)return;s.askedP=1;save();
+ const sh=openSheet(`<div style="padding:6px 20px 22px;display:flex;flex-direction:column;gap:10px;text-align:center"><div style="font-size:42px">📍</div><h3 style="margin:0">Mostrare dove sei davvero?</h3>
+  <p style="margin:0;color:var(--muted);line-height:1.45">Sulla Vybe Map i tuoi amici ti vedono in modo <b>approssimativo</b> (circa 1 km), per questo a volte sembri da un’altra parte. Con la posizione <b>esatta</b> ti vedono dove sei davvero. La vedono solo gli amici che hai scelto.</p>
+  <button class="btn" id="apY">📍 Usa la posizione esatta</button><button class="link" id="apN">Lascia approssimativa</button></div>`);
+ $('#apN',sh).onclick=()=>closeOv(sh);$('#apY',sh).onclick=async()=>{closeOv(sh);s.mode='p';save();await FMAP.push(true);toast('Ora gli amici ti vedono dove sei davvero 📍')}};
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{if(!document.querySelector('#layer>*'))FMAP.askPrecise()}catch(e){}},9000);return r}}
+/* sulla mappa: chi è approssimativo appare come una zona, le posizioni vecchie sono sbiadite con "X fa" */
+{const el=FMAP.el.bind(FMAP);FMAP.el=function(w,l,me){const d=el(w,l,me);if(me||!l)return d;const old=Date.now()-(l.t||0)>30*60000;
+  const vi=d.querySelector('.vmin');if(vi){if(l.mode==='a')vi.classList.add('vmapx');if(old)vi.classList.add('vmold')}
+  const sm=d.querySelector('.vmtx small');if(sm&&!l.mu)sm.textContent=(l.mode==='a'?'~1 km · ':'')+FMAP.ago(l.t);return d}}
+/* ===== 3. LIQUID GLASS PIÙ FLUIDO ===== */
+/* la lente si muove sul compositore (Web Animations con la curva della molla già calcolata):
+   resta fluida a 60/120 fps anche mentre la nuova schermata si sta disegnando, e si può interrompere col dito */
+LG.sample=function(){const T=this.traj;if(!T)return;const i=Math.min(T.P.length-1,Math.max(0,Math.round((performance.now()-T.t0)/1000/T.dt)));const q=T.P[i];
+ this.x=q[0];this.v=q[1];this.s=q[2];this.vs=q[3];this.sx=q[4];this.vx=q[5];this.sy=q[6];this.vy=q[7];this.traj=null;
+ if(T.a){try{T.a.cancel()}catch(e){}}clearTimeout(T.u);this.paint()};
+LG.tf=function(x,s,sx,sy){return`translateX(${(x-this.w/2).toFixed(2)}px) scale(${(s*sx).toFixed(4)},${(s*sy).toFixed(4)})`};
+LG.go=function(tx,ts,vx){this.tx=tx;this.ts=ts==null?1:ts;if(this.traj)this.sample();if(vx!=null)this.v=vx;
+ if(this.x==null)this.x=tx;['v','s','vs','sx','vx','sy','vy'].forEach(k=>{if(this[k]==null||isNaN(this[k]))this[k]=(k==='s'||k==='sx'||k==='sy')?1:0});
+ if(this.RM()){this.x=tx;this.s=1;this.sx=this.sy=1;this.v=0;this.paint();return}
+ /* dito sulla barra: animazione frame per frame che segue il dito */
+ if(this.drag){if(this.raf)return;let last=performance.now();const step=n=>{const dt=Math.min(.025,(n-last)/1000);last=n;
+   if(!this.drag){this.raf=0;return this.go(this.tx,this.ts)}
+   if(!this.drag.caught){[this.x,this.v]=this.spring(this.x,this.tx,this.v,dt,.9,.16);if(Math.abs(this.x-this.tx)<2.5)this.drag.caught=true}
+   [this.s,this.vs]=this.spring(this.s,1.28,this.vs,dt,.72,.26);
+   const want=Math.min(.3,Math.abs(this.dv||0)*1000/2600);[this.sx,this.vx]=this.spring(this.sx,1+want,this.vx,dt,.55,.22);[this.sy,this.vy]=this.spring(this.sy,1-want*.5,this.vy,dt,.55,.22);
+   this.paint();this.raf=requestAnimationFrame(step)};this.raf=requestAnimationFrame(step);return}
+ if(this.raf){cancelAnimationFrame(this.raf);this.raf=0}
+ /* rilascio: calcolo tutta la molla in anticipo (stile iOS: risposta .42s, rimbalzo leggero) */
+ const dt=1/120,P=[];let x=this.x,v=this.v,s=this.s,vs=this.vs,sx=this.sx,vx2=this.vx,sy=this.sy,vy=this.vy;
+ for(let i=0;i<300;i++){P.push([x,v,s,vs,sx,vx2,sy,vy]);
+  [x,v]=this.spring(x,tx,v,dt,.78,.42);[s,vs]=this.spring(s,this.ts,vs,dt,.6,.34);
+  const want=Math.min(.3,Math.abs(v)/2600);[sx,vx2]=this.spring(sx,1+want,vx2,dt,.55,.22);[sy,vy]=this.spring(sy,1-want*.5,vy,dt,.55,.22);
+  if(Math.abs(x-tx)<.25&&Math.abs(v)<4&&Math.abs(s-this.ts)<.002&&Math.abs(vs)<.01&&Math.abs(sx-1)<.002&&Math.abs(vx2)<.01&&Math.abs(sy-1)<.002)break}
+ P.push([tx,0,this.ts,0,1,0,1,0]);
+ const l=this.lens;if(!l||!l.animate||P.length<3){this.x=tx;this.v=0;this.s=this.ts;this.sx=this.sy=1;this.paint();return}
+ const kf=[];for(let i=0;i<P.length;i+=2){const q=P[i];kf.push({transform:this.tf(q[0],q[2],q[4],q[6])})}const z=P[P.length-1];kf.push({transform:this.tf(z[0],z[2],z[4],z[6])});
+ const dur=(P.length-1)*dt*1000,T=this.traj={t0:performance.now(),dt,P};
+ l.style.width=this.w+'px';l.classList.toggle('up',this.s>1.04);
+ const iu=P.findIndex(q=>q[2]<=1.04);if(this.s>1.04&&iu>=0)T.u=setTimeout(()=>{if(this.traj===T)l.classList.remove('up')},iu*dt*1000);
+ try{T.a=l.animate(kf,{duration:dur,easing:'linear',fill:'forwards'})}catch(e){T.a=null}
+ /* icone: tornano alla grandezza normale con una transizione morbida */
+ this.tabs.forEach((b,i)=>{b.style.setProperty('--m','1')});
+ const fin=()=>{if(this.traj!==T)return;this.traj=null;this.x=tx;this.v=0;this.s=this.ts;this.vs=0;this.sx=this.sy=1;this.vx=this.vy=0;this.paint();try{T.a&&T.a.cancel()}catch(e){}};
+ if(T.a)T.a.onfinish=fin;else fin()};
+/* la barra viene ricreata quando cambi scheda: la lente riparte da dove era, senza saltare */
+{const b=LG.build.bind(LG);LG.build=function(){if(this.traj)this.sample();b()}}
+/* icone sotto la lente più grandi, scritta della scheda sotto la lente che si accende */
+{const pt=LG.paint.bind(LG);LG.paint=function(){pt();try{const up=Math.max(0,(this.s-1)/.28);this.tabs.forEach((b,i)=>{const d=Math.abs(this.C[i]-this.x)/(this.w+6),k=Math.max(0,1-d);b.style.setProperty("--m",(1+.28*k*up).toFixed(3))});
+  if(this.lens)this.lens.style.setProperty('--sh',(Math.max(-1,Math.min(1,(this.v||0)/1500))).toFixed(2))}catch(e){}}}
+{const st=document.createElement('style');st.textContent=`
+/* mappa: zona approssimativa e posizioni vecchie */
+.vmin.vmapx .vmpt{width:44px;height:44px;margin-top:-16px;background:rgba(79,140,255,.22);box-shadow:0 0 0 1.5px rgba(79,140,255,.7)}
+.vmin.vmapx .vmstem{height:4px}
+.vmin.vmold .vmtag{opacity:.62;filter:saturate(.4)}.vmin.vmold .vmpt{background:#9ca3af;box-shadow:0 0 0 3px rgba(156,163,175,.7)}
+/* lente: riflesso che si sposta con il movimento, bordo più "vetro" */
+@media (max-width:899px){
+#nav.lg .lglens{transition:background-color .25s ease,box-shadow .25s ease;backface-visibility:hidden}
+#nav.lg .lglens::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.9;
+ background:radial-gradient(60% 55% at calc(35% - var(--sh,0) * 18%) 18%,rgba(255,255,255,.34),rgba(255,255,255,0) 70%),radial-gradient(70% 60% at calc(65% - var(--sh,0) * 18%) 100%,rgba(255,255,255,.12),rgba(255,255,255,0) 70%)}
+#nav.lg .lglens.up{background:rgba(255,255,255,.04)}
+#nav.lg .lgbar>button{transition:color .25s ease}
+#nav.lg .lgbar>button>svg,#nav.lg .lgbar>button>.meav{transition:transform .32s cubic-bezier(.32,.72,0,1)}
+#nav.lg .lgbar,#nav.lg .lgplus{transform:translateZ(0)}
+}`;document.head.appendChild(st)}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
