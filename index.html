@@ -1731,9 +1731,9 @@ function tabOk(p){const t=S.tab;return t==='all'||(t==='photo'&&p.type==='photo'
 function estH(p){return p.type==='text'?(p.t.plain?.85+p.t.t.length/260:.95+p.t.t.length/120):p.ratio+(p.type==='ad'?.02:0)}
 const cardHTML=p=>cardHTML0(p).replace(/<\/article>$/,'<i class="glare"></i></article>');
 function cardHTML0(p){const a=authorOf(p);
- if(p.type==='text'){const t=p.t;return`<article class="card tcard ${t.plain?'plain':''}" data-a="post" data-id="${p.id}" style="${t.plain?'':`background:${t.bg};color:${t.fg||'#fff'}`}"><div class="trow">${avHTML(a,22)}<span>${esc(a.first)}</span></div><div class="ttxt">${esc(t.t)}</div><div class="tfoot">${fmt(p.cmCount+myComments(p.id).length)} risposte${likesTxt(p)?' · '+likesTxt(p)+' like':''}</div></article>`}
+ if(p.type==='text'){const t=p.t;return`<article class="card tcard ${t.plain?'plain':''}" data-a="post" data-id="${p.id}" style="${t.plain?'':`background:${t.bg};color:${t.fg||'#fff'}`}"><div class="trow" data-a="user" data-u="${p.mine?'me':p.author}">${avHTML(a,22)}<span>${esc(a.first)}</span></div><div class="ttxt">${esc(t.t)}</div><div class="tfoot">${fmt(p.cmCount+myComments(p.id).length)} risposte${likesTxt(p)?' · '+likesTxt(p)+' like':''}</div></article>`}
  const w=400,h=Math.round(400*p.ratio);const img=p.img?`<img class="ph" src="${p.img}" style="aspect-ratio:${w}/${h};object-fit:cover" alt="">`:lz(p.scene,p.seed,w,h,'ph');
- const chip=`<div class="chip">${avHTML(a,22)}<span>${esc(a.first)}${p.type==='ad'?' × '+esc(p.ad.brand):''}</span></div>`;
+ const chip=`<div class="chip" ${p.type==='ad'?'':`data-a="user" data-u="${p.mine?'me':p.author}"`}>${avHTML(a,22)}<span>${esc(a.first)}${p.type==='ad'?' × '+esc(p.ad.brand):''}</span></div>`;
  if(p.type==='ad')return`<article class="card" data-a="post" data-id="${p.id}">${img}${chip}<div class="adbar"><small><span class="spons">PUBBLICITÀ</span></small><b style="margin-top:4px">${esc(p.ad.text)}</b><span class="cta" data-a="cta" data-id="${p.id}">${esc(p.ad.cta)}</span></div></article>`;
  return`<article class="card" data-a="post" data-id="${p.id}">${img}${chip}<div class="cardlike">${ic('heart',15,2)}${likesTxt(p)}</div></article>`}
 function renderGrid(reset){const g=$('#grid');
@@ -1933,7 +1933,7 @@ function openStory(start){const list=storyList();if(!list[start])return;let ui=s
  function show(){const s=list[ui],f=s.frames[fi];prog=0;
   $('#sb',ov).innerHTML=s.frames.map((_,i)=>`<div><i style="width:${i<fi?100:0}%"></i></div>`).join('');
   const mid=s.mine?(f.music||null):(s.ref?s.ref.music:null),info=trackInfo(mid,f);
-  $('#sh',ov).innerHTML=`${avHTML(s.who,34)}<span>${esc(s.mine?'La tua storia':s.who.u)} <small>${ago(f.time||s.time)}</small></span><span class="sp"></span>${info?`<button class="iconbtn" id="smute">${ic(Music.muted?'mute':'vol',22,2)}</button>`:''}${s.mine?`<button class="iconbtn" id="sDel">${ic('trash',22)}</button>`:''}<button class="iconbtn" id="sx">${ic('x',26)}</button>`;
+  $('#sh',ov).innerHTML=`<span class="shwho" ${s.mine||!s.who||s.who.id==null?'':`data-who="${esc(String(s.who.id))}"`}>${avHTML(s.who,34)}<span>${esc(s.mine?'La tua storia':s.who.u)} <small>${ago(f.time||s.time)}</small></span></span><span class="sp"></span>${info?`<button class="iconbtn" id="smute">${ic(Music.muted?'mute':'vol',22,2)}</button>`:''}${s.mine?`<button class="iconbtn" id="sDel">${ic('trash',22)}</button>`:''}<button class="iconbtn" id="sx">${ic('x',26)}</button>`;
   const m=$('#sm',ov),kb=(ui+fi)%2?'kb2':'';
   if(f.img)m.innerHTML=`<img class="${kb}" src="${f.img}" alt="">`;else if(f.scene)m.innerHTML=`<img class="${kb}" src="${sceneURL(f.scene,f.seed,432,768)}" alt="">`;else m.innerHTML=`<div class="stext" style="--bg:${f.bg}"><div>${words(f.text)}</div></div>`;
   $('#mst',ov).innerHTML=info?`<div class="msticker ${Music.muted?'paused':''}"><span class="mcov" style="background:linear-gradient(135deg,${info.c[0]},${info.c[1]})">${ic('music',15,2)}</span><div><b>${esc(info.title)}</b><span>${esc(info.artist)}</span></div><div class="eq"><i></i><i></i><i></i><i></i></div></div>`:'';
@@ -2241,10 +2241,10 @@ function renderGrid(reset){const g=$('#grid');if(!g||!S.acc)return;
  batch.forEach((p,i)=>{S.gridShown.add(p.id);let c=0;for(let k=1;k<S.ncols;k++)if(S.colH[k]<S.colH[c])c=k;cols[c].insertAdjacentHTML('beforeend',cardHTML(p));cols[c].lastElementChild.style.animationDelay=i*45+'ms';S.colH[c]+=estH(p)+.05});
  S.gridN+=batch.length;observe($('#homeScroll'),g)}
 function cardHTML0(p){const a=authorOf(p);
- if(p.type==='text'){const t=p.t;return`<article class="card tcard ${t.plain?'plain':''}" data-a="post" data-id="${p.id}" style="${t.plain?'':`background:${t.bg};color:${t.fg||'#fff'}`}"><div class="trow">${avHTML(a,22)}<span>${esc(a.first)}</span></div><div class="ttxt">${esc(t.t)}</div><div class="tfoot">${fmt((p.cmCount||0)+myComments(p.id).length)} risposte${likesTxt(p)?' · '+likesTxt(p)+' like':''}</div></article>`}
+ if(p.type==='text'){const t=p.t;return`<article class="card tcard ${t.plain?'plain':''}" data-a="post" data-id="${p.id}" style="${t.plain?'':`background:${t.bg};color:${t.fg||'#fff'}`}"><div class="trow" data-a="user" data-u="${p.mine?'me':p.author}">${avHTML(a,22)}<span>${esc(a.first)}</span></div><div class="ttxt">${esc(t.t)}</div><div class="tfoot">${fmt((p.cmCount||0)+myComments(p.id).length)} risposte${likesTxt(p)?' · '+likesTxt(p)+' like':''}</div></article>`}
  const w=400,h=Math.round(400*(p.ratio||1.25));
  const img=p.type==='video'?`<img class="ph" src="${p.poster||''}" style="aspect-ratio:${w}/${h};object-fit:cover" alt="">`:p.img?`<img class="ph" src="${p.img}" style="aspect-ratio:${w}/${h};object-fit:cover" alt="">`:lz(p.scene,p.seed,w,h,'ph');
- const chip=`<div class="chip">${avHTML(a,22)}<span>${esc(a.first)}${p.type==='ad'?' × '+esc(p.ad.brand):''}</span></div>`;
+ const chip=`<div class="chip" ${p.type==='ad'?'':`data-a="user" data-u="${p.mine?'me':p.author}"`}>${avHTML(a,22)}<span>${esc(a.first)}${p.type==='ad'?' × '+esc(p.ad.brand):''}</span></div>`;
  const vb=p.type==='video'?`<div class="vbadge">${ic('play2',11)} ${p.dur?Math.round(p.dur)+'s':''}</div>`:'';
  if(p.type==='ad')return`<article class="card" data-a="post" data-id="${p.id}">${img}${chip}<div class="adbar"><small><span class="spons">PUBBLICITÀ</span></small><b style="margin-top:4px">${esc(p.ad.text)}</b><span class="cta" data-a="cta" data-id="${p.id}">${esc(p.ad.cta)}</span></div></article>`;
  return`<article class="card" data-a="post" data-id="${p.id}">${img}${chip}${vb}<div class="cardlike">${ic('eye',14,2)}${fmt(p.views||0)}</div></article>`}
@@ -2409,7 +2409,7 @@ function openStory(start,listOverride){const list=listOverride||storyList();if(!
  function show(){const s=list[ui],f=s.frames[fi];prog=0;vid=null;
   $('#sb',ov).innerHTML=s.frames.map((_,i)=>`<div><i style="width:${i<fi?100:0}%"></i></div>`).join('');
   const mid=s.mine?(f.music||null):(s.ref?s.ref.music:null),info=trackInfo(mid,f);
-  $('#sh',ov).innerHTML=`${avHTML(s.who,34)}<span>${esc(s.hl?s.hl.name:s.mine?'La tua storia':s.who.u)} <small>${ago(f.time||s.time)}</small></span><span class="sp"></span>${info||f.video?`<button class="iconbtn" id="smute">${ic(Music.muted?'mute':'vol',22,2)}</button>`:''}${s.mine?`<button class="iconbtn" id="sDel">${ic('trash',22)}</button>`:''}<button class="iconbtn" id="sx">${ic('x',26)}</button>`;
+  $('#sh',ov).innerHTML=`<span class="shwho" ${s.mine||!s.who||s.who.id==null?'':`data-who="${esc(String(s.who.id))}"`}>${avHTML(s.who,34)}<span>${esc(s.hl?s.hl.name:s.mine?'La tua storia':s.who.u)} <small>${ago(f.time||s.time)}</small></span></span><span class="sp"></span>${info||f.video?`<button class="iconbtn" id="smute">${ic(Music.muted?'mute':'vol',22,2)}</button>`:''}${s.mine?`<button class="iconbtn" id="sDel">${ic('trash',22)}</button>`:''}<button class="iconbtn" id="sx">${ic('x',26)}</button>`;
   const m=$('#sm',ov),kb=(ui+fi)%2?'kb2':'';
   if(f.video){m.innerHTML=`<video src="${f.video}" playsinline autoplay ${Music.muted||info?'muted':''}></video>`;vid=$('video',m);vid.play&&vid.play().catch(()=>{vid.muted=true;vid.play().catch(()=>{})})}
   else if(f.img){const u=String(f.img).replace(/'/g,'%27');m.innerHTML=`<div class="sbgb" style="background-image:url('${u}')"></div><img class="sfit" src="${f.img}" alt="">`;try{stFit(m)}catch(e){}}else if(f.scene)m.innerHTML=`<img class="${kb}" src="${sceneURL(f.scene,f.seed,432,768)}" alt="">`;else m.innerHTML=`<div class="stext" style="--bg:${f.bg}"><div>${words(f.text)}</div></div>`;
@@ -3319,7 +3319,7 @@ function rbtn(id){const s=Real.state(id);return`<button class="fbtn ${s!=='none'
 const RBADGE='<span class="rbadge">reale</span>';
 function realPostHTML(w,p,i){return`<div data-rp="${i}" class="rpm">${p.img?`<img src="${p.img}" alt="">`:`<div class="mt" style="background:${p.tx.bg};color:${p.tx.fg}">${esc(p.tx.t.slice(0,70))}</div>`}${p.ty==='video'?`<span class="rpv">${ic('film',14,2)}</span>`:''}</div>`}
 function openRealPost(id,i){const w=USERS[id];if(!w)return;const p=w.posts[i];if(!p)return;const k=w.rid+'/'+p.id;
- const sh=openSheet(`<div class="rpost"><div class="urow" style="padding:4px 14px 10px">${avHTML(w,38)}<div><b>${esc(w.u)} ${RBADGE}</b><span>${ago(p.t)}</span></div></div>
+ const sh=openSheet(`<div class="rpost"><div class="urow" data-a="user" data-u="${id}" style="padding:4px 14px 10px;cursor:pointer">${avHTML(w,38)}<div><b>${esc(w.u)} ${RBADGE}</b><span>${ago(p.t)}</span></div></div>
  ${p.img?`<img class="rpimg" src="${p.hd||p.img}" alt="">`:`<div class="tbig" style="background:${p.tx.bg};color:${p.tx.fg};min-height:260px">${esc(p.tx.t)}</div>`}
  <div class="rpact"><button id="rl">${ic('heart',24)}</button><b id="rlc"></b></div>${p.cap?`<div class="rpcap"><b>${esc(w.u)}</b> ${esc(p.cap)}</div>`:''}${p.ty==='video'?'<div class="rpcap hint">Anteprima del video</div>':''}</div>`);
  const draw=()=>{const on=S.acc.rlk.includes(k),n=Real.likesOf(w.rid,p.id);$('#rl',sh).classList.toggle('on',on);$('#rlc',sh).textContent=n?fmt(n)+(n===1?' mi piace':' mi piace'):'Metti il primo mi piace'};draw();sh._rrefresh=draw;
@@ -9169,6 +9169,12 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 .spacts{display:flex;gap:8px;padding:6px 10px;background:#0b0a10;overflow-x:auto}.spacts button{flex:1;border:0;border-radius:999px;padding:8px 10px;background:rgba(255,255,255,.08);color:inherit;font:600 13px -apple-system,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 .spacts button:active{transform:scale(.94)}.spacts button:disabled{opacity:.4}
 .spc .wcin textarea{flex:1}`;document.head.appendChild(st)})();
+
+/* v100 — tocchi foto o nome nella storia e si apre il profilo (anche di chi non segui) */
+document.addEventListener('click',e=>{const w=e.target.closest&&e.target.closest('.shwho[data-who]');if(!w)return;e.stopPropagation();e.preventDefault();
+ const id=w.dataset.who,ov=w.closest('.ovf'),x=ov&&$('#sx',ov);if(x)x.click();else if(ov)closeOv(ov);
+ setTimeout(()=>{try{if(/^r_/.test(id))openReal(id);else if(/^\d+$/.test(id))openUser(+id)}catch(er){}},60)},true);
+(function(){const st=document.createElement('style');st.textContent='.shwho{display:flex;align-items:center;gap:9px;cursor:pointer;min-width:0}.chip[data-a="user"],.trow[data-a="user"]{cursor:pointer}';document.head.appendChild(st)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
