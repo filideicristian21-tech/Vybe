@@ -2688,7 +2688,7 @@ function profileMenu(){const sh=openSheet(`<div class="menu">
  <button data-m="subs"><span class="mi" style="color:#d8b4fe">⭐</span><div>Abbonamenti al canale<small>Standard 3,99 € · Premium Deluxe 20 €</small></div></button>
  <button data-m="netstat"><span class="mi">☁️</span><div>Stato online<small>Controlla se gli altri ti trovano</small></div></button>
  <button data-m="realmode"><span class="mi">👥</span><div>Solo persone reali<small>Nascondi o mostra i creator virtuali</small></div></button>
- <button data-m="linkdev"><span class="mi">🔢</span><div>Accedi nell’app Vybe<small>Un codice per entrare dall’app vera (Vercel)</small></div></button>
+ 
  <button data-m="transfer"><span class="mi">📲</span><div>Trasferisci account<small>Backup cifrato per accedere da un altro dispositivo</small></div></button>
  <button data-m="vchat"><span class="mi">💬</span><div>Vybe Chat<small>Messaggi, gruppi e stati con i tuoi amici</small></div></button>
  <button data-m="shop"><span class="mi">🛍️</span><div>Negozio Vybe<small>Merch dei creator, carrello e ordini</small></div></button>
@@ -4165,7 +4165,7 @@ function syncRealPosts(){const L=[];if(Real.on)for(const w of Real.list()){if(Re
  el.innerHTML=`<header class="top"><div class="logo" style="font-size:28px">Esplora</div><div class="hicons"><button class="iconbtn" data-a="shop" aria-label="Negozio">${BAG()}</button><button class="iconbtn" data-a="search">${ic('search')}</button></div></header>
  <div class="sinput" data-a="search" style="cursor:pointer;margin:4px 14px 14px">${ic('search',18)}<span style="color:var(--muted)">Cerca persone per nome…</span></div>
  ${sug.length?`<div class="dsec"><h3>👥 Persone che potresti conoscere</h3><div class="hscroll rsug">${sug.map(w=>`<div class="rsc" data-a="user" data-u="${w.id}">${avHTML(w,58)}<b>${esc(w.first)}</b><span>@${esc(w.u)}</span>${fbtnFor(w)}</div>`).join('')}</div></div>`:''}
- <div class="dsec"><h3>✨ Dalla community · ${all.length+1} persone su Vybe</h3>${REALP.length?`<div class="pgrid" style="padding:0 2px">${REALP.slice(0,60).map(miniHTML).join('')}</div>`:`<div class="emptyc" style="padding:24px 30px">Ancora nessun post pubblico. Quando i tuoi amici pubblicano, li vedi qui.</div>`}</div><div style="height:90px"></div>`;observe(el)}}
+ <div class="dsec"><h3>✨ Dalla community${(typeof ADMIN!=='undefined'&&ADMIN&&ADMIN.admin)?' · '+(all.length+1)+' persone su Vybe':''}</h3>${REALP.length?`<div class="pgrid" style="padding:0 2px">${REALP.slice(0,60).map(miniHTML).join('')}</div>`:`<div class="emptyc" style="padding:24px 30px">Ancora nessun post pubblico. Quando i tuoi amici pubblicano, li vedi qui.</div>`}</div><div style="height:90px"></div>`;observe(el)}}
 /* ricerca e suggerimenti solo reali */
 {const sg=suggestions;suggestions=function(n){return REALONLY()?Real.list().filter(p=>Real.state(p.id)==='none'):sg(n)}}
 {const ap=allProducts;allProducts=function(){const L=ap();return REALONLY()?L.filter(p=>isR(p.seller)):L}}
@@ -4217,7 +4217,7 @@ VDB.lastStatus=null;VDB.lastAt=0;
 function openNetStatus(){const dirN=VDB.dir?Object.keys(VDB.dir).length:0;const me=VDB.dir&&Real.uid&&VDB.dir[Real.uid];
  const row=(k,v,ok)=>`<div class="trow2" style="padding:8px 0"><div>${k}</div><b style="color:${ok?'#4ade80':'#f87171'}">${v}</b></div>`;
  const sh=openSheet(`<div style="padding:8px 18px 20px"><h3 style="font-size:19px;margin-bottom:6px">☁️ Stato online</h3>
- ${row('Account salvato online',Cloud.on?'Sì':'No',Cloud.on)}${row('Profilo visibile agli altri',me?'Sì':'No',!!me)}${row('Persone su Vybe',String(dirN),dirN>0)}
+ ${row('Account salvato online',Cloud.on?'Sì':'No',Cloud.on)}${row('Profilo visibile agli altri',me?'Sì':'No',!!me)}${(typeof ADMIN!=='undefined'&&ADMIN&&ADMIN.admin)?row('Persone su Vybe',String(dirN),dirN>0):''}
  ${row('Ultimo invio del profilo',VDB.lastAt?(VDB.lastStatus===200?'ok ':'errore '+VDB.lastStatus+' ')+ago(VDB.lastAt):'—',VDB.lastStatus===200)}
  <button class="btn" id="nsP" style="margin-top:12px">🔄 Pubblica di nuovo il mio profilo</button><button class="btn soft" id="nsT" style="margin-top:8px">Aggiorna l’elenco delle persone</button>${Cloud.on?'':'<button class="btn soft" id="nsA" style="margin-top:8px">Attiva l’account online</button>'}</div>`);
  $('#nsP',sh).onclick=async()=>{if(!Cloud.on)return toast('Prima attiva l’account online');if(!Real.on){if(!Cloud.uid)await Cloud.api('login');Real.startV()}Real.last='';VDB.lastLight='';VDB.lastHard='';VDB.lastFull='';VDB.fullAt=0;await Real.publish();await new Promise(r=>setTimeout(r,300));clearTimeout(VDB.ptmr);await VDB.flush();closeOv(sh);toast(VDB.lastStatus===200?'Profilo pubblicato ✓':'Errore '+VDB.lastStatus+': riprova tra poco');setTimeout(()=>VDB.tick(),2000)};
@@ -8699,6 +8699,9 @@ AV3.edit=async function(){const a=S.acc;let c=Object.assign(this.def(),this.clea
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);try{const a=S.acc;if(a&&a.a3&&a.a3.b==null){a.a3.b='no';if(!AV3.ok(a.a3))a.a3=AV3.clean(a.a3);save()}}catch(e){}return r}}
 {const st=document.createElement('style');st.textContent=`.a3card{background:radial-gradient(120% 95% at 50% 0%,rgba(168,85,247,.32),rgba(236,72,153,.1) 55%,rgba(20,18,28,.25))}.a3stage{height:290px}.a3big .a3stage{height:46vh}`;document.head.appendChild(st)}
 
+/* v93 – il numero di persone su Vybe lo vede solo l'amministratore; tolto "Accedi nell'app Vybe" e "Accedi con un codice" */
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{adminState()}catch(e){}},3000);return r}}
+{const st=document.createElement('style');st.textContent=`#ccode,[data-m="linkdev"]{display:none!important}`;document.head.appendChild(st)}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
