@@ -9079,6 +9079,26 @@ const TR={c:{},on:{},to:String((navigator.language||'it')).slice(0,2).toLowerCas
 .trb{display:block;border:0;background:none;padding:3px 0 0;font:600 12px -apple-system,system-ui,sans-serif;color:var(--muted,rgba(255,255,255,.55));text-align:left}
 @media (prefers-reduced-motion:reduce){.petmini .pf,.pbody,.paura,.pface,.pzz{animation:none!important}}`;document.head.appendChild(st)})();
 
+/* v98b — l'animale si trova subito: barra sempre visibile in chat, tasto 🐾 in alto e "I miei animali" nel menu del profilo */
+PET.bar=(function(old){return function(u){if(this.c[u]===undefined)return`<button class="petadopt" data-petu="${u}">🐾 Il vostro animale</button>`;return old.call(this,u)}})(PET.bar);
+{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{if(cid&&cid[0]==='d'){const u=cid.slice(2),ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));const m=ov&&$('#wcm',ov);
+  if(m&&!$('#petTap',ov)){m.insertAdjacentHTML('beforebegin',`<button class="iconbtn" id="petTap" data-petu="${u}" aria-label="Animale virtuale"><span style="font-size:20px">🐾</span></button>`)}}}catch(e){}return r}}
+PET.friends=function(){const me=Real.uid,out=[];try{for(const u in (Real.docs||{})){if(u===me)continue;const d=Real.docs[u];if(!d||!USERS['r_'+u])continue;if(Real.state('r_'+u)==='on'&&(d.fw||[]).includes(me))out.push(u)}}catch(e){}return out};
+PET.list=async function(){const sh=openSheet(`<div class="shead">🐾 I miei animali</div><div class="sbody" id="petL"><div class="cmw">Carico…</div></div>`);let P={};
+ try{P=(await this.api({op:'mine'})).pets||{}}catch(e){$('#petL',sh).innerHTML='<div class="cmw">Non riesco a caricarli ora, riprova tra poco.</div>';return}
+ Object.assign(this.c,P);const has=Object.keys(P),fr=this.friends().filter(u=>!P[u]);
+ const row=(u,p)=>{const w=USERS['r_'+u]||{};return`<button class="petrow" data-petu="${u}">${p?`<span class="pf">${this.face(p)}</span>`:avHTML(w,40)}<div><b>${p?esc(p.nm):esc(w.first||w.n||'Amico')}</b><small>${p?`con ${esc(w.first||w.n||'un amico')} · ${this.ST[this.stage(p.xp)][1]}${p.st?' · 🔥 '+p.st:''}`:'Adottate un animale insieme'}</small></div><i>${p?'›':'＋'}</i></button>`};
+ $('#petL',sh).innerHTML=(has.length?`<div class="petsec">I vostri animali</div>${has.map(u=>row(u,P[u])).join('')}`:'<p class="pnote" style="text-align:center;opacity:.75">Non hai ancora un animale. Adottane uno con un amico: cresce ogni giorno in cui vi scrivete tutti e due.</p>')
+  +(fr.length?`<div class="petsec">Adotta con un amico</div>${fr.slice(0,30).map(u=>row(u,null)).join('')}`:has.length?'':'<p class="pnote" style="text-align:center;opacity:.6">Per adottarlo dovete seguirvi a vicenda.</p>');
+};
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-petu]');if(!b)return;const ov=b.closest('.ov');if(ov&&ov.querySelector('#petL'))closeOv(ov)},true);
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);setTimeout(()=>{try{const ms=$$('#layer .ov .menu'),m=ms[ms.length-1];if(!m||$('#petMenu',m)||!Real.on)return;
+  const first=m.querySelector('button');const h='<button id="petMenu"><span class="mi">🐾</span><div>I miei animali<small>L\'animale che cresce con i tuoi amici</small></div></button>';if(first)first.insertAdjacentHTML('beforebegin',h);else m.insertAdjacentHTML('afterbegin',h);
+  $('#petMenu',m).onclick=()=>{const ov=m.closest('.ov');if(ov)closeOv(ov);PET.list()}}catch(e){}},0);return r}}
+(function(){const st=document.createElement('style');st.textContent=`.petrow{width:100%;border:0;background:rgba(255,255,255,.05);color:inherit;border-radius:16px;display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:8px;text-align:left}
+.petrow .pf{font-size:34px;width:40px;text-align:center}.petrow div{flex:1;display:flex;flex-direction:column}.petrow small{opacity:.65;font-size:12px}.petrow i{font-style:normal;font-size:20px;opacity:.6}
+.petsec{font-size:12px;font-weight:700;opacity:.55;text-transform:uppercase;letter-spacing:.04em;margin:6px 4px 8px}`;document.head.appendChild(st)})();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
