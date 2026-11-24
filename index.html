@@ -8970,6 +8970,115 @@ Object.assign(PAY,{
 .pyamt{text-align:center;font-size:30px;font-weight:900;margin:2px 0 8px}
 `;document.head.appendChild(st)}
 
+/* ============ v98 — Animale virtuale con un amico + Traduzione dei commenti ============ */
+const PET={c:{},
+ SP:[['cane','🐶','🐕','Cane'],['gatto','🐱','🐈','Gatto'],['coniglio','🐰','🐇','Coniglio'],['panda','🐼','🐼','Panda'],['volpe','🦊','🦊','Volpe'],['drago','🐲','🐉','Drago'],['pinguino','🐧','🐧','Pinguino'],['unicorno','🦄','🦄','Unicorno']],
+ ST:[[0,'Uovo'],[20,'Cucciolo'],[150,'Piccolo'],[500,'Grande'],[1500,'Leggenda']],
+ sp(k){return this.SP.find(x=>x[0]===k)||this.SP[0]},
+ stage(xp){let i=0;this.ST.forEach((s,j)=>{if(xp>=s[0])i=j});return i},
+ face(p){const s=this.sp(p.sp),i=this.stage(p.xp);return i===0?'🥚':i>=3?s[2]:s[1]},
+ mood(p){return p.hap<=0?['zz','💤 Dorme','Scrivetevi o coccolatelo per svegliarlo']:p.hap<35?['sad','🥺 Ha fame','Dategli da mangiare!']:p.hap<70?['ok','🙂 Tranquillo','']:['hap','😊 Felicissimo','']},
+ async api(o){return moreCall('pet',o)},
+ async get(u,force){if(!force&&this.c[u]!==undefined)return this.c[u];try{const j=await this.api({op:'get',u});this.c[u]=j.pet||null}catch(e){if(this.c[u]===undefined)return undefined}return this.c[u]},
+ /* basta un messaggio al giorno a testa: lo segno una volta sola al giorno */
+ ping(u){const d=new Date().toLocaleDateString('sv-SE'),k='vybe_petp_'+u;try{if(localStorage.getItem(k)===d)return}catch(e){}if(this.c[u]===null)return;
+  this.api({op:'ping',u}).then(j=>{try{localStorage.setItem(k,d)}catch(e){}if(j&&j.pet){this.c[u]=j.pet;this.bars(u);if(j.grew)toast(`🐾 ${j.pet.nm} è cresciuto! Oggi vi siete scritti tutti e due 🔥 ${j.pet.st}`)}}).catch(e=>{if(e&&e.code==='nopet'){this.c[u]=null;try{localStorage.setItem(k,d)}catch(_){}}})},
+ name(u){const w=USERS['r_'+u];return w?(w.first||w.n||'il tuo amico'):'il tuo amico'},
+ bar(u){const p=this.c[u];if(p===undefined)return'';if(!p)return`<button class="petadopt" data-petu="${u}">🐾 Adottate un animale insieme</button>`;
+  const m=this.mood(p),i=this.stage(p.xp);return`<button class="petmini ${m[0]}" data-petu="${u}"><span class="pf">${this.face(p)}</span><b>${esc(p.nm)}</b><small>${this.ST[i][1]}</small>${p.st?`<em>🔥 ${p.st}</em>`:''}<i class="pd ${p.today.me?'on':''}"></i><i class="pd ${p.today.other?'on':''}"></i></button>`},
+ bars(u){$$('.petbar[data-u="'+u+'"]').forEach(el=>{el.innerHTML=this.bar(u)})},
+ open(u){const p=this.c[u];if(p)return this.sheet(u);if(p===null)return this.adopt(u);this.get(u,true).then(r=>{if(r===undefined)toast('Non riesco a caricare l’animale, riprova');else this.open(u)})},
+ adopt(u){let sp='cane';const nm=this.name(u);
+  const sh=openSheet(`<div class="shead">🐾 Adottate un animale</div><div class="sbody petad"><p class="pnote">Tu e <b>${esc(nm)}</b> avrete lo stesso animale. Cresce ogni giorno in cui vi scrivete <b>tutti e due</b>; se lo trascurate si addormenta, ma non vi lascia mai.</p>
+   <div class="pgrid">${this.SP.map(s=>`<button data-sp="${s[0]}" class="${s[0]===sp?'on':''}"><span>${s[1]}</span><small>${s[3]}</small></button>`).join('')}</div>
+   <input class="in" id="petN" maxlength="16" placeholder="Come lo chiamate?" autocomplete="off"><button class="btn" id="petGo">Adotta 🥚</button></div></div>`);
+  $$('[data-sp]',sh).forEach(b=>b.onclick=()=>{sp=b.dataset.sp;$$('[data-sp]',sh).forEach(x=>x.classList.toggle('on',x===b))});
+  $('#petGo',sh).onclick=async()=>{const n=$('#petN',sh).value.replace(/\s+/g,' ').trim();if(!n)return toast('Dagli un nome');if(isBad(n))return toast('Scegli un nome più gentile');const bt=$('#petGo',sh);bt.disabled=true;
+   try{const j=await this.api({op:'adopt',u,sp,nm:n});this.c[u]=j.pet;this.bars(u);closeOv(sh);this.sheet(u,true)}
+   catch(e){bt.disabled=false;if(e&&e.code==='exists'){closeOv(sh);this.get(u,true).then(()=>{this.bars(u);if(this.c[u])this.sheet(u)});return}toast(e&&e.code==='notfriends'?'Potete adottarlo solo se vi seguite a vicenda':'Non riesco ad adottarlo adesso, riprova')}}},
+ sheet(u,born){const sh=openSheet(`<div class="shead">🐾 Il vostro animale</div><div class="sbody petsh" id="petS"></div>`);let busy=false,tm=null;
+  const fmt=ms=>{const m=Math.ceil(ms/60000);return m>=60?Math.ceil(m/60)+' h':m+' min'};
+  const draw=()=>{const p=this.c[u];if(!p){closeOv(sh);return}const m=this.mood(p),i=this.stage(p.xp),nx=this.ST[i+1],o=this.name(u);
+   const pr=nx?Math.min(100,Math.round((p.xp-this.ST[i][0])/(nx[0]-this.ST[i][0])*100)):100;
+   $('#petS',sh).innerHTML=`<div class="pstage st${i} ${m[0]}"><div class="paura"></div><div class="pbody"><span class="pface">${this.face(p)}</span>${i===4?'<span class="pcrown">👑</span>':''}</div><div class="pshadow"></div><div class="pfx" id="pfx"></div>${m[0]==='zz'?'<div class="pzz">z<i>z</i><b>z</b></div>':''}</div>
+    <div class="pname"><b>${esc(p.nm)}</b><span>${this.ST[i][1]} · ${this.sp(p.sp)[3]}</span></div>
+    <div class="pmood">${m[1]}${m[2]?` · <small>${m[2]}</small>`:''}</div>
+    <div class="pbars"><label>Felicità<i><s style="width:${p.hap}%"></s></i></label><label>${nx?'Verso '+nx[1]:'Livello massimo'}<i><s class="xp" style="width:${pr}%"></s></i></label></div>
+    <div class="ptoday"><span class="${p.today.me?'on':''}">${p.today.me?'✅':'⏳'} Tu</span><span class="${p.today.other?'on':''}">${p.today.other?'✅':'⏳'} ${esc(o)}</span><b>🔥 ${p.st} ${p.st===1?'giorno':'giorni'}</b></div>
+    <p class="pnote">${p.today.both?'Oggi ve lo siete meritato: è cresciuto! Tornate domani.':'Per farlo crescere oggi dovete scrivervi tutti e due in chat.'}${p.best>1?` Record: ${p.best} giorni.`:''}</p>
+    <div class="pacts">${[['feed','🍖','Pappa'],['play','🎾','Gioca'],['pet','🤚','Coccole']].map(([a,e,t])=>`<button data-pa="${a}" ${p.cd[a]>0?'disabled':''}><span>${e}</span><b>${t}</b><small>${p.cd[a]>0?'tra '+fmt(p.cd[a]):'pronto'}</small></button>`).join('')}</div>
+    <div class="prow"><button class="btn soft" id="petRn">✏️ Cambia nome</button><button class="btn soft" id="petFr">👋 Lascia andare</button></div>`;
+   $$('[data-pa]',sh).forEach(b=>b.onclick=()=>act(b.dataset.pa));
+   $('#petRn',sh).onclick=async()=>{const n=prompt('Nuovo nome',p.nm);if(n==null)return;const v=n.replace(/\s+/g,' ').trim().slice(0,16);if(!v||isBad(v))return toast('Nome non valido');try{const j=await this.api({op:'rename',u,nm:v});this.c[u]=j.pet;draw();this.bars(u)}catch(e){toast('Non riesco a cambiarlo, riprova')}};
+   $('#petFr',sh).onclick=()=>confirmSheet('Lasciare andare '+p.nm+'?','Sparirà per te e per '+o+'. Potrete adottarne un altro quando volete.','Lascia andare',async()=>{try{await this.api({op:'free',u});this.c[u]=null;this.bars(u);closeOv(sh);toast('👋 '+p.nm+' è tornato nel bosco')}catch(e){toast('Non riesco, riprova')}})};
+  const fx=(e,n=6)=>{const f=$('#pfx',sh);if(!f)return;for(let k=0;k<n;k++){const s=document.createElement('span');s.textContent=e;s.style.left=(30+Math.random()*40)+'%';s.style.animationDelay=(k*.08)+'s';f.appendChild(s);setTimeout(()=>s.remove(),1600)}};
+  const act=async a=>{if(busy)return;busy=true;const bd=$('.pbody',sh);try{const j=await this.api({op:'act',u,a});this.c[u]=j.pet;draw();this.bars(u);const b2=$('.pbody',sh);if(b2){b2.classList.add('a-'+a);setTimeout(()=>b2.classList.remove('a-'+a),1200)}
+    fx(a==='feed'?'🍖':a==='play'?'🎾':'💜',a==='pet'?8:5);try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+   catch(e){if(e&&e.code==='wait')toast('Ha appena finito: riprova più tardi');else toast('Non riesco, riprova')}finally{busy=false}};
+  draw();if(born){setTimeout(()=>fx('✨',10),200);toast('🥚 È nato un uovo! Scrivetevi entrambi oggi per farlo schiudere')}
+  this.get(u,true).then(()=>{if(sh.isConnected)draw()});tm=setInterval(()=>{if(!sh.isConnected)return clearInterval(tm);this.get(u,true).then(()=>{if(sh.isConnected&&!busy)draw()})},30000)}
+};
+/* nella chat con un amico: barra dell'animale sotto il nome */
+{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{if(cid&&cid[0]==='d'){const u=cid.slice(2),ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));const h=ov&&$('.wch',ov);
+  if(h&&!$('.petbar',ov)){h.insertAdjacentHTML('afterend',`<div class="petbar" data-u="${u}">${PET.bar(u)}</div>`);PET.get(u,true).then(()=>PET.bars(u))}}}catch(e){}return r}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-petu]');if(!b)return;e.preventDefault();e.stopPropagation();PET.open(b.dataset.petu)},true);
+/* ogni messaggio a un amico conta per far crescere l'animale */
+{const vs=VC.send.bind(VC);VC.send=async function(cid,pl){const r=await vs(cid,pl);try{if(cid&&cid[0]==='d')PET.ping(cid.slice(2))}catch(e){}return r}}
+
+/* ---------- Traduzione dei commenti ---------- */
+const TR={c:{},on:{},to:String((navigator.language||'it')).slice(0,2).toLowerCase(),
+ N:{it:'italiano',en:'inglese',es:'spagnolo',fr:'francese',de:'tedesco',pt:'portoghese',ro:'rumeno',ar:'arabo',zh:'cinese',ja:'giapponese',ru:'russo',uk:'ucraino',pl:'polacco',nl:'olandese',tr:'turco',sq:'albanese',hi:'hindi',ko:'coreano'},
+ IT:new Set('il lo la i gli le un una uno di da in con su per tra fra e ed o ma che chi non è e\' sono sei siamo siete ho hai ha abbiamo avete hanno mi ti ci si vi me te del dello della dei degli delle al allo alla ai agli alle dal dalla nel nella nei sul sulla questo questa questi quello quella come quando dove perché perche anche più piu molto troppo tanto tanta bello bella belli belle bellissimo bellissima grande grazie ciao bravo brava bravi tu io noi voi lui lei loro mio mia miei tuo tua suo sua sempre ancora già gia qui qua cosa fatto fai fa sì si no oggi domani ieri amore auguri complimenti stupendo stupenda fantastico fantastica wow top raga ragazzi tutto tutti tutte niente proprio davvero vero vera foto video'.split(' ')),
+ lang(){return this.N[this.to]?this.to:'it'},
+ need(tx){const w=(tx.toLowerCase().match(/[\p{L}']+/gu)||[]);if(w.join('').length<3)return false;if(this.lang()!=='it')return true;
+  const hit=w.filter(x=>this.IT.has(x.replace(/'/g,''))).length;if(hit&&hit/w.length>=.15)return false;if(w.length<=2&&/[àèìòù]/.test(tx))return false;return true},
+ async get(tx){const k=this.lang()+'|'+tx;if(this.c[k])return this.c[k];const j=await moreCall('tr',{tx,to:this.lang()});this.c[k]=j;return j},
+ deco(L){$$('.cmi',L).forEach(row=>{const b=row.querySelector('.cmb'),p=b&&b.querySelector(':scope>p');if(!p||b.querySelector('.trb'))return;const tx=p.textContent.trim();if(!this.need(tx))return;
+   const id=row.dataset.id,btn=document.createElement('button');btn.className='trb';btn.textContent='Traduci';b.appendChild(btn);const orig=p.innerHTML;
+   const show=j=>{p.textContent=j.t;p.dataset.tr='1';btn.textContent=`Tradotto${this.N[j.src]&&j.src!==this.lang()?' dall’'+this.N[j.src]:''} · Mostra originale`};
+   const k=this.lang()+'|'+tx;if(this.on[id]&&this.c[k]&&!this.c[k].same)show(this.c[k]);
+   btn.onclick=async e=>{e.stopPropagation();if(p.dataset.tr){p.innerHTML=orig;delete p.dataset.tr;delete this.on[id];btn.textContent='Traduci';return}
+    btn.textContent='Traduco…';btn.disabled=true;try{const j=await this.get(tx);if(j.same){btn.textContent='È già in '+(this.N[this.lang()]||'italiano');return}this.on[id]=1;show(j);btn.disabled=false}
+    catch(er){btn.disabled=false;btn.textContent=er&&er.code==='slow'?'Troppe traduzioni: aspetta un attimo':'Traduzione non riuscita · Riprova'}}})}
+};
+{const co=CMT.open;CMT.open=function(){const r=co.apply(this,arguments);try{const sh=[...$$('#layer>*')].reverse().find(x=>x.querySelector('#cmL'));const L=sh&&$('#cmL',sh);if(L&&!L._tr){L._tr=1;new MutationObserver(()=>TR.deco(L)).observe(L,{childList:true});TR.deco(L)}}catch(e){}return r}}
+(function(){const st=document.createElement('style');st.textContent=`
+.petbar{padding:6px 12px 2px;display:flex;justify-content:center}
+.petadopt,.petmini{border:0;border-radius:999px;display:flex;align-items:center;gap:7px;padding:6px 13px;font:600 13px -apple-system,system-ui,sans-serif;color:var(--text,#fff);background:rgba(255,255,255,.09);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.18)}
+.petmini .pf{font-size:20px;display:inline-block;animation:pbob 2.4s ease-in-out infinite}.petmini.zz .pf{animation:none;opacity:.6;transform:rotate(-12deg)}.petmini.sad .pf{animation-duration:4s}
+.petmini small{opacity:.6;font-weight:500}.petmini em{font-style:normal;font-weight:700;color:#fb923c}.petmini .pd{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.22)}.petmini .pd.on{background:#22c55e}
+.petad .pnote,.petsh .pnote{font-size:13px;opacity:.75;line-height:1.4;margin:6px 2px 12px;text-align:center}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.pgrid button{border:0;border-radius:18px;padding:10px 0 8px;background:rgba(255,255,255,.07);color:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.pgrid button span{font-size:34px}.pgrid button small{font-size:11px;opacity:.7}.pgrid button.on{background:linear-gradient(135deg,rgba(168,85,247,.45),rgba(236,72,153,.4));transform:scale(1.06);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4)}
+.petad .in{margin-bottom:10px}
+.pstage{position:relative;height:210px;border-radius:26px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;background:radial-gradient(120% 90% at 50% 100%,#3b2a6b 0%,#1b1736 55%,#0d0c1d 100%)}
+.pstage.hap{background:radial-gradient(120% 90% at 50% 100%,#6d3bd1 0%,#2a1c58 55%,#100d24 100%)}.pstage.sad{background:radial-gradient(120% 90% at 50% 100%,#3a3550 0%,#1c1a2a 60%,#0e0d16 100%)}.pstage.zz{background:radial-gradient(120% 90% at 50% 100%,#1e2448 0%,#0f1229 60%,#07081a 100%)}
+.paura{position:absolute;left:50%;bottom:40px;width:170px;height:170px;margin-left:-85px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18),transparent 65%);animation:pglow 3s ease-in-out infinite}
+.st4 .paura{background:radial-gradient(circle,rgba(250,204,21,.45),transparent 65%)}
+.pbody{position:relative;margin-bottom:34px;transform-origin:50% 100%;animation:pbreathe 2.6s ease-in-out infinite}.pface{display:block;line-height:1;font-size:92px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+.st0 .pface{font-size:70px;animation:pwob 2.2s ease-in-out infinite}.st1 .pface{font-size:62px}.st2 .pface{font-size:78px}.st3 .pface{font-size:94px}.st4 .pface{font-size:104px}
+.pcrown{position:absolute;left:50%;top:-30px;font-size:34px;transform:translateX(-50%) rotate(-8deg)}
+.hap .pbody{animation:phop 1.6s cubic-bezier(.3,1.5,.5,1) infinite}.zz .pbody{animation:none;transform:rotate(-14deg) translateY(8px);opacity:.75}.sad .pbody{animation-duration:4.5s;filter:saturate(.7)}
+.pshadow{position:absolute;bottom:26px;left:50%;width:90px;height:14px;margin-left:-45px;border-radius:50%;background:rgba(0,0,0,.45);filter:blur(3px)}
+.pbody.a-feed{animation:pchomp .25s ease-in-out 4}.pbody.a-play{animation:pspin .9s cubic-bezier(.3,1.4,.5,1)}.pbody.a-pet{animation:psquish .5s ease-in-out 2}
+.pfx{position:absolute;inset:0;pointer-events:none}.pfx span{position:absolute;bottom:60px;font-size:26px;animation:pfloat 1.5s ease-out forwards}
+.pzz{position:absolute;right:30%;top:30px;font:800 22px -apple-system,system-ui;color:#c7d2fe;animation:pzz 2.5s ease-in-out infinite}.pzz i{font-size:17px;font-style:normal}.pzz b{font-size:13px}
+.pname{text-align:center;margin-top:12px}.pname b{display:block;font-size:22px}.pname span{font-size:13px;opacity:.65}
+.pmood{text-align:center;font-size:14px;margin:6px 0 10px}.pmood small{opacity:.7}
+.pbars{display:grid;gap:8px;margin:0 4px 12px}.pbars label{font-size:12px;opacity:.85;display:grid;gap:4px}.pbars i{height:8px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden}.pbars s{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#f43f5e,#f59e0b,#22c55e);transition:width .6s cubic-bezier(.3,1.2,.5,1)}.pbars s.xp{background:linear-gradient(90deg,#a855f7,#ec4899)}
+.ptoday{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:13px}.ptoday span{padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.07)}.ptoday span.on{background:rgba(34,197,94,.2)}.ptoday b{color:#fb923c}
+.pacts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.pacts button{border:0;border-radius:20px;padding:12px 0 10px;background:rgba(255,255,255,.08);color:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform .2s}
+.pacts button:active{transform:scale(.92)}.pacts button span{font-size:28px}.pacts button b{font-size:13px}.pacts button small{font-size:11px;opacity:.6}.pacts button:disabled{opacity:.45}
+.prow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@keyframes pbob{50%{transform:translateY(-3px)}}@keyframes pglow{50%{transform:scale(1.12);opacity:.7}}@keyframes pbreathe{50%{transform:scale(1.04,.97)}}
+@keyframes phop{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-16px) scale(.96,1.05)}55%{transform:translateY(0) scale(1.06,.92)}70%{transform:scale(1)}}
+@keyframes pwob{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg)}40%{transform:rotate(7deg)}60%{transform:rotate(-4deg)}}
+@keyframes pchomp{50%{transform:scale(1.12,.88)}}@keyframes pspin{to{transform:rotate(360deg)}}@keyframes psquish{50%{transform:scale(1.15,.85)}}
+@keyframes pfloat{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-120px) scale(1.2);opacity:0}}
+@keyframes pzz{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-10px);opacity:1}}
+.trb{display:block;border:0;background:none;padding:3px 0 0;font:600 12px -apple-system,system-ui,sans-serif;color:var(--muted,rgba(255,255,255,.55));text-align:left}
+@media (prefers-reduced-motion:reduce){.petmini .pf,.pbody,.paura,.pface,.pzz{animation:none!important}}`;document.head.appendChild(st)})();
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
