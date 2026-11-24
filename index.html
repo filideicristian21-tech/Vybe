@@ -8828,6 +8828,78 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 .a3ch.vpx::after{content:' ✨';}
 `;document.head.appendChild(st)}
 
+/* v95 – paga dentro l'app: Apple Pay (iPhone) e Google Pay (Android) senza aprire la pagina di Stripe */
+Object.assign(PAY,{
+ sp:null,
+ sjs(){if(!this.i||!this.i.pk)return Promise.resolve(null);if(this.sp)return this.sp;
+  this.sp=new Promise(res=>{if(window.Stripe)return res(window.Stripe(this.i.pk,{locale:'it'}));const s=document.createElement('script');s.src='https://js.stripe.com/v3/';s.async=true;
+   s.onload=()=>{try{res(window.Stripe(this.i.pk,{locale:'it'}))}catch(e){res(null)}};s.onerror=()=>{this.sp=null;res(null)};document.head.appendChild(s);setTimeout(()=>res(window.Stripe?window.Stripe(this.i.pk,{locale:'it'}):null),9000)});return this.sp},
+ /* bottone Apple Pay / Google Pay: tocchi, doppio clic, Face ID, fatto */
+ async express(box,o){const st=await this.sjs();if(!st||!box.isConnected){o.none&&o.none();return null}
+  const elements=st.elements({mode:o.k==='vp'?'subscription':'payment',amount:o.amount,currency:'eur',appearance:{theme:'night',variables:{borderRadius:'14px'}}});
+  const opts={buttonHeight:52,buttonType:{applePay:o.k==='vp'?'subscribe':o.k==='tip'?'support':'buy',googlePay:o.k==='vp'?'subscribe':'pay'},buttonTheme:{applePay:'white-outline'},
+   paymentMethods:{applePay:'always',googlePay:'always',link:'never',paypal:'never',amazonPay:'never',klarna:'never'},layout:{maxColumns:1,maxRows:2,overflow:'never'}};
+  if(o.k==='vp')opts.applePay={recurringPaymentRequest:{paymentDescription:'Vybe+',managementURL:'https://vybe-pink-pi.vercel.app/',regularBilling:{amount:o.amount,label:'Vybe+ al mese',recurringPaymentIntervalUnit:'month',recurringPaymentIntervalCount:1}}};
+  let ece;try{ece=elements.create('expressCheckout',opts);ece.mount(box)}catch(e){o.none&&o.none();return null}
+  let shown=false;const avail=m=>{const any=!!m&&Object.values(m).some(Boolean);if(any){shown=true;box.classList.add('on');o.ready&&o.ready(m)}else{o.none&&o.none()}};
+  ece.on('ready',e=>avail(e&&e.availablePaymentMethods));try{ece.on('availablepaymentmethodschange',e=>avail(e&&e.paymentMethods))}catch(x){}
+  setTimeout(()=>{if(!shown)o.none&&o.none()},7000);
+  ece.on('click',e=>{if(S.teen){toast('Gli account Teen non possono fare acquisti');return}e.resolve({lineItems:[{name:o.label(),amount:o.amount}]})});
+  ece.on('confirm',async ev=>{const fail=m=>{try{ev.paymentFailed({reason:'fail'})}catch(x){}toast(m)};
+   const{error:se}=await elements.submit();if(se)return fail(se.message||'Pagamento non riuscito');
+   let j;try{j=await this.call(Object.assign({op:'pi'},o.payload()))}catch(e){return fail({teen:'Gli account Teen non possono fare acquisti',norecv:'Questa persona non ha ancora attivato i regali',already:'Hai già Vybe+ attivo',slow:'Troppi tentativi, riprova tra poco',notready:'I pagamenti non sono ancora attivi'}[e&&e.code]||'Pagamento non riuscito, riprova')}
+   const L=this.pend();L.push({s:j.id,k:o.k,t:Date.now()});this.setPend(L);
+   const{error}=await st.confirmPayment({elements,clientSecret:j.cs,confirmParams:{return_url:'https://vybe-pink-pi.vercel.app/pagato.html?s=app'},redirect:'if_required'});
+   if(error)return toast(error.message||'Pagamento non riuscito');
+   o.paid&&o.paid();let r=null;for(let i=0;i<6;i++){try{r=await this.call({op:'pidone',id:j.id});if(r.ok)break}catch(e){}await new Promise(x=>setTimeout(x,1200))}
+   this.setPend(this.pend().filter(p=>p.s!==j.id));if(r&&r.ok)this.done(r);else toast('Pagamento ricevuto: si attiva tra pochi secondi')});
+  return{update:a=>{o.amount=a;try{elements.update({amount:a})}catch(e){}},destroy:()=>{try{ece.destroy()}catch(e){}}}},
+ /* acquisti in sospeso: anche quelli fatti con Apple Pay / Google Pay */
+ async check(){const L=this.pend();if(!L.length||!CDB.isV())return;const keep=[];
+  for(const p of L){if(Date.now()-p.t>2*86400000)continue;const inApp=/^(pi|sub)_/.test(p.s||'');try{const r=await this.call(inApp?{op:'pidone',id:p.s}:{op:'confirm',s:p.s});if(r.ok){this.done(r,p)}else keep.push(p)}catch(e){if(!(e&&(e.code==='notyours'||e.code==='bad')))keep.push(p)}}
+  this.setPend(keep)},
+ payBox(id){return`<div class="pyx" id="${id}"><div class="pyxl"><i></i></div></div><button class="pycard" id="${id}C">💳 Paga con carta</button>`},
+ /* Vybe+: bottone Apple Pay / Google Pay direttamente nella schermata */
+ async vpSheet(){const info=await this.info(true);if(!info||!info.on)return toast('Vybe+ non è ancora disponibile');const on=this.vp(),v=info.vp||{};
+  const sh=openSheet(`<div class="vpsh"><div class="vphero"><span class="vpb big">✓</span><h3>Vybe+</h3><p>${on?(v.cancel?'Attivo fino al '+new Date(v.until).toLocaleDateString('it-IT')+' · non si rinnova':'Attivo · si rinnova il '+new Date(v.until).toLocaleDateString('it-IT')):this.eur(info.vpPrice)+' al mese · disdici quando vuoi'}</p></div>
+   <div class="vpl"><div>✓<span><b>Badge Vybe+</b> accanto al tuo nome</span></div><div>🎨<span><b>Temi colore</b> per tutta l’app</span></div><div>🕶️<span><b>Accessori esclusivi</b> per l’avatar 3D</span></div><div>💜<span><b>Sostieni Vybe</b> e i nuovi aggiornamenti</span></div></div>
+   ${on?`<div class="vpth">${this.TH.map(t=>`<button data-t="${t[0]}" class="${(S.acc.vpTheme||'viola')===t[0]?'on':''}" style="--a:${t[2]};--b:${t[3]}"><i></i>${t[1]}</button>`).join('')}</div><button class="link" id="vpC" style="margin:6px auto 16px;display:block">${v.cancel?'Riattiva il rinnovo':'Disdici l’abbonamento'}</button>`
+   :S.teen?'<p class="pynote">Gli account Teen non possono fare acquisti.</p>':`<div class="pyw">${this.payBox('vpX')}</div><p class="pynote">${this.eur(info.vpPrice)} al mese. Puoi disdire in qualsiasi momento qui.</p>`}</div>`);
+  const card=$('#vpXC',sh);if(card)card.onclick=()=>{closeOv(sh);this.go({k:'vp'},'Vybe+')};
+  const x=$('#vpX',sh);if(x){const ex=await this.express(x,{k:'vp',amount:info.vpPrice,label:()=>'Vybe+ (al mese)',payload:()=>({k:'vp'}),none:()=>{x.classList.add('none');card.classList.add('big')},paid:()=>{try{closeOv(sh)}catch(e){}}});sh._ex=ex}
+  $$('[data-t]',sh).forEach(b=>b.onclick=()=>{S.acc.vpTheme=b.dataset.t;save();this.theme();$$('[data-t]',sh).forEach(y=>y.classList.toggle('on',y===b))});
+  const c=$('#vpC',sh);if(c)c.onclick=async()=>{const cancel=!v.cancel;if(cancel){const q=openSheet(`<div style="padding:10px 20px 22px;text-align:center"><h3>Disdire Vybe+?</h3><p style="color:var(--muted)">Resta attivo fino al ${new Date(v.until).toLocaleDateString('it-IT')}, poi non ti verrà più addebitato niente.</p><button class="btn danger" id="q1" style="width:100%">Disdici</button><button class="link" id="q2">Annulla</button></div>`);
+    $('#q2',q).onclick=()=>closeOv(q);const ok=await new Promise(res=>{$('#q1',q).onclick=()=>{closeOv(q);res(1)};q.onclose=()=>res(0)});if(!ok)return}
+   try{await this.call({op:cancel?'vpcancel':'vpresume'});await this.info(true);closeOv(sh);toast(cancel?'Abbonamento disdetto: niente più addebiti':'Rinnovo riattivato ✨')}catch(e){toast('Non riesco, riprova')}}},
+ /* regalo nella diretta: scegli il regalo, poi Apple Pay / Google Pay */
+ async giftSheet(h){const info=await this.info();const w=USERS['r_'+h]||{};
+  if(!info||!info.on)return toast('I regali a pagamento non sono ancora attivi');if(S.teen)return toast('Gli account Teen non possono fare acquisti');
+  const ok=(await this.canRecv([h])).includes(h);const G=Object.entries(info.gifts||{});
+  const sh=openSheet(`<div class="shead">🎁 Regalo per @${esc(w.u||'')}</div><div id="pgS">${ok?`<div class="pygrid">${G.map(([id,g],i)=>`<button data-g="${id}" style="--i:${i}"><span>${g.e}</span><b>${esc(g.n)}</b><small>${this.eur(g.p)}</small></button>`).join('')}</div>
+   <p class="pynote">${100-(info.feePct||20)}% va a ${esc(w.first||w.u||'il creator')}, il resto a Vybe.</p>`:`<div class="emptyc" style="padding:26px 22px">${esc(w.first||w.u||'Questa persona')} non ha ancora attivato i regali a pagamento.</div>`}</div>`);
+  $$('[data-g]',sh).forEach(b=>b.onclick=async()=>{const gid=b.dataset.g,g=info.gifts[gid];
+   $('#pgS',sh).innerHTML=`<div class="pysel"><span>${g.e}</span><b>${esc(g.n)} · ${this.eur(g.p)}</b><small>per @${esc(w.u||'')}</small></div><div class="pyw">${this.payBox('pgX')}</div><button class="link" id="pgB" style="display:block;margin:2px auto 14px">← Scegli un altro regalo</button>`;
+   $('#pgB',sh).onclick=()=>{try{sh._ex&&sh._ex.destroy()}catch(e){}closeOv(sh);setTimeout(()=>this.giftSheet(h),200)};
+   const card=$('#pgXC',sh);card.onclick=()=>{closeOv(sh);this.go({k:'gift',g:gid,to:h,ctx:h},g.e+' '+g.n)};
+   const x=$('#pgX',sh);sh._ex=await this.express(x,{k:'gift',amount:g.p,label:()=>'Regalo '+g.e+' '+g.n+' per @'+(w.u||''),payload:()=>({k:'gift',g:gid,to:h,ctx:h}),none:()=>{x.classList.add('none');card.classList.add('big')},paid:()=>{try{closeOv(sh)}catch(e){}}})})},
+ /* mancia dal profilo */
+ async tipSheet(h){const info=await this.info();const w=USERS['r_'+h]||{};if(!info||!info.on)return;let amt=300;
+  const sh=openSheet(`<div class="shead">💸 Supporta ${esc(w.first||w.u||'')}</div><div class="pytip">${[100,300,500,1000].map(a=>`<button data-a="${a}" class="${a===amt?'on':''}">${this.eur(a)}</button>`).join('')}</div>
+   <label class="pyfree">Altro importo <span><input id="pyA" inputmode="decimal" placeholder="es. 7" maxlength="6"> €</span></label>
+   <div class="pyamt" id="pyAm">${this.eur(amt)}</div><div class="pyw">${this.payBox('ptX')}</div><p class="pynote">Da 1 € a 100 €. ${100-(info.feePct||20)}% va a ${esc(w.first||w.u||'')}.</p>`);
+  let ex=null;const upd=()=>{$('#pyAm',sh).textContent=this.eur(amt);$$('[data-a]',sh).forEach(b=>b.classList.toggle('on',+b.dataset.a===amt));ex&&ex.update(amt)};
+  $$('[data-a]',sh).forEach(b=>b.onclick=()=>{amt=+b.dataset.a;$('#pyA',sh).value='';upd()});
+  $('#pyA',sh).oninput=e=>{const v=Math.round(parseFloat(String(e.target.value).replace(',','.'))*100);if(v>=100&&v<=10000){amt=v;upd()}};
+  const card=$('#ptXC',sh);card.onclick=()=>{if(!(amt>=100&&amt<=10000))return toast('Scegli da 1 € a 100 €');closeOv(sh);this.go({k:'tip',to:h,amt},'Mancia')};
+  const x=$('#ptX',sh);ex=await this.express(x,{k:'tip',amount:amt,label:()=>'Mancia per @'+(w.u||''),payload:()=>({k:'tip',to:h,amt}),none:()=>{x.classList.add('none');card.classList.add('big')},paid:()=>{try{closeOv(sh)}catch(e){}}})}});
+{const st=document.createElement('style');st.textContent=`
+.pyw{padding:4px 16px 0}.pyx{min-height:52px;position:relative;border-radius:14px}.pyx.none{display:none}.pyxl{position:absolute;inset:0;display:grid;place-items:center}.pyxl i{width:24px;height:24px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:a3spin .8s linear infinite}.pyx.on .pyxl{display:none}
+.pycard{display:block;width:100%;margin:10px 0 4px;padding:10px;border-radius:14px;background:none;color:inherit;opacity:.75;font-weight:700;font-size:14px}
+.pycard.big{opacity:1;padding:15px;background:var(--vy);color:#fff;font-size:16px;font-weight:800}
+.pysel{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px 14px}.pysel span{font-size:56px;animation:tgpop .6s cubic-bezier(.34,1.56,.64,1)}.pysel b{font-size:17px}.pysel small{opacity:.65}
+.pyamt{text-align:center;font-size:30px;font-weight:900;margin:2px 0 8px}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
