@@ -7915,6 +7915,81 @@ try{const g=GUIDE.S.find(x=>/Giochi in chat/.test(x[1]));if(g)g[2]='Apri una cha
 @media (prefers-reduced-motion:reduce){.gmtap.turn span{animation:none}}
 `;document.head.appendChild(st)}
 
+/* v87 – PRIVACY: conferme di lettura attivabili, "scarica i tuoi dati", eliminazione account completa (anche commenti, foto in chat,
+   posizione, messaggi programmati) e selezione multipla dei messaggi da eliminare. */
+const PRIV={
+ async call(o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
+  const r=await fetch('/api/more?m=priv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:CDB.sid},o))});
+  if(r.status===401&&!retry){CDB.sid=null;try{localStorage.removeItem(CDB.key())}catch(e){}if(!await CDB.auth())throw{code:'auth'};return this.call(o,true)}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||r.status};return j},
+ rr(){const s=S.acc&&S.acc.status;return!(s&&s.rr===false)},
+ /* copia dei dati senza password, chiavi segrete e immagini pesanti */
+ clean(v,d=0){if(d>12)return null;if(Array.isArray(v))return v.map(x=>this.clean(x,d+1));if(v&&typeof v==='object'){const o={};for(const[k,x]of Object.entries(v)){if(/hash|salt|secret|token|pass|seed|cipher|privkey|private_?key|jwk/i.test(k)||['pin','sk','iv','key','keys','priv','pk'].includes(k))continue;o[k]=this.clean(x,d+1)}return o}
+  if(typeof v==='string'&&v.length>400&&/^data:|^[A-Za-z0-9+/=]{400,}$/.test(v))return '[immagine]';return v},
+ async export(btn){if(!S.acc)return;const old=btn&&btn.innerHTML;if(btn){btn.disabled=true}toast('Preparo i tuoi dati…');
+  const a=S.acc,out={vybe:'I tuoi dati di Vybe',creato:new Date().toISOString(),nota:'Password, PIN e chiavi di cifratura non sono inclusi per sicurezza.'};
+  out.account=this.clean({nome:a.name,nome_utente:a.username,email:a.email,nascita:a.dob||a.birth,bio:a.bio,creato:a.created,impostazioni:a.settings,stato_attivita:a.status});
+  out.profilo_completo=this.clean(Object.fromEntries(Object.entries(a).filter(([k])=>!['vc','chats','name','username','email'].includes(k))));
+  try{if(VC.on&&VC.ready)out.vybe_chat=VC.convs().map(c=>({chat:c.title,tipo:c.kind==='d'?'privata':'gruppo',messaggi:c.msgs.filter(m=>!m.del&&m.pl).map(m=>({da:m.from===VC.me?'tu':uName(m.from),quando:new Date(m.t).toISOString(),testo:m.pl.tx||(m.pl.im?'[foto]':m.pl.gm?'[gioco]':m.pl.poll?'[sondaggio]':m.pl.au?'[vocale]':'')}))}))}catch(e){}
+  try{if(CDB.isV())out.sul_server=await this.call({op:'export'})}catch(e){out.sul_server={errore:'non disponibile adesso, riprova tra un minuto'}}
+  const name='vybe-dati-'+String(a.username||'account').replace(/[^\w.-]/g,'')+'-'+new Date().toISOString().slice(0,10)+'.json';
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  try{const f=new File([blob],name,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'I miei dati di Vybe'});if(btn)btn.disabled=false;return}}catch(e){if(e&&e.name==='AbortError'){if(btn)btn.disabled=false;return}}
+  const u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);if(btn)btn.disabled=false;toast('File pronto 📥')}};
+/* conferme di lettura: se le spegni, all'altro arriva solo "consegnato" e tu non vedi quando leggono gli altri */
+{const mr=VC.markRead.bind(VC);VC.markRead=function(cid){if(PRIV.rr())return mr(cid);const c=this.conv(cid);if(!c)return;const their=c.msgs.filter(m=>m.from!==this.me);if(!their.length)return;
+  const mx=Math.max(...their.map(m=>m.t)),a=S.acc.vc;a.lr=a.lr||{};if((a.lr[cid]||0)<mx){a.lr[cid]=mx;save();this.emit()}const id=this.did(cid),D=this.mine[id];if(D&&(D.dl||0)<mx){D.dl=mx;this.put(id)}}}
+{const cv=VC.conv.bind(VC);VC.conv=function(cid){const c=cv(cid);if(!c||PRIV.rr())return c;const lr=((S.acc.vc||{}).lr||{})[cid]||0;if(lr)c.unread=c.msgs.filter(m=>m.from!==this.me&&m.t>lr&&!m.del).length;
+  if(c.kind==='d')c.theirRd=0;else if(c.rdOf){const f=c.rdOf;c.rdOf=u=>{const x=f(u);return{rd:0,dl:x.dl}}}return c}}
+/* eliminazione account: prima pulisco anche quello che hai lasciato agli altri */
+{const dn=deleteAccountNow;deleteAccountNow=async function(){try{if(CDB.isV())await PRIV.call({op:'wipe'})}catch(e){}return dn.apply(this,arguments)}}
+/* impostazioni: nuove voci */
+{const os=openSettings;openSettings=function(){const r=os.apply(this,arguments);try{const ov=$$('#layer>.ovf').pop();if(!ov||$('#v87rr',ov))return r;
+  const st=[...$$('.sect',ov)].find(x=>/stato attivit/i.test(x.textContent));const rows=[];let n=st&&st.nextElementSibling;while(n&&!n.classList.contains('sect')){rows.push(n);n=n.nextElementSibling}
+  const after=rows[rows.length-1];if(after)after.insertAdjacentHTML('afterend',`<div class="trow2" id="v87rr"><div>Conferme di lettura<small>Se le disattivi, gli altri non vedono quando leggi i loro messaggi e tu non vedi quando leggono i tuoi</small></div><button class="sw ${PRIV.rr()?'on':''}" id="v87rrs"></button></div>`);
+  $('#v87rrs',ov).onclick=e=>{const s=S.acc.status;s.rr=!PRIV.rr();e.currentTarget.classList.toggle('on',s.rr);save();try{VC.emit()}catch(_){}toast(s.rr?'Conferme di lettura attive':'Conferme di lettura disattivate')};
+  const acc=[...$$('.sect',ov)].find(x=>/^account$/i.test(x.textContent.trim()));
+  (acc||$('.fbody',ov).lastElementChild).insertAdjacentHTML('beforebegin',`<div class="sect">I tuoi dati</div>
+   <div class="trow2 v40r" id="v87dl"><div>📥 Scarica i tuoi dati<small>Un file con profilo, post, impostazioni, chat e quello che il server conserva di te</small></div><span class="chev">›</span></div>
+   <div class="trow2 v40r" id="v87pv"><div>🛡️ Cosa vede chi non ti segue<small>${S.acc.settings&&S.acc.settings.private?'Solo nome, foto e biografia: il tuo account è privato':'Il tuo profilo è pubblico: post e storie sono visibili a tutti su Vybe'}</small></div><span class="chev">›</span></div>`);
+  $('#v87dl',ov).onclick=e=>PRIV.export(e.currentTarget);
+  $('#v87pv',ov).onclick=()=>{const p=S.acc.settings&&S.acc.settings.private;openSheet(`<div style="padding:6px 20px 22px;display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">🛡️ La tua privacy su Vybe</h3>
+   <p style="margin:0;line-height:1.5">${p?'Il tuo account è <b>privato</b>: chi non approvi vede solo nome, foto profilo e biografia.':'Il tuo account è <b>pubblico</b>: chiunque su Vybe può vedere i tuoi post e le tue storie. Puoi renderlo privato qui nelle impostazioni.'}</p>
+   <ul style="margin:0;padding-left:18px;line-height:1.6;color:var(--muted)"><li>I messaggi di Vybe Chat sono cifrati end-to-end: nemmeno Vybe può leggerli.</li><li>La posizione sulla Vybe Map la vedono solo gli amici che scegli, e solo se la attivi.</li><li>Puoi nascondere quando sei online, l’ultimo accesso e le conferme di lettura.</li><li>Puoi scaricare i tuoi dati o eliminare l’account in qualsiasi momento.</li></ul></div>`)}}catch(e){}return r}}
+/* ---- selezione multipla dei messaggi ---- */
+const MSEL={on:false,ids:new Set(),cid:null,ov:null,last:null,
+ start(cid,first){const ov=$$('#layer>.ovf').filter(o=>$('#wcmsgs',o)).pop();if(!ov)return;this.on=true;this.cid=cid;this.ov=ov;this.ids=new Set(first?[first]:[]);ov.classList.add('msel');
+  ov.insertAdjacentHTML('beforeend',`<div class="mselbar"><button class="iconbtn" id="mselX" aria-label="Annulla">✕</button><b id="mselN"></b><button class="iconbtn" id="mselD" aria-label="Elimina">🗑️</button></div>`);
+  $('#mselX',ov).onclick=()=>this.stop();$('#mselD',ov).onclick=()=>this.del();this.paint()},
+ stop(){if(this.ov){this.ov.classList.remove('msel');$$('.mselbar',this.ov).forEach(x=>x.remove());$$('.wrow.msel-on',this.ov).forEach(x=>x.classList.remove('msel-on'))}this.on=false;this.ids.clear();this.ov=null},
+ paint(){if(!this.ov)return;$$('#wcmsgs .vb[data-m]',this.ov).forEach(v=>{const w=v.closest('.wrow');if(w){if(!w.classList.contains('msel-row'))w.classList.add('msel-row');const on=this.ids.has(v.dataset.m);if(w.classList.contains('msel-on')!==on)w.classList.toggle('msel-on',on)}});
+  const n=this.ids.size,t=n?(n===1?'1 selezionato':n+' selezionati'):'Tocca i messaggi',el=$('#mselN',this.ov),d=$('#mselD',this.ov);if(el&&el.textContent!==t)el.textContent=t;if(d&&d.disabled!==!n)d.disabled=!n},
+ del(){const c=VC.conv(this.cid);if(!c||!this.ids.size)return;const L=c.msgs.filter(m=>this.ids.has(m.id));const allMine=L.every(m=>m.from===VC.me&&!m.del)&&c.can;const n=L.length,cid=this.cid;
+  const sh=openSheet(`<div style="padding:8px 18px 22px;display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Eliminare ${n===1?'il messaggio':n+' messaggi'}?</h3>
+   ${allMine?`<button class="btn red" id="mdA">🗑️ Elimina per tutti</button>`:'<small style="color:var(--muted)">“Elimina per tutti” si può usare solo sui messaggi scritti da te.</small>'}<button class="btn soft" id="mdM">Elimina per me</button><button class="link" id="mdN">Annulla</button></div>`);
+  $('#mdN',sh).onclick=()=>closeOv(sh);
+  if(allMine)$('#mdA',sh).onclick=()=>{closeOv(sh);L.forEach(m=>VC.delAll(cid,m.id));this.stop();toast(n===1?'Messaggio eliminato per tutti':n+' messaggi eliminati per tutti')};
+  $('#mdM',sh).onclick=()=>{closeOv(sh);L.forEach(m=>VC.delMe(cid,m.id));this.stop();toast(n===1?'Messaggio eliminato per te':n+' messaggi eliminati per te')}}};
+/* ricordo su quale messaggio hai tenuto premuto, per "Seleziona" nel menu */
+document.addEventListener('pointerdown',e=>{const v=e.target.closest&&e.target.closest('#wcmsgs .vb[data-m]');if(v)MSEL.last=v.dataset.m},true);
+/* in modalità selezione un tocco su un messaggio lo spunta (e non fa altro) */
+['click','contextmenu'].forEach(ev=>document.addEventListener(ev,e=>{if(!MSEL.on)return;const w=e.target.closest&&e.target.closest('.msel .wrow');if(!w)return;e.preventDefault();e.stopPropagation();
+ if(ev!=='click')return;const v=w.querySelector('.vb[data-m]');if(!v)return;const id=v.dataset.m;MSEL.ids.has(id)?MSEL.ids.delete(id):MSEL.ids.add(id);MSEL.paint()},true));
+['pointerdown','touchstart'].forEach(ev=>document.addEventListener(ev,e=>{if(MSEL.on&&e.target.closest&&e.target.closest('.msel #wcmsgs'))e.stopPropagation()},true));
+/* voce "Seleziona" nel menu del messaggio + ridisegno */
+new MutationObserver(()=>{try{if(MSEL.on){if(!MSEL.ov||!MSEL.ov.isConnected)MSEL.stop();else MSEL.paint()}
+  const sh=$$('#layer>.ov').pop();const dm=sh&&$('[data-x="delme"]',sh);if(dm&&!$('[data-x="msel"]',sh)&&VC.open){const id=MSEL.last,cid=VC.open;
+   dm.insertAdjacentHTML('beforebegin','<button data-x="msel">☑️ Seleziona più messaggi</button>');$('[data-x="msel"]',sh).addEventListener('click',e=>{e.stopPropagation();closeOv(sh);setTimeout(()=>MSEL.start(cid,id),250)},true)}}catch(e){}}).observe(document.body,{childList:true,subtree:true});
+{const st=document.createElement('style');st.textContent=`
+.mselbar{position:absolute;left:0;right:0;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px 8px;background:var(--bg,#0b0a10);border-bottom:1px solid rgba(255,255,255,.08);animation:mselIn .2s cubic-bezier(.23,1,.32,1)}
+.mselbar b{flex:1;font-size:16px}@keyframes mselIn{from{opacity:0;transform:translateY(-8px)}}
+.msel .wrow.msel-row{position:relative;padding-left:40px;transition:background-color .15s ease;cursor:pointer}
+.msel .wrow.msel-row::before{content:'';position:absolute;left:12px;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5);transition:background-color .15s ease,box-shadow .15s ease}
+.msel .wrow.msel-on{background:rgba(168,85,247,.14)}
+.msel .wrow.msel-on::before{background:#a855f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3 3 7-7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;box-shadow:none}
+.msel #wcin{opacity:.35;pointer-events:none}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
