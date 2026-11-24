@@ -8089,6 +8089,47 @@ LG.go=function(tx,ts,vx){this.tx=tx;this.ts=ts==null?1:ts;if(this.traj)this.samp
 #nav.lg .lgbar,#nav.lg .lgplus{transform:translateZ(0)}
 }`;document.head.appendChild(st)}
 
+/* v89 – numeri 👁 veri anche sui post degli altri, posizione sempre esatta (o fantasma) */
+/* ===== 1. VISUALIZZAZIONI DEI POST DEGLI ALTRI ===== */
+const VCNT={t:0,busy:false,
+ dom(id,n){$$(`[data-id="${id}"]`).forEach(el=>{const q=el.matches('.cardlike,.views')?[el]:$$('.cardlike,.views',el);q.forEach(x=>{const sv=x.querySelector('svg');const suf=/visualizzazion/.test(x.textContent)?' visualizzazioni':'';
+   const want=(x.classList.contains('views')?' ':'')+fmt(n)+suf;if(x.textContent.trim()===want.trim())return;
+   [...x.childNodes].forEach(c=>{if(c!==sv)c.remove()});x.appendChild(document.createTextNode(want))})})},
+ async call(o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
+  const r=await fetch('/api/more?m=vcnt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({sid:CDB.sid},o))});
+  if(r.status===401&&!retry){CDB.sid=null;try{localStorage.removeItem(CDB.key())}catch(e){}if(!await CDB.auth())throw{code:'auth'};return this.call(o,true)}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||r.status};return j},
+ set(o,n){if(!o||!(n>(o.views||0)))return;o.views=n;this.dom(o.id,n)},
+ /* appena vedo un post di un altro il numero sale subito anche sul mio telefono */
+ seen(o){if(!o||o.real!==true||o._vs)return;o._vs=1;this.set(o,(o.views||0)+1)},
+ async run(force){if(this.busy||!CDB.isV()||!Real.on)return;if(!force&&Date.now()-this.t<45000)return;this.t=Date.now();this.busy=true;
+  try{const L=[],M={};for(const o of S.pmap.values()){if(!o||!o.real||!o.rid||o.rpid==null||o.rid===Real.uid)continue;const k=pk(o.rpid);M[o.rid+'|'+k]=o;L.push([o.rid,k]);if(L.length>=80)break}
+   if(!L.length)return;const j=await this.call({L});const c=j.c||{};for(const key in c){const o=M[key];if(o)this.set(o,+c[key]||0)}}catch(e){}finally{this.busy=false}}};
+{const va=VQ.add.bind(VQ);VQ.add=function(o,k){va(o,k);try{if(o&&o!==Real.uid&&k&&k[0]==='p'){for(const x of S.pmap.values()){if(x&&x.real&&x.rid===o&&pk(x.rpid)===k){VCNT.seen(x);break}}}}catch(e){}}}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>VCNT.run(true),6000);return r}}
+setInterval(()=>{if(document.visibilityState==='visible')VCNT.run()},50000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>{VCNT.run(true);VSYNC.run(true)},2000)});
+/* quando la home si ridisegna, rimetto i numeri giusti */
+new MutationObserver(()=>{clearTimeout(VCNT.mo);VCNT.mo=setTimeout(()=>{try{for(const o of S.pmap.values())if(o&&o.real&&o.views)VCNT.dom(o.id,o.views)}catch(e){}},300)}).observe(document.body,{childList:true,subtree:true});
+/* la tua storia: il numero arriva anche dal contatore del server, non solo dalla lista */
+{const sh=STV.shown.bind(STV);STV.shown=function(s,f,ov){sh(s,f,ov);try{if(!s||!s.mine||!f||!f.time||!CDB.isV())return;const k=this.key(f.time);
+  CDB.call({op:'stats'}).then(j=>{const n=+((j.vt||{})[k])||0;const sv=$('#sv',ov);if(!sv||!ov.isConnected||!n)return;const m=/Vista da (\d+)/.exec(sv.textContent);if(m&&+m[1]>=n)return;sv.innerHTML=`${ic('eye',20)} Vista da ${n} ${n===1?'persona':'persone'}`}).catch(()=>{})}catch(e){}}}
+/* ===== 2. POSIZIONE: SEMPRE QUELLA VERA ===== */
+/* niente più "approssimativa": o la posizione esatta (solo agli amici) o la modalità fantasma */
+FMAP.askPrecise=function(force){const s=this.st();if(!s.on||S.teen||s.mode!=='a')return false;if(this._askOpen)return true;this._askOpen=1;
+ const sh=openSheet(`<div style="padding:6px 20px 22px;display:flex;flex-direction:column;gap:10px;text-align:center"><div style="font-size:42px">📍</div><h3 style="margin:0">Vybe Map ora mostra dove sei davvero</h3>
+  <p style="margin:0;color:var(--muted);line-height:1.45">Finora i tuoi amici ti vedevano in modo <b>approssimativo</b> (fino a 1 km di differenza), per questo sembravi da un’altra parte. Da ora la Vybe Map usa solo la posizione <b>esatta</b>. La vedono solo gli amici che hai scelto, e si aggiorna solo mentre Vybe è aperta.</p>
+  <button class="btn" id="apY">📍 Mostra dove sono davvero</button><button class="link" id="apN">👻 Modalità fantasma (non mi vede nessuno)</button></div>`);
+ const done=()=>{this._askOpen=0};const oc=sh.onclose;sh.onclose=()=>{done();if(oc)oc()};
+ $('#apN',sh).onclick=async()=>{closeOv(sh);await FMAP.off()};
+ $('#apY',sh).onclick=async()=>{closeOv(sh);s.mode='p';save();try{await FMAP.push(true)}catch(e){}toast('Ora gli amici ti vedono dove sei davvero 📍')};return true};
+/* chi ha ancora l'approssimativa vede la domanda finché non sceglie */
+setInterval(()=>{try{if(document.visibilityState==='visible'&&!document.querySelector('#layer>*')&&S.acc)FMAP.askPrecise()}catch(e){}},20000);
+{const op=FMAP.open.bind(FMAP);FMAP.open=async function(){const r=await op.apply(this,arguments);setTimeout(()=>{try{FMAP.askPrecise()}catch(e){}},900);return r}}
+/* nuova condivisione: sempre esatta */
+{const cs=FMAP.consent.bind(FMAP);FMAP.consent=function(go){const r=cs(go);try{const L=[...document.querySelectorAll('[data-m="p"]')];const p=L.pop();if(p){p.click();const a=p.parentNode&&p.parentNode.querySelector('[data-m="a"]');if(a)a.style.display='none'}}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`#fmMode{display:none!important}`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
