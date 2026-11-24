@@ -3812,6 +3812,7 @@ function openVConv(cid){const c0=VC.conv(cid);if(!c0)return toast('Chat non disp
   const ro=!c.can;$('#wcin',ov).classList.toggle('ro',ro);inp.disabled=ro;inp.placeholder=ro?(c.kind==='g'?'Non fai più parte di questo gruppo':S.teen||(c.w&&c.w.teen)?'Potete scrivervi solo se vi seguite a vicenda':'Non puoi scrivere a questa persona'):'Messaggio'};
  const bub=(c,m,prev)=>{const mine=m.from===VC.me,p=m.pl;let h='';if(!prev||vcDay(prev.t)!==vcDay(m.t))h+=`<div class="wday"><span>${vcDay(m.t)}</span></div>`;
   if(p&&p.sys)return h+`<div class="wsys">${p.sys==='created'?`${esc(uName(m.from))} ha creato il gruppo «${esc(p.n||'')}»`:''}</div>`;
+  if(p&&p.gm&&!m.del&&typeof GAME!=='undefined'&&!GAME.last(c,m))return h;
   const first=!prev||prev.from!==m.from||vcDay(prev.t)!==vcDay(m.t)||(prev.pl&&prev.pl.sys);let body='';
   if(m.del)body=`<i class="wdel">🚫 ${mine?'Hai eliminato questo messaggio':'Questo messaggio è stato eliminato'}</i>`;
   else if(m.lock)body=`<i class="wdel">🔒 In attesa della chiave per leggere il messaggio</i>`;
@@ -3819,7 +3820,7 @@ function openVConv(cid){const c0=VC.conv(cid);if(!c0)return toast('Chat non disp
    if(p.im)body+=`<div class="wim" data-img="${m.from}|${esc(p.im.id)}|${m.v}" style="aspect-ratio:${Math.max(.6,Math.min(1.8,(p.im.w||1)/(p.im.h||1)))}"><span class="wld"></span></div>`;
    if(p.sh){const s=p.sh;if(s.k==='prod'){const pr={ty:PTYPES[s.ty]?s.ty:'tee',col:/^#[0-9a-f]{6}$/i.test(s.col||'')?s.col:'#111114',tx:String(s.tx||'').slice(0,14),em:PEMO.includes(s.em)?s.em:''};body+=`<div class="wsh" data-prod="${esc(s.id||'')}" data-sr="${esc(s.sr||'')}"><img src="${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?s.img:prodImg(pr,240)}" alt=""><div><b>${esc(String(s.n||'').slice(0,40))}</b><span>🛍️ ${eur(+s.price||0)} · Negozio Vybe</span></div></div>`}
     else body+=`<div class="wsh" data-post="${esc(s.id||'')}">${typeof s.img==='string'&&/^data:image\/jpeg;base64,/.test(s.img)?`<img src="${s.img}" alt="">`:`<div class="wshx">${esc(String(s.cap||'').slice(0,60))}</div>`}<div><b>Post di @${esc(String(s.u||'').slice(0,30))}</b><span>${esc(String(s.cap||'').slice(0,80))}</span></div></div>`}
-   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);if(p.gcall)body+=vcGCallHTML(m,p.gcall);if(p.poll&&typeof POLL!=='undefined')body+=POLL.html(p.poll);
+   if(p.au)body+=VOICE.html(m,p.au);if(p.call)body+=vcCallHTML(m,p.call);if(p.gcall)body+=vcGCallHTML(m,p.gcall);if(p.poll&&typeof POLL!=='undefined')body+=POLL.html(p.poll);if(p.gm&&typeof GAME!=='undefined')body+=GAME.html(c,m);
    if(p.tx)body+=`<div class="wtx">${vcLinkify(esc(p.tx))}</div>`}
   const rx=c.rx[m.id]||[];const agg={};rx.forEach(r=>agg[r.e]=(agg[r.e]||0)+1);
   return h+`<div class="wrow ${mine?'me':''} ${first?'first':''}"><div class="vb ${mine?'me':''} ${p&&p.im&&!p.tx?'imgonly':''}" data-m="${m.id}">${c.kind==='g'&&!mine&&first?`<div class="wsn" style="color:${ucol(m.from)}">${esc(uName(m.from))}</div>`:''}${body}<span class="wmeta">${vcHM(m.t)} ${vcTicks(c,m)}</span></div>${rx.length?`<div class="wrx">${Object.entries(agg).map(([e,n])=>e+(n>1?n:'')).join(' ')}</div>`:''}</div>`};
@@ -7747,6 +7748,150 @@ html.vshort #nav.lg{background:transparent!important;padding-bottom:6px!importan
    (all'avvio e ogni 10 minuti lo richiedo al server, così quando cambia posto l'app lo segue) */
 try{localStorage.removeItem('vybe_dir')}catch(e){}
 try{if(typeof VDB!=='undefined'){VDB.base=null;VDB.nullT=0;setInterval(()=>{if(document.visibilityState==='visible'){try{localStorage.removeItem('vybe_dir')}catch(e){}VDB.base=null;VDB.nullT=0}},600000)}}catch(e){}
+
+/* v85 – 🎮 GIOCHI IN CHAT: Tris, Forza 4, Indovina la parola.
+   Ogni mossa è un messaggio cifrato end-to-end fra i due amici (niente server). Lo stato della partita si ricalcola
+   rigiocando le mosse: quelle fuori turno o non valide vengono ignorate. In chat si vede solo l'ultima scheda di ogni partita. */
+const GAME={
+ K:{tris:{n:'Tris',i:'⭕'},f4:{n:'Forza 4',i:'🔴'},word:{n:'Indovina la parola',i:'🔤'}},
+ seen:{},cel:{},
+ ok(g){return g&&typeof g==='object'&&/^[a-z0-9]{10,24}$/.test(g.id||'')&&this.K[g.k]},
+ msgs(c,id){return(c.msgs||[]).filter(m=>!m.del&&m.pl&&m.pl.gm&&m.pl.gm.id===id)},
+ last(c,m){const L=this.msgs(c,m.pl.gm.id);return!L.length||L[L.length-1].id===m.id},
+ norm(w){return String(w||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z]/g,'')},
+ /* rigioca tutte le mosse */
+ state(c,id){const L=this.msgs(c,id);const s0=L.find(m=>m.pl.gm.a==='new');if(!s0||!this.ok(s0.pl.gm)||c.kind!=='d')return null;
+  const g=s0.pl.gm,p1=s0.from,p2=s0.from===VC.me?c.u:VC.me,st={id,k:g.k,p1,p2,turn:p1,done:false,win:null,n:0,last:-1,line:[],start:s0};
+  if(g.k==='tris')st.b=Array(9).fill(0);
+  if(g.k==='f4')st.b=Array(42).fill(0);
+  if(g.k==='word'){st.w=this.norm(g.w).slice(0,14);st.h=String(g.h||'').slice(0,60);st.got=[];st.bad=[];st.lives=6;st.turn=p2;if(st.w.length<3)return null}
+  for(const m of L){if(m===s0||st.done)continue;const x=m.pl.gm;
+   if(x.a==='quit'&&(m.from===p1||m.from===p2)){st.done=true;st.win=m.from===p1?p2:p1;st.quit=m.from;continue}
+   if(x.a!=='mv'||m.from!==st.turn)continue;const me1=m.from===p1?1:2;
+   if(g.k==='tris'){const i=+x.i;if(!(i>=0&&i<9)||st.b[i])continue;st.b[i]=me1;st.last=i;st.n++;const w=this.line3(st.b);if(w){st.done=true;st.win=m.from;st.line=w}else if(st.b.every(v=>v)){st.done=true}else st.turn=m.from===p1?p2:p1}
+   else if(g.k==='f4'){const col=+x.i;if(!(col>=0&&col<7))continue;let r=-1;for(let rr=5;rr>=0;rr--)if(!st.b[rr*7+col]){r=rr;break}if(r<0)continue;const i=r*7+col;st.b[i]=me1;st.last=i;st.n++;
+    const w=this.line4(st.b,i);if(w){st.done=true;st.win=m.from;st.line=w}else if(st.b.every(v=>v)){st.done=true}else st.turn=m.from===p1?p2:p1}
+   else if(g.k==='word'){st.n++;if(typeof x.l==='string'&&/^[A-Z]$/.test(x.l)){const l=x.l;if(st.got.includes(l)||st.bad.includes(l))continue;if(st.w.includes(l))st.got.push(l);else{st.bad.push(l);st.lives--}st.last=l}
+    else if(typeof x.w==='string'){const t=this.norm(x.w);if(t===st.w){st.got=[...new Set(st.w.split(''))]}else{st.lives--;st.bad.push('«'+t.slice(0,14)+'»')}}else continue;
+    if(st.w.split('').every(ch=>st.got.includes(ch))){st.done=true;st.win=p2}else if(st.lives<=0){st.done=true;st.win=p1}}}
+  return st},
+ line3(b){const W=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];for(const w of W)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return w;return null},
+ line4(b,i){const v=b[i],r0=Math.floor(i/7),c0=i%7;for(const[dr,dc]of[[0,1],[1,0],[1,1],[1,-1]]){const L=[i];for(const s of[1,-1]){let r=r0+dr*s,cc=c0+dc*s;while(r>=0&&r<6&&cc>=0&&cc<7&&b[r*7+cc]===v){L.push(r*7+cc);r+=dr*s;cc+=dc*s}}if(L.length>=4)return L}return null},
+ nm(u){return u===VC.me?'Tu':esc((USERS['r_'+u]||{}).first||uName(u))},
+ status(st){const me=VC.me;if(st.done){if(st.quit)return st.quit===me?'🏳️ Hai abbandonato':'🏆 '+this.nm(st.quit)+' ha abbandonato: hai vinto!';
+   if(!st.win)return'🤝 Pareggio!';if(st.k==='word'&&st.win===st.p1)return st.p1===me?'🏆 Non l’ha indovinata: hai vinto!':'😅 Non l’hai indovinata';
+   return st.win===me?'🏆 Hai vinto!':'😅 Ha vinto '+this.nm(st.win)}
+  if(st.k==='word')return st.turn===me?'👉 Tocca a te indovinare':'⏳ '+this.nm(st.turn)+' sta indovinando';
+  return st.turn===me?'👉 Tocca a te':'⏳ Tocca a '+this.nm(st.turn)},
+ X:'<svg viewBox="0 0 40 40" class="gx"><path d="M10 10L30 30"/><path d="M30 10L10 30"/></svg>',
+ O:'<svg viewBox="0 0 40 40" class="go"><circle cx="20" cy="20" r="11"/></svg>',
+ html(c,m){const g=m.pl.gm;if(!this.ok(g))return'';const st=this.state(c,g.id);if(!st)return`<div class="vgame"><b>🎮 Partita non valida</b></div>`;
+  const me=VC.me,mine=st.turn===me&&!st.done&&c.can,K=this.K[st.k],fresh=st.n>(this.seen[st.id]??st.n-1);this.seen[st.id]=st.n;
+  let board='';
+  if(st.k==='tris')board=`<div class="gtris ${mine?'on':''}">${st.b.map((v,i)=>`<button data-ga="cell" data-gi="${i}" ${v||!mine?'disabled':''} class="${st.line.includes(i)?'gwin':''} ${fresh&&i===st.last?'gnew':''}">${v===1?this.X:v===2?this.O:''}</button>`).join('')}</div>`;
+  if(st.k==='f4'){let cols='';for(let col=0;col<7;col++){let cells='';for(let r=0;r<6;r++){const i=r*7+col,v=st.b[i];cells+=`<i class="${v===1?'p1':v===2?'p2':''} ${st.line.includes(i)?'gwin':''} ${fresh&&i===st.last?'gnew':''}" style="--r:${r}"></i>`}
+    const full=!!st.b[col];cols+=`<button data-ga="col" data-gi="${col}" ${!mine||full?'disabled':''}>${cells}</button>`}board=`<div class="gf4 ${mine?'on':''}">${cols}</div>`}
+  if(st.k==='word'){const reveal=st.done||st.p1===me;board=`<div class="gword"><div class="gwl">${st.w.split('').map(ch=>{const ok=st.got.includes(ch);return`<span class="${ok?'ok':''} ${ok&&fresh&&st.last===ch?'gnew':''}">${ok||reveal?ch:''}</span>`}).join('')}</div>
+    ${st.h?`<small class="gwh">💡 ${esc(st.h)}</small>`:''}<div class="gwv">${'❤️'.repeat(Math.max(0,st.lives))}${'🖤'.repeat(6-Math.max(0,st.lives))}</div>${st.bad.length?`<small class="gwb">Sbagliate: ${st.bad.map(esc).join(' ')}</small>`:''}
+    ${st.p1===me&&!st.done?'<small class="gwh">🤫 La parola la vedi solo tu</small>':''}${mine?'<button class="gbtn" data-ga="guess">🔤 Indovina una lettera</button>':''}</div>`}
+  const who=st.k==='word'?`${this.nm(st.p1)} sceglie · ${this.nm(st.p2)} indovina`:st.k==='f4'?`<i class="gdot p1"></i> ${this.nm(st.p1)} <span>vs</span> <i class="gdot p2"></i> ${this.nm(st.p2)}`:`${this.X.replace('class="gx"','class="gx sm"')} ${this.nm(st.p1)} <span>vs</span> ${this.O.replace('class="go"','class="go sm"')} ${this.nm(st.p2)}`;
+  const foot=st.done?(c.can?`<button class="gbtn" data-ga="again">🔁 Rivincita</button>`:''):`<button class="glink" data-ga="quit">Abbandona</button>`;
+  if(st.done&&st.win===me&&!this.cel[st.id]&&fresh){this.cel[st.id]=1;setTimeout(()=>this.party(),350)}
+  return`<div class="vgame g-${st.k} ${st.done?'done':''} ${mine?'myturn':''}" data-gid="${st.id}" data-gk="${st.k}"><div class="gh"><b>${K.i} ${K.n}</b><small class="gwho">${who}</small></div>${board}<div class="gst">${this.status(st)}</div>${foot}</div>`},
+ prev(m){const g=m.pl.gm,K=this.K[g.k]||{n:'Gioco',i:'🎮'};if(g.a==='new')return'🎮 '+(m.from===VC.me?'Hai iniziato':'Ti sfida a')+' '+K.n;if(g.a==='quit')return'🎮 '+K.n+': partita abbandonata';return'🎮 '+K.n+': nuova mossa'},
+ async act(cid,gid,a,i){const c=VC.conv(cid);if(!c||!c.can)return;const st=this.state(c,gid);if(!st)return;
+  if(a==='quit'){const sh=openSheet(`<div style="padding:8px 20px 22px;text-align:center;display:flex;flex-direction:column;gap:12px"><div style="font-size:40px">🏳️</div><b>Vuoi abbandonare la partita?</b><p style="margin:0;opacity:.75">Vincerà ${this.nm(st.p1===VC.me?st.p2:st.p1)}.</p><button class="btn" id="gq">Abbandona</button><button class="link" id="gn">Continua a giocare</button></div>`);
+   $('#gn',sh).onclick=()=>closeOv(sh);$('#gq',sh).onclick=async()=>{closeOv(sh);await VC.send(cid,{gm:{id:gid,k:st.k,a:'quit'}})};return}
+  if(a==='again')return this.start(cid,st.k);
+  if(st.done||st.turn!==VC.me)return;
+  if(a==='cell'&&st.k==='tris'&&!st.b[i])return this.mv(cid,st,{i});
+  if(a==='col'&&st.k==='f4'&&!st.b[i])return this.mv(cid,st,{i});
+  if(a==='guess'&&st.k==='word')return this.keys(cid,st)},
+ async mv(cid,st,o){try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}await VC.send(cid,{gm:Object.assign({id:st.id,k:st.k,a:'mv'},o)})},
+ keys(cid,st){const used=new Set([...st.got,...st.bad]);const sh=openSheet(`<div class="gkeys"><b>🔤 Scegli una lettera</b><div class="gkb">${'QWERTYUIOPASDFGHJKLZXCVBNM'.split('').map(l=>`<button data-l="${l}" ${used.has(l)?'disabled':''}>${l}</button>`).join('')}</div>
+   <div class="gkw"><input class="in" id="gkw" maxlength="14" placeholder="…oppure prova la parola intera" autocapitalize="characters" autocomplete="off"><button class="btn" id="gkgo">Prova</button></div><small>Se sbagli la parola intera perdi un cuore ❤️</small></div>`);
+  $$('[data-l]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);this.mv(cid,st,{l:b.dataset.l})});
+  $('#gkgo',sh).onclick=()=>{const w=this.norm($('#gkw',sh).value);if(w.length<2)return toast('Scrivi la parola');closeOv(sh);this.mv(cid,st,{w})}},
+ /* scelta del gioco */
+ pick(cid,redraw){const sh=openSheet(`<div class="gpick"><b class="gpT">🎮 Gioca con ${esc((VC.conv(cid)||{}).title||'')}</b>
+  <button data-gk="tris"><span>${this.X}${this.O}</span><div><b>Tris</b><small>Tre in fila e vinci. Inizi tu.</small></div></button>
+  <button data-gk="f4"><span class="gp4"><i class="p1"></i><i class="p2"></i></span><div><b>Forza 4</b><small>Fai cadere le pedine: quattro in fila. Inizi tu.</small></div></button>
+  <button data-gk="word"><span class="gpw">A_C</span><div><b>Indovina la parola</b><small>Scegli tu una parola segreta, l’altro la indovina lettera per lettera.</small></div></button></div>`);
+  $$('[data-gk]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);this.start(cid,b.dataset.gk,redraw)})},
+ async start(cid,k,redraw){if(!cid||cid[0]!=='d')return toast('I giochi si fanno nelle chat a due');
+  if(k==='word'){const sh=openSheet(`<div class="gkeys"><b>🔤 La tua parola segreta</b><input class="in" id="gw" maxlength="14" placeholder="Es. CIOCCOLATO" autocapitalize="characters" autocomplete="off"><input class="in" id="gh" maxlength="60" placeholder="Indizio (facoltativo), es. si mangia"><small>Da 3 a 14 lettere, senza spazi. Solo tu la vedi.</small><button class="btn" id="gwgo">Sfida!</button></div>`);
+   setTimeout(()=>{const i=$('#gw',sh);if(i)i.focus()},300);
+   $('#gwgo',sh).onclick=async()=>{const w=this.norm($('#gw',sh).value),h=$('#gh',sh).value.trim().slice(0,60);if(w.length<3)return toast('La parola deve avere almeno 3 lettere');
+    if(typeof isBad==='function'&&(isBad(w)||isBad(h)))return toast('Il testo contiene parole non permesse');closeOv(sh);await VC.send(cid,{gm:{id:PID(),k:'word',a:'new',w,h}});try{redraw&&redraw()}catch(e){}};return}
+  await VC.send(cid,{gm:{id:PID(),k,a:'new'}});try{redraw&&redraw()}catch(e){}},
+ party(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const L=$('#layer');if(!L)return;const w=document.createElement('div');w.className='gparty';
+  w.innerHTML=Array.from({length:18},(_,i)=>`<i style="--x:${(Math.random()*2-1)*150}px;--y:${-120-Math.random()*200}px;--d:${Math.random()*120}ms;--rot:${Math.random()*360}deg">${['🏆','🎉','✨','⭐','🎮'][i%5]}</i>`).join('');L.appendChild(w);setTimeout(()=>w.remove(),1600)}
+};
+/* nella chat: scheda solo per l'ultima mossa di ogni partita, anteprima nell'elenco chat, tasto nel menu "+" */
+{const vp=vcPreview;vcPreview=function(m){if(m&&!m.del&&m.pl&&m.pl.gm&&GAME.ok(m.pl.gm))return GAME.prev(m);return vp(m)}}
+{const va=vcAttach;vcAttach=function(cid,redraw,getReply){const r=va.apply(this,arguments);try{if(cid&&cid[0]==='d'){const sh=$$('#layer>.ov').pop();const w=sh&&$('.watt',sh);if(w&&!$('[data-k="game"]',w)){w.insertAdjacentHTML('beforeend',`<button data-k="game"><i style="background:linear-gradient(135deg,#22c55e,#0ea5e9)">🎮</i>Giochi</button>`);
+  $('[data-k="game"]',w).onclick=e=>{e.stopPropagation();closeOv(sh);GAME.pick(cid,redraw)}}}}catch(e){}return r}}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.vgame [data-ga]');if(!b)return;e.preventDefault();e.stopPropagation();if(b.disabled)return;
+ const card=b.closest('.vgame'),cid=VC.open;if(!cid)return;GAME.act(cid,card.dataset.gid,b.dataset.ga,+b.dataset.gi)},true);
+['pointerdown','touchstart','mousedown','contextmenu'].forEach(ev=>document.addEventListener(ev,e=>{if(e.target.closest&&e.target.closest('.vgame'))e.stopPropagation()},true));
+try{GUIDE.S.splice(1,0,['🎮','Giochi in chat — NUOVO','In una chat a due tocca il <b>+</b> accanto al messaggio e scegli <b>Giochi</b>: Tris, Forza 4 o Indovina la parola. Le mosse arrivano all’amico come messaggi cifrati.']);GUIDE.V=Math.max(GUIDE.V||0,3)}catch(e){}
+{const st=document.createElement('style');st.textContent=`
+.vgame{--eo:cubic-bezier(.23,1,.32,1);width:min(270px,68vw);display:flex;flex-direction:column;gap:10px;padding:4px 2px 2px;-webkit-user-select:none;user-select:none}
+.vgame .gh{display:flex;flex-direction:column;gap:2px}.vgame .gh b{font-size:15px;letter-spacing:-.01em}
+.gwho{display:flex;align-items:center;gap:4px;font-size:12px;opacity:.75;flex-wrap:wrap}.gwho span{opacity:.6}
+.gst{font-size:13.5px;font-weight:700;text-align:center;padding:2px 0}
+.vgame.myturn .gst{color:#4ade80}
+.gbtn{height:40px;border-radius:14px;background:rgba(255,255,255,.12);color:inherit;font-weight:800;font-size:14px;transition:transform .14s var(--eo),background-color .15s ease;touch-action:manipulation}
+.gbtn:active{transform:scale(.96)}.glink{font-size:12px;opacity:.6;text-decoration:underline;align-self:center;padding:4px 8px}
+svg.gx,svg.go{width:70%;height:70%;fill:none;stroke-width:5;stroke-linecap:round}svg.gx{stroke:#f472b6}svg.go{stroke:#60a5fa}
+svg.sm{width:15px;height:15px;stroke-width:6}
+.gdot{width:11px;height:11px;border-radius:50%;display:inline-block;background:#ef4444}.gdot.p2{background:#facc15}
+/* tris */
+.gtris{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;aspect-ratio:1;background:rgba(255,255,255,.08);border-radius:16px;padding:5px}
+.gtris button{border-radius:12px;background:rgba(0,0,0,.25);display:grid;place-items:center;transition:transform .14s var(--eo),background-color .15s ease;touch-action:manipulation}
+.gtris.on button:not(:disabled):active{transform:scale(.93);background:rgba(255,255,255,.12)}
+.gtris button:disabled{opacity:1;cursor:default}
+.gtris button.gnew svg path,.gtris button.gnew svg circle{stroke-dasharray:80;stroke-dashoffset:80;animation:gdraw .32s var(--eo) forwards}
+.gtris button.gnew svg path:nth-child(2){animation-delay:.12s}
+@keyframes gdraw{to{stroke-dashoffset:0}}
+.gtris .gwin{background:rgba(250,204,21,.28)!important;box-shadow:inset 0 0 0 2px rgba(250,204,21,.75)}
+/* forza 4 */
+.gf4{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:6px;border-radius:16px;background:linear-gradient(180deg,#1d4ed8,#1e3a8a);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.gf4 button{display:grid;grid-template-rows:repeat(6,1fr);gap:3px;padding:2px 0;border-radius:10px;transition:background-color .15s ease;touch-action:manipulation;overflow:visible}
+.gf4.on button:not(:disabled):active{background:rgba(255,255,255,.14)}
+.gf4 i{aspect-ratio:1;border-radius:50%;background:rgba(5,10,30,.75);box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.gf4 i.p1{background:radial-gradient(circle at 35% 30%,#fca5a5,#ef4444 55%,#b91c1c);box-shadow:inset 0 -2px 3px rgba(0,0,0,.3)}
+.gf4 i.p2{background:radial-gradient(circle at 35% 30%,#fef08a,#facc15 55%,#ca8a04);box-shadow:inset 0 -2px 3px rgba(0,0,0,.3)}
+/* la pedina cade (accelera come una cosa vera) e si assesta */
+.gf4 i.gnew{position:relative;z-index:2;animation:gdrop calc(160ms + var(--r) * 45ms) cubic-bezier(.55,0,1,.45) both,gland .18s var(--eo) calc(160ms + var(--r) * 45ms)}
+@keyframes gdrop{from{transform:translateY(calc(var(--r) * -120% - 120%))}}
+@keyframes gland{40%{transform:scaleY(.86) scaleX(1.08)}}
+.gf4 i.gwin{box-shadow:0 0 0 2px #fff,0 0 14px 2px rgba(255,255,255,.85);animation:gglow 1s cubic-bezier(.23,1,.32,1) 2}
+@keyframes gglow{50%{transform:scale(1.12)}}
+/* parola */
+.gword{display:flex;flex-direction:column;align-items:center;gap:8px}
+.gwl{display:flex;flex-wrap:wrap;justify-content:center;gap:4px}
+.gwl span{width:22px;height:30px;border-bottom:3px solid rgba(255,255,255,.55);display:grid;place-items:center;font-weight:900;font-size:17px}
+.gwl span.ok{color:#4ade80}.gwl span.gnew{animation:gpop .3s var(--eo)}
+@keyframes gpop{from{transform:translateY(6px) scale(.7);opacity:0}}
+.gwv{font-size:15px;letter-spacing:1px}.gwh,.gwb{font-size:12px;opacity:.75;text-align:center}
+/* scelta gioco e tastiera */
+.gpick{display:flex;flex-direction:column;gap:8px;padding:4px 16px 20px}.gpT{font-size:17px;padding:4px 4px 6px}
+.gpick>button{display:flex;align-items:center;gap:14px;padding:12px;border-radius:18px;background:var(--soft,rgba(255,255,255,.06));text-align:left;color:inherit;transition:transform .14s cubic-bezier(.23,1,.32,1)}
+.gpick>button:active{transform:scale(.97)}.gpick>button>span{width:54px;height:54px;border-radius:14px;background:rgba(0,0,0,.3);display:grid;grid-template-columns:1fr 1fr;place-items:center;flex:0 0 auto;padding:6px}
+.gpick>button>span svg{width:100%;height:100%}.gpick small{display:block;opacity:.7;font-size:12.5px;margin-top:2px}
+.gp4 i{width:18px;height:18px;border-radius:50%;background:#ef4444}.gp4 i.p2{background:#facc15}.gpick>button>span.gpw{display:grid;grid-template-columns:1fr;font-weight:900;letter-spacing:2px}
+.gkeys{display:flex;flex-direction:column;gap:12px;padding:4px 16px 20px}.gkeys small{opacity:.7;text-align:center}
+.gkb{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
+.gkb button{height:42px;border-radius:10px;background:var(--soft,rgba(255,255,255,.08));font-weight:800;font-size:16px;color:inherit;transition:transform .12s cubic-bezier(.23,1,.32,1);touch-action:manipulation}
+.gkb button:active{transform:scale(.9)}.gkb button:disabled{opacity:.25}
+.gkw{display:flex;gap:8px}.gkw .in{flex:1;margin:0}.gkw .btn{width:auto;padding:0 18px;margin:0}
+/* festa quando vinci */
+.gparty{position:absolute;left:50%;top:55%;z-index:99;pointer-events:none}
+.gparty i{position:absolute;font-style:normal;font-size:24px;opacity:0;animation:gfly 1.1s cubic-bezier(.23,1,.32,1) var(--d) forwards}
+@keyframes gfly{0%{opacity:1;transform:translate(0,0) scale(.6)}70%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(var(--rot)) scale(1)}}
+@media (prefers-reduced-motion:reduce){.gf4 i.gnew,.gtris button.gnew svg *,.gwl span.gnew{animation:none!important;stroke-dashoffset:0!important}}
+`;document.head.appendChild(st)}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
