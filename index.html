@@ -9018,12 +9018,7 @@ const PET={c:{},
   draw();if(born){setTimeout(()=>fx('✨',10),200);toast('🥚 È nato un uovo! Scrivetevi entrambi oggi per farlo schiudere')}
   this.get(u,true).then(()=>{if(sh.isConnected)draw()});tm=setInterval(()=>{if(!sh.isConnected)return clearInterval(tm);this.get(u,true).then(()=>{if(sh.isConnected&&!busy)draw()})},30000)}
 };
-/* nella chat con un amico: barra dell'animale sotto il nome */
-{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{if(cid&&cid[0]==='d'){const u=cid.slice(2),ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));const h=ov&&$('.wch',ov);
-  if(h&&!$('.petbar',ov)){h.insertAdjacentHTML('afterend',`<div class="petbar" data-u="${u}">${PET.bar(u)}</div>`);PET.get(u,true).then(()=>PET.bars(u))}}}catch(e){}return r}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-petu]');if(!b)return;e.preventDefault();e.stopPropagation();PET.open(b.dataset.petu)},true);
-/* ogni messaggio a un amico conta per far crescere l'animale */
-{const vs=VC.send.bind(VC);VC.send=async function(cid,pl){const r=await vs(cid,pl);try{if(cid&&cid[0]==='d')PET.ping(cid.slice(2))}catch(e){}return r}}
 
 /* ---------- Traduzione dei commenti ---------- */
 const TR={c:{},on:{},to:String((navigator.language||'it')).slice(0,2).toLowerCase(),
@@ -9081,8 +9076,6 @@ const TR={c:{},on:{},to:String((navigator.language||'it')).slice(0,2).toLowerCas
 
 /* v98b — l'animale si trova subito: barra sempre visibile in chat, tasto 🐾 in alto e "I miei animali" nel menu del profilo */
 PET.bar=(function(old){return function(u){if(this.c[u]===undefined)return`<button class="petadopt" data-petu="${u}">🐾 Il vostro animale</button>`;return old.call(this,u)}})(PET.bar);
-{const ovc=openVConv;openVConv=function(cid){const r=ovc.apply(this,arguments);try{if(cid&&cid[0]==='d'){const u=cid.slice(2),ov=[...$$('#layer>*')].reverse().find(o=>o.querySelector('.wac'));const m=ov&&$('#wcm',ov);
-  if(m&&!$('#petTap',ov)){m.insertAdjacentHTML('beforebegin',`<button class="iconbtn" id="petTap" data-petu="${u}" aria-label="Animale virtuale"><span style="font-size:20px">🐾</span></button>`)}}}catch(e){}return r}}
 PET.friends=function(){const me=Real.uid,out=[];try{for(const u in (Real.docs||{})){if(u===me)continue;const d=Real.docs[u];if(!d||!USERS['r_'+u])continue;if(Real.state('r_'+u)==='on'&&(d.fw||[]).includes(me))out.push(u)}}catch(e){}return out};
 PET.list=async function(){const sh=openSheet(`<div class="shead">🐾 I miei animali</div><div class="sbody" id="petL"><div class="cmw">Carico…</div></div>`);let P={};
  try{P=(await this.api({op:'mine'})).pets||{}}catch(e){$('#petL',sh).innerHTML='<div class="cmw">Non riesco a caricarli ora, riprova tra poco.</div>';return}
@@ -9093,11 +9086,89 @@ PET.list=async function(){const sh=openSheet(`<div class="shead">🐾 I miei ani
 };
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-petu]');if(!b)return;const ov=b.closest('.ov');if(ov&&ov.querySelector('#petL'))closeOv(ov)},true);
 {const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);setTimeout(()=>{try{const ms=$$('#layer .ov .menu'),m=ms[ms.length-1];if(!m||$('#petMenu',m)||!Real.on)return;
-  const first=m.querySelector('button');const h='<button id="petMenu"><span class="mi">🐾</span><div>I miei animali<small>L\'animale che cresce con i tuoi amici</small></div></button>';if(first)first.insertAdjacentHTML('beforebegin',h);else m.insertAdjacentHTML('afterbegin',h);
-  $('#petMenu',m).onclick=()=>{const ov=m.closest('.ov');if(ov)closeOv(ov);PET.list()}}catch(e){}},0);return r}}
+  const first=m.querySelector('button');const h='<button id="petMenu"><span class="mi">🐾</span><div>Il mio animale<small>Il tuo animaletto: parlaci in chat</small></div></button>';if(first)first.insertAdjacentHTML('beforebegin',h);else m.insertAdjacentHTML('afterbegin',h);
+  $('#petMenu',m).onclick=()=>{const ov=m.closest('.ov');if(ov)closeOv(ov);SPET.open()}}catch(e){}},0);return r}}
 (function(){const st=document.createElement('style');st.textContent=`.petrow{width:100%;border:0;background:rgba(255,255,255,.05);color:inherit;border-radius:16px;display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:8px;text-align:left}
 .petrow .pf{font-size:34px;width:40px;text-align:center}.petrow div{flex:1;display:flex;flex-direction:column}.petrow small{opacity:.65;font-size:12px}.petrow i{font-style:normal;font-size:20px;opacity:.6}
 .petsec{font-size:12px;font-weight:700;opacity:.55;text-transform:uppercase;letter-spacing:.04em;margin:6px 4px 8px}`;document.head.appendChild(st)})();
+
+/* ============ v99 — Il tuo animale, tutto tuo: una chat fissa in Vybe Chat dove ci parli e ti risponde (IA vera) ============ */
+const SPET={p:undefined,busy:false,
+ st(){const a=S.acc;a.spet=a.spet||{msgs:[]};a.spet.msgs=a.spet.msgs||[];return a.spet},
+ api(o){return moreCall('pet',o)},
+ cur(){return this.p!==undefined?this.p:(this.st().pet===undefined?undefined:this.st().pet)},
+ setP(p){this.p=p;const s=this.st();s.pet=p;save();this.rows()},
+ async load(){try{const j=await this.api({op:'sget'});this.setP(j.pet||null)}catch(e){}return this.cur()},
+ add(r,t){const s=this.st();s.msgs.push({r,t,ts:Date.now()});if(s.msgs.length>80)s.msgs.splice(0,s.msgs.length-80);save()},
+ rowHTML(){const p=this.cur(),s=this.st(),last=[...s.msgs].reverse().find(m=>m.r!=='e');
+  return`<div class="war spetr" data-spet="1"><span class="avw"><span class="spav ${p?PET.mood(p)[0]:''}">${p?PET.face(p):'🥚'}</span></span><div class="wam"><div class="war1"><b>${p?esc(p.nm):'Il tuo animale'} <span class="sptag">🐾</span></b><small>${last?vcTime(last.ts):''}</small></div><div class="war2"><span>${last?(last.r==='u'?'Tu: ':'')+esc(String(last.t).slice(0,70)):p?'Scrivigli qualcosa!':'Tocca per adottare il tuo animaletto'}</span></div></div></div>`},
+ rows(){$$('.spetr').forEach(el=>{el.outerHTML=this.rowHTML()})},
+ open(){const p=this.cur();if(p)return this.chat();if(p===null)return this.adopt();this.load().then(x=>{if(x===undefined)toast('Non riesco a caricare il tuo animale, riprova');else this.open()})},
+ adopt(){let sp='cane';
+  const sh=openSheet(`<div class="shead">🐾 Il tuo animale</div><div class="sbody petad"><p class="pnote">Scegli il tuo animaletto: è <b>solo tuo</b>. Ci parli in chat e ti risponde. Cresce ogni giorno in cui gli scrivi; se lo trascuri si addormenta, ma non ti lascia mai.</p>
+   <div class="pgrid">${PET.SP.map(s=>`<button data-sp="${s[0]}" class="${s[0]===sp?'on':''}"><span>${s[1]}</span><small>${s[3]}</small></button>`).join('')}</div>
+   <input class="in" id="spN" maxlength="16" placeholder="Come lo chiami?" autocomplete="off"><button class="btn" id="spGo">Adotta 🥚</button></div>`);
+  $$('[data-sp]',sh).forEach(b=>b.onclick=()=>{sp=b.dataset.sp;$$('[data-sp]',sh).forEach(x=>x.classList.toggle('on',x===b))});
+  $('#spGo',sh).onclick=async()=>{const n=$('#spN',sh).value.replace(/\s+/g,' ').trim();if(!n)return toast('Dagli un nome');if(isBad(n))return toast('Scegli un nome più gentile');const bt=$('#spGo',sh);bt.disabled=true;
+   try{const j=await this.api({op:'sadopt',sp,nm:n});this.st().msgs=[];this.add('e','🥚 È nato '+j.pet.nm+'! Parlagli ogni giorno per farlo crescere');this.setP(j.pet);closeOv(sh);this.chat(true)}
+   catch(e){bt.disabled=false;if(e&&e.code==='exists'){closeOv(sh);this.load().then(()=>this.open());return}toast('Non riesco ad adottarlo adesso, riprova')}}},
+ chat(born){const ov=openFull(`<div class="wac spc"><div class="wch"><button class="iconbtn" id="spB">${ic('back')}</button><div class="wci" id="spH"></div><button class="iconbtn" id="spI" aria-label="Scheda">📊</button></div>
+   <div class="spst" id="spSt"></div><div class="wcm" id="spM"></div>
+   <div class="spacts"><button data-sa="feed">🍖<span>Pappa</span></button><button data-sa="play">🎾<span>Gioca</span></button><button data-sa="pet">🤚<span>Coccole</span></button></div>
+   <div class="wcin"><textarea id="spT" rows="1" maxlength="400"></textarea><button class="wsend" id="spS">${ic('send',20,2.2)}</button></div></div>`,'slideup');
+  const M=$('#spM',ov),T=$('#spT',ov);let typing=false;
+  const head=()=>{const p=this.cur();if(!p)return;const m=PET.mood(p),i=PET.stage(p.xp);
+   $('#spH',ov).innerHTML=`<span class="spav sm ${m[0]}">${PET.face(p)}</span><div><b>${esc(p.nm)}</b><small>${typing?'<span class="typ">sta scrivendo…</span>':PET.ST[i][1]+' · '+m[1]+(p.st?' · 🔥 '+p.st:'')}</small></div>`;
+   T.placeholder='Scrivi a '+p.nm+'…';
+   $('#spSt',ov).innerHTML=`<div class="pstage mini st${i} ${m[0]}"><div class="paura"></div><div class="pbody"><span class="pface">${PET.face(p)}</span>${i===4?'<span class="pcrown">👑</span>':''}</div><div class="pshadow"></div><div class="pfx" id="spFx"></div>${m[0]==='zz'?'<div class="pzz">z<i>z</i><b>z</b></div>':''}<div class="spbar"><i><s style="width:${p.hap}%"></s></i></div></div>`;
+   $$('[data-sa]',ov).forEach(b=>{const w=p.cd[b.dataset.sa]||0;b.disabled=w>0;b.title=w>0?'Tra '+Math.ceil(w/60000)+' min':''})};
+  const draw=()=>{const s=this.st();M.innerHTML=s.msgs.map(m=>m.r==='e'?`<div class="spm e">${esc(m.t)}</div>`:`<div class="spm ${m.r}"><p>${esc(m.t)}</p><small>${vcTime(m.ts)}</small></div>`).join('')+(typing?`<div class="spm p ty"><p><i></i><i></i><i></i></p></div>`:'');M.scrollTop=M.scrollHeight};
+  const fx=(e,n=6)=>{const f=$('#spFx',ov);if(!f)return;for(let k=0;k<n;k++){const s=document.createElement('span');s.textContent=e;s.style.left=(30+Math.random()*40)+'%';s.style.animationDelay=(k*.08)+'s';f.appendChild(s);setTimeout(()=>s.remove(),1600)}};
+  const bump=a=>{const b=$('#spSt .pbody',ov);if(b){b.classList.add('a-'+a);setTimeout(()=>b.classList.remove('a-'+a),1200)}};
+  const send=async()=>{const tx=T.value.replace(/\s+/g,' ').trim();if(!tx||this.busy)return;if(isBad(tx))return toast('Scrivi in modo gentile 💜');
+   const p=this.cur();if(!p)return;const h=this.st().msgs.filter(m=>m.r!=='e').slice(-10).map(m=>({r:m.r,t:m.t}));this.add('u',tx);T.value='';T.style.height='';this.busy=true;typing=true;draw();head();
+   try{const j=await this.api({op:'stalk',tx,h});typing=false;this.add('p',j.t);this.setP(j.pet);if(j.grew){this.add('e','🌱 '+j.pet.nm+' è cresciuto perché oggi gli hai parlato! 🔥 '+j.pet.st+(j.pet.st===1?' giorno':' giorni'));fx('✨',8)}bump('pet')}
+   catch(e){typing=false;if(e&&e.code==='slow')this.add('e','⏳ Stai scrivendo troppo veloce: aspetta un attimo');else if(e&&e.code==='day')this.add('e','😴 '+p.nm+' è stanco per oggi: ci sentiamo domani!');else this.add('e','💤 '+p.nm+' non riesce a risponderti adesso (servizio di risposte non raggiungibile). Riprova tra poco.')}
+   finally{this.busy=false;draw();head()}};
+  const SAY={feed:['🍖 '+'{n} mangia la pappa… gnam gnam!','🥕 {n} ha fatto il pieno, che buono!'],play:['🎾 {n} rincorre la pallina felicissimo!','🎾 {n} salta e gioca con te!'],pet:['🤚 {n} si gode le coccole 💜','🤚 {n} fa le fusa… o qualcosa del genere 💜']};
+  const act=async a=>{if(this.busy)return;this.busy=true;try{const j=await this.api({op:'sact',a});this.setP(j.pet);const L=SAY[a];this.add('e',L[Math.floor(Math.random()*L.length)].replace('{n}',j.pet.nm));draw();head();bump(a);fx(a==='feed'?'🍖':a==='play'?'🎾':'💜',a==='pet'?8:5);try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+   catch(e){toast(e&&e.code==='wait'?'Ha appena finito: riprova più tardi':'Non riesco, riprova')}finally{this.busy=false}};
+  $('#spB',ov).onclick=()=>closeOv(ov);$('#spS',ov).onclick=send;T.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+  T.addEventListener('input',()=>{T.style.height='';T.style.height=Math.min(110,T.scrollHeight)+'px'});
+  $$('[data-sa]',ov).forEach(b=>b.onclick=()=>act(b.dataset.sa));$('#spI',ov).onclick=()=>this.card(()=>{draw();head()},()=>closeOv(ov));
+  head();draw();if(born)setTimeout(()=>fx('✨',10),250);
+  this.load().then(()=>{if(ov.isConnected)head()});const tm=setInterval(()=>{if(!ov.isConnected)return clearInterval(tm);this.load().then(()=>{if(ov.isConnected&&!this.busy)head()})},60000)},
+ /* scheda con felicità, crescita, nome */
+ card(onCh,onFree){const p=this.cur();if(!p)return;const m=PET.mood(p),i=PET.stage(p.xp),nx=PET.ST[i+1];const pr=nx?Math.min(100,Math.round((p.xp-PET.ST[i][0])/(nx[0]-PET.ST[i][0])*100)):100;
+  const sh=openSheet(`<div class="shead">🐾 ${esc(p.nm)}</div><div class="sbody petsh"><div class="pname"><b>${PET.face(p)} ${esc(p.nm)}</b><span>${PET.ST[i][1]} · ${PET.sp(p.sp)[3]}</span></div><div class="pmood">${m[1]}${m[2]?` · <small>${m[2]}</small>`:''}</div>
+   <div class="pbars"><label>Felicità<i><s style="width:${p.hap}%"></s></i></label><label>${nx?'Verso '+nx[1]:'Livello massimo'}<i><s class="xp" style="width:${pr}%"></s></i></label></div>
+   <div class="ptoday"><span class="${p.today.me?'on':''}">${p.today.me?'✅ Oggi gli hai parlato':'⏳ Oggi non gli hai ancora scritto'}</span><b>🔥 ${p.st} ${p.st===1?'giorno':'giorni'}</b></div>
+   <p class="pnote">Parlagli ogni giorno per farlo crescere.${p.best>1?' Record: '+p.best+' giorni di fila.':''}</p>
+   <div class="prow"><button class="btn soft" id="spRn">✏️ Cambia nome</button><button class="btn soft" id="spFr">👋 Lascia andare</button></div></div>`);
+  $('#spRn',sh).onclick=async()=>{const n=prompt('Nuovo nome',p.nm);if(n==null)return;const v=n.replace(/\s+/g,' ').trim().slice(0,16);if(!v||isBad(v))return toast('Nome non valido');try{const j=await this.api({op:'srename',nm:v});this.setP(j.pet);closeOv(sh);onCh&&onCh()}catch(e){toast('Non riesco a cambiarlo, riprova')}};
+  $('#spFr',sh).onclick=()=>confirmSheet('Lasciare andare '+p.nm+'?','Sparirà insieme alla vostra chat. Potrai adottarne un altro quando vuoi.','Lascia andare',async()=>{try{await this.api({op:'sfree'});this.st().msgs=[];this.setP(null);closeOv(sh);onFree&&onFree();toast('👋 '+p.nm+' è tornato nel bosco')}catch(e){toast('Non riesco, riprova')}})}
+};
+/* la chat dell'animale sta sempre in cima a Vybe Chat */
+{const vph=vcPeopleHTML;vcPeopleHTML=function(){let h='';try{h=vph.apply(this,arguments)}catch(e){}try{if(S.acc&&Real.on)h+=SPET.rowHTML()}catch(e){}return h}}
+{const ovc=openVChat;openVChat=function(){const r=ovc.apply(this,arguments);try{if(Real.on)SPET.load()}catch(e){}return r}}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-spet]');if(!b)return;e.preventDefault();e.stopPropagation();SPET.open()},true);
+(function(){const st=document.createElement('style');st.textContent=`
+.spetr .spav{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;background:radial-gradient(circle at 50% 70%,#6d3bd1,#241a4a);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.12)}
+.spetr .spav.zz{filter:grayscale(.5);opacity:.75}.spetr .sptag{font-size:12px}
+.spc .wci{display:flex;align-items:center;gap:10px;flex:1;min-width:0}.spc .wci small{display:block;font-size:12px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spav.sm{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:radial-gradient(circle at 50% 70%,#6d3bd1,#241a4a);flex:none}
+.spst{padding:8px 10px 0;background:#0b0a10}.pstage.mini{height:128px;border-radius:22px}.pstage.mini .pbody{margin-bottom:20px}.pstage.mini .pface{font-size:58px}.pstage.mini.st0 .pface{font-size:46px}.pstage.mini.st4 .pface{font-size:66px}
+.pstage.mini .paura{width:110px;height:110px;margin-left:-55px;bottom:14px}.pstage.mini .pshadow{bottom:14px;width:60px;margin-left:-30px;height:10px}.pstage.mini .pcrown{top:-22px;font-size:24px}.pstage.mini .pfx span{bottom:30px}
+.spbar{position:absolute;left:14px;right:14px;bottom:8px}.spbar i{display:block;height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}.spbar s{display:block;height:100%;background:linear-gradient(90deg,#f43f5e,#f59e0b,#22c55e);border-radius:4px;transition:width .6s}
+.spm{display:flex;flex-direction:column;margin:6px 0;max-width:80%}.spm p{margin:0;padding:9px 13px;border-radius:20px;font-size:15px;line-height:1.35;white-space:pre-wrap;word-break:break-word}
+.spm small{font-size:10px;opacity:.45;margin:2px 8px}.spm.u{margin-left:auto;align-items:flex-end}.spm.u p{background:linear-gradient(135deg,#7c3aed,#db2777);color:#fff;border-bottom-right-radius:6px}
+.spm.p{align-items:flex-start}.spm.p p{background:#1d1a2a;color:var(--ink,#fff);border-bottom-left-radius:6px}
+.spm.e{max-width:90%;margin:10px auto;text-align:center;font-size:12.5px;opacity:.75;background:rgba(255,255,255,.06);padding:6px 12px;border-radius:14px;display:block}
+.spm.ty p{display:flex;gap:4px;padding:13px 14px}.spm.ty i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);animation:sptyp 1.2s infinite}.spm.ty i:nth-child(2){animation-delay:.15s}.spm.ty i:nth-child(3){animation-delay:.3s}
+@keyframes sptyp{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+.spacts{display:flex;gap:8px;padding:6px 10px;background:#0b0a10;overflow-x:auto}.spacts button{flex:1;border:0;border-radius:999px;padding:8px 10px;background:rgba(255,255,255,.08);color:inherit;font:600 13px -apple-system,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.spacts button:active{transform:scale(.94)}.spacts button:disabled{opacity:.4}
+.spc .wcin textarea{flex:1}`;document.head.appendChild(st)})();
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
