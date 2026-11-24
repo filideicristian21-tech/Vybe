@@ -8702,6 +8702,132 @@ AV3.edit=async function(){const a=S.acc;let c=Object.assign(this.def(),this.clea
 /* v93 – il numero di persone su Vybe lo vede solo l'amministratore; tolto "Accedi nell'app Vybe" e "Accedi con un codice" */
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{adminState()}catch(e){}},3000);return r}}
 {const st=document.createElement('style');st.textContent=`#ccode,[data-m="linkdev"]{display:none!important}`;document.head.appendChild(st)}
+/* v94 – pagamenti veri con Stripe: regali nelle dirette, mance ai creator, abbonamento Vybe+ */
+const PAY={i:null,vpSet:new Set(),rcv:new Set(),
+ eur(c){return (c/100).toFixed(2).replace('.',',').replace(',00','')+' €'},
+ async call(o){return moreCall('pay',o)},
+ async info(force){if(!CDB.isV())return null;if(this.i&&!force&&Date.now()-this.i._t<60000)return this.i;try{const j=await this.call({op:'info'});j._t=Date.now();this.i=j;if(j.vp&&j.vp.on)this.vpSet.add(Real.uid);else this.vpSet.delete(Real.uid);this.theme();return j}catch(e){this.i={on:false,_t:Date.now(),err:e&&e.code};return this.i}},
+ ok(){return this.i&&this.i.on},
+ vp(){return !!(this.i&&this.i.vp&&this.i.vp.on)},
+ /* acquisti in sospeso: li confermo quando torni nell'app */
+ pend(){try{return JSON.parse(localStorage.getItem('vybe_pay')||'[]')}catch(e){return[]}},
+ setPend(L){try{localStorage.setItem('vybe_pay',JSON.stringify(L.slice(-10)))}catch(e){}},
+ async go(o,label){if(S.teen)return toast('Gli account Teen non possono fare acquisti');const info=await this.info();if(!info||!info.on)return toast('I pagamenti non sono ancora attivi');
+  if(info.mode==='live'&&!info.charges)return toast('I pagamenti si attivano appena Stripe conferma l’account');
+  toast('Apro il pagamento sicuro…');try{const j=await this.call(Object.assign({op:'buy'},o));if(!j.url||!/^https:\/\/checkout\.stripe\.com\//.test(j.url))throw{code:'url'};
+   const L=this.pend();L.push({s:j.id,k:o.k,t:Date.now(),label:label||''});this.setPend(L);location.href=j.url}
+  catch(e){toast({teen:'Gli account Teen non possono fare acquisti',teenrecv:'Questa persona non può ricevere soldi',norecv:'Questa persona non ha ancora attivato i regali',already:'Hai già Vybe+ attivo',slow:'Troppi tentativi, riprova tra poco',notready:'I pagamenti non sono ancora attivi',banned:'Account bloccato'}[e&&e.code]||'Non riesco ad aprire il pagamento, riprova')}},
+ async check(){const L=this.pend();if(!L.length||!CDB.isV())return;const keep=[];
+  for(const p of L){if(Date.now()-p.t>2*86400000)continue;try{const r=await this.call({op:'confirm',s:p.s});if(r.ok){this.done(r,p)}else keep.push(p)}catch(e){if(!(e&&(e.code==='notyours'||e.code==='bad')))keep.push(p)}}
+  this.setPend(keep)},
+ done(r,p){if(r.k==='vp'){this.info(true).then(()=>{this.party('✨','Benvenuto in Vybe+!','Il tuo abbonamento è attivo: badge ✓, temi e avatar esclusivi sbloccati.');try{renderProfile()}catch(e){}});return}
+  const g=r.k==='gift'&&this.i&&this.i.gifts?this.i.gifts[r.g]:null;const w=USERS['r_'+r.to];const who=w?(w.first||w.u):'il creator';
+  this.party(g?g.e:'💸',g?'Regalo inviato!':'Mancia inviata!',`${g?g.e+' '+g.n:'La tua mancia'} (${this.eur(r.amt||0)}) è arrivata a ${esc(who)}. Grazie per supportarlo!`,r.ctx&&LIVE.list&&LIVE.list.some(x=>x.h===r.ctx)?r.ctx:null);
+  try{if(r.ctx&&g)CDB.call({op:'live_ev',h:r.ctx,k:'c',tx:'🎁 ha mandato '+g.e+' '+g.n}).catch(()=>{})}catch(e){}},
+ party(e,t,d,live){const sh=openSheet(`<div class="pyok"><div class="pyic">${e}</div><h3>${t}</h3><p>${d}</p>${live?'<button class="btn" id="pyLive">Torna alla diretta</button>':''}<button class="${live?'link':'btn'}" id="pyOk">${live?'Chiudi':'Fantastico!'}</button></div>`);
+  $('#pyOk',sh).onclick=()=>closeOv(sh);const l=$('#pyLive',sh);if(l)l.onclick=()=>{closeOv(sh);setTimeout(()=>liveWatch(live),250)};try{navigator.vibrate&&navigator.vibrate([20,40,30])}catch(x){}},
+ async canRecv(L){try{const j=await this.call({op:'canrecv',L});(j.ok||[]).forEach(u=>this.rcv.add(u));return j.ok||[]}catch(e){return[]}},
+ /* regali nella diretta */
+ async giftSheet(h){const info=await this.info();const w=USERS['r_'+h]||{};
+  if(!info||!info.on)return toast('I regali a pagamento non sono ancora attivi');if(S.teen)return toast('Gli account Teen non possono fare acquisti');
+  const ok=(await this.canRecv([h])).includes(h);
+  const G=Object.entries(info.gifts||{});
+  const sh=openSheet(`<div class="shead">🎁 Regalo per @${esc(w.u||'')}</div>${ok?`<div class="pygrid">${G.map(([id,g],i)=>`<button data-g="${id}" style="--i:${i}"><span>${g.e}</span><b>${esc(g.n)}</b><small>${this.eur(g.p)}</small></button>`).join('')}</div>
+   <p class="pynote">Paghi in modo sicuro con Apple Pay, Google Pay o carta. ${100-(info.feePct||20)}% va a ${esc(w.first||w.u||'il creator')}, il resto a Vybe.</p>`:`<div class="emptyc" style="padding:26px 22px">${esc(w.first||w.u||'Questa persona')} non ha ancora attivato i regali a pagamento.</div>`}`);
+  $$('[data-g]',sh).forEach(b=>b.onclick=()=>{closeOv(sh);const g=info.gifts[b.dataset.g];this.go({k:'gift',g:b.dataset.g,to:h,ctx:h},g.e+' '+g.n)})},
+ /* mancia dal profilo */
+ async tipSheet(h){const info=await this.info();const w=USERS['r_'+h]||{};if(!info||!info.on)return;let amt=300;
+  const sh=openSheet(`<div class="shead">💸 Supporta ${esc(w.first||w.u||'')}</div><div class="pytip">${[100,300,500,1000].map(a=>`<button data-a="${a}" class="${a===amt?'on':''}">${this.eur(a)}</button>`).join('')}</div>
+   <label class="pyfree">Altro importo <span><input id="pyA" inputmode="decimal" placeholder="es. 7" maxlength="6"> €</span></label>
+   <button class="btn" id="pyGo" style="margin:6px 16px 6px;width:calc(100% - 32px)">Invia ${this.eur(amt)}</button><p class="pynote">Da 1 € a 100 €. ${100-(info.feePct||20)}% va a ${esc(w.first||w.u||'')}. Pagamento sicuro con Apple Pay, Google Pay o carta.</p>`);
+  const upd=()=>{$('#pyGo',sh).textContent='Invia '+this.eur(amt);$$('[data-a]',sh).forEach(b=>b.classList.toggle('on',+b.dataset.a===amt))};
+  $$('[data-a]',sh).forEach(b=>b.onclick=()=>{amt=+b.dataset.a;$('#pyA',sh).value='';upd()});
+  $('#pyA',sh).oninput=e=>{const v=Math.round(parseFloat(String(e.target.value).replace(',','.'))*100);if(v>=100&&v<=10000){amt=v;upd()}};
+  $('#pyGo',sh).onclick=()=>{if(!(amt>=100&&amt<=10000))return toast('Scegli da 1 € a 100 €');closeOv(sh);this.go({k:'tip',to:h,amt},'Mancia')}},
+ /* Vybe+ */
+ TH:[['viola','Viola','#a855f7','#d946ef'],['oceano','Oceano','#0ea5e9','#22d3ee'],['tramonto','Tramonto','#f97316','#ef4444'],['smeraldo','Smeraldo','#10b981','#22c55e'],['oro','Oro','#f59e0b','#eab308'],['rosa','Rosa','#ec4899','#f472b6']],
+ theme(){const a=S.acc;if(!a)return;const t=this.vp()&&a.vpTheme?this.TH.find(x=>x[0]===a.vpTheme):null;const r=document.documentElement.style;
+  if(t&&t[0]!=='viola'){r.setProperty('--acc',t[2]);r.setProperty('--acc2',t[3]);r.setProperty('--vy',`linear-gradient(135deg,${t[2]} 0%,${t[3]} 60%,${t[2]} 100%)`)}else{r.removeProperty('--acc');r.removeProperty('--acc2');r.removeProperty('--vy')}},
+ async vpSheet(){const info=await this.info(true);if(!info||!info.on)return toast('Vybe+ non è ancora disponibile');const on=this.vp(),v=info.vp||{};
+  const sh=openSheet(`<div class="vpsh"><div class="vphero"><span class="vpb big">✓</span><h3>Vybe+</h3><p>${on?(v.cancel?'Attivo fino al '+new Date(v.until).toLocaleDateString('it-IT')+' · non si rinnova':'Attivo · si rinnova il '+new Date(v.until).toLocaleDateString('it-IT')):this.eur(info.vpPrice)+' al mese · disdici quando vuoi'}</p></div>
+   <div class="vpl"><div>✓<span><b>Badge Vybe+</b> accanto al tuo nome</span></div><div>🎨<span><b>Temi colore</b> per tutta l’app</span></div><div>🕶️<span><b>Accessori esclusivi</b> per l’avatar 3D</span></div><div>💜<span><b>Sostieni Vybe</b> e i nuovi aggiornamenti</span></div></div>
+   ${on?`<div class="vpth">${this.TH.map(t=>`<button data-t="${t[0]}" class="${(S.acc.vpTheme||'viola')===t[0]?'on':''}" style="--a:${t[2]};--b:${t[3]}"><i></i>${t[1]}</button>`).join('')}</div>
+    <button class="link" id="vpC" style="margin:6px auto 16px;display:block">${v.cancel?'Riattiva il rinnovo':'Disdici l’abbonamento'}</button>`
+   :S.teen?'<p class="pynote">Gli account Teen non possono fare acquisti.</p>':`<button class="btn" id="vpGo" style="margin:4px 16px 8px;width:calc(100% - 32px)">Attiva Vybe+ · ${this.eur(info.vpPrice)}/mese</button><p class="pynote">Pagamento sicuro con Apple Pay, Google Pay o carta. Puoi disdire in qualsiasi momento qui.</p>`}</div>`);
+  const go=$('#vpGo',sh);if(go)go.onclick=()=>{closeOv(sh);this.go({k:'vp'},'Vybe+')};
+  $$('[data-t]',sh).forEach(b=>b.onclick=()=>{S.acc.vpTheme=b.dataset.t;save();this.theme();$$('[data-t]',sh).forEach(x=>x.classList.toggle('on',x===b))});
+  const c=$('#vpC',sh);if(c)c.onclick=async()=>{const cancel=!v.cancel;if(cancel){const q=openSheet(`<div style="padding:10px 20px 22px;text-align:center"><h3>Disdire Vybe+?</h3><p style="color:var(--muted)">Resta attivo fino al ${new Date(v.until).toLocaleDateString('it-IT')}, poi non ti verrà più addebitato niente.</p><button class="btn danger" id="q1" style="width:100%">Disdici</button><button class="link" id="q2">Annulla</button></div>`);
+    $('#q2',q).onclick=()=>closeOv(q);await new Promise(res=>{$('#q1',q).onclick=()=>{closeOv(q);res(1)};q.onclose=()=>res(0)});}
+   try{await this.call({op:cancel?'vpcancel':'vpresume'});await this.info(true);closeOv(sh);toast(cancel?'Abbonamento disdetto: niente più addebiti':'Rinnovo riattivato ✨')}catch(e){toast('Non riesco, riprova')}}},
+ /* creator: ricevere regali e mance */
+ async cxSheet(){const info=await this.info(true);if(!info||!info.on)return toast('I pagamenti non sono ancora attivi');
+  if(S.teen)return openSheet('<div style="padding:12px 22px 24px;text-align:center"><div style="font-size:40px">🔒</div><h3>Non disponibile per gli account Teen</h3><p style="color:var(--muted)">Per ricevere soldi bisogna essere maggiorenni.</p></div>');
+  let st={id:null,ready:false};try{st=await this.call({op:'cx_status'})}catch(e){}
+  const e=info.earn||{};let rc=[];if(st.ready){try{rc=(await this.call({op:'rcv'})).L||[]}catch(x){}}
+  const sh=openSheet(`<div class="cxsh"><div class="cxhero"><span>💸</span><h3>Ricevi regali e mance</h3><p>I tuoi fan possono mandarti regali nelle dirette e mance dal tuo profilo. Tu ricevi l’${100-(info.feePct||20)}% direttamente sul tuo conto, Vybe trattiene il ${info.feePct||20}%.</p></div>
+   ${st.ready?`<div class="cxok">✅ Conto attivo</div><div class="kpis" style="padding:0 16px"><div class="kpi"><span>Guadagnato</span><b>${this.eur(e.tot||0)}</b></div><div class="kpi"><span>Regali e mance</span><b>${e.n||0}</b></div></div>
+    <div class="cxl">${rc.length?rc.slice(0,20).map(x=>{const w=USERS['r_'+x.from];const g=x.g&&info.gifts[x.g];return`<div class="urow">${w?avHTML(w,36):''}<div><b>${esc(w?w.u:'utente')}</b><span>${g?g.e+' '+g.n:'💸 Mancia'} · ${ago(x.t)}</span></div><em>${this.eur(x.amt)}</em></div>`}).join(''):'<div class="emptyc">Ancora niente: fai una diretta! 📡</div>'}</div>
+    <button class="btn soft" id="cxD" style="margin:8px 16px 18px;width:calc(100% - 32px)">Apri il tuo conto Stripe (pagamenti e bonifici)</button>`
+   :`<ol class="cxsteps"><li>Tocca <b>Attiva</b>: si apre la pagina sicura di Stripe</li><li>Inserisci i tuoi dati, un documento e il tuo IBAN</li><li>Torna su Vybe: quando Stripe conferma, i regali si attivano</li></ol>${st.id?`<p class="pynote">Hai già iniziato: ${st.due?'mancano ancora alcuni dati':'Stripe sta controllando i tuoi dati'}.</p>`:''}
+    <button class="btn" id="cxGo" style="margin:4px 16px 6px;width:calc(100% - 32px)">${st.id?'Continua':'Attiva'}</button><p class="pynote">Devi essere maggiorenne. I tuoi dati li gestisce Stripe, non Vybe.</p>`}</div>`);
+  const g=$('#cxGo',sh);if(g)g.onclick=async()=>{g.disabled=true;try{const j=await this.call({op:'cx_start'});if(j.url&&/^https:\/\/connect\.stripe\.com\//.test(j.url))location.href=j.url;else throw{}}catch(x){g.disabled=false;toast(x&&x.code==='teen'?'Non disponibile per gli account Teen':'Non riesco ad aprire Stripe, riprova')}};
+  const d=$('#cxD',sh);if(d)d.onclick=async()=>{try{const j=await this.call({op:'cx_dash'});if(j.url)location.href=j.url}catch(x){toast('Non riesco ad aprire il conto')}}},
+ /* amministratore */
+ async adminSheet(){let j;try{j=await this.call({op:'pays'})}catch(e){return toast(e&&e.code==='admin'?'Solo l’amministratore':'Non riesco a caricare i pagamenti')}
+  const N=j.names||{},L=j.L||[];const tot=L.filter(p=>!p.ref).reduce((a,p)=>a+(p.amt||0),0);
+  const sh=openSheet(`<div class="shead">💳 Pagamenti ${j.mode==='test'?'<small class="pytest">TEST</small>':''}</div><div class="sbody" style="max-height:66vh;overflow:auto;padding:0 14px 18px">
+   <div class="kpis" style="padding:0 0 10px"><div class="kpi"><span>Incassato</span><b>${this.eur(tot)}</b></div><div class="kpi"><span>Pagamenti</span><b>${L.length}</b></div></div>
+   ${L.length?L.map(p=>`<div class="paym${p.ref?' ref':''}"><div><b>${p.k==='vp'?'✨ Vybe+':p.k==='gift'?'🎁 Regalo '+((this.i&&this.i.gifts[p.g]||{}).e||''):'💸 Mancia'} · ${this.eur(p.amt||0)}</b><span>@${esc(N[p.from]||'?')}${p.to?' → @'+esc(N[p.to]||'?'):''} · ${new Date(p.t).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>${p.ref?'<em>Rimborsato</em>':`<button class="pill" data-r="${esc(p.id)}">Rimborsa</button>`}</div>`).join(''):'<div class="emptyc">Ancora nessun pagamento</div>'}</div>`);
+  $$('[data-r]',sh).forEach(b=>b.onclick=()=>{const p=L.find(x=>x.id===b.dataset.r);const q=openSheet(`<div style="padding:10px 20px 22px;text-align:center"><h3>Rimborsare ${this.eur(p.amt)}?</h3><p style="color:var(--muted)">I soldi tornano a @${esc(N[p.from]||'')} in 5–14 giorni. ${p.k==='vp'?'L’abbonamento Vybe+ viene chiuso subito. ':''}Non si può annullare. La commissione di Stripe non viene restituita.</p><button class="btn danger" id="r1" style="width:100%">Rimborsa</button><button class="link" id="r2">Annulla</button></div>`);
+   $('#r2',q).onclick=()=>closeOv(q);$('#r1',q).onclick=async()=>{closeOv(q);try{await this.call({op:'refund',id:p.id});toast('Rimborso fatto ✓');closeOv(sh);this.adminSheet()}catch(e){toast(e&&e.code==='done'?'Già rimborsato':'Rimborso non riuscito: '+(e&&e.code||''))}}})}};
+/* badge ✓ Vybe+ sui profili */
+{const pl=Real.payload.bind(Real);Real.payload=async function(){const d=await pl();delete d.vp;try{if(d.a3&&['sole','corona'].includes(d.a3.ac)&&!PAY.vp())d.a3=Object.assign({},d.a3,{ac:'no'})}catch(e){}return d}}
+PAY.badge=function(el,on){if(!el)return;const b=el.querySelector('.vpb');if(on&&!b)el.insertAdjacentHTML('beforeend',' <span class="vpb" title="Vybe+">✓</span>');if(!on&&b)b.remove()};
+{const rp=renderProfile;renderProfile=function(){const r=rp.apply(this,arguments);try{PAY.badge($('#profileScroll .pname'),PAY.vp());const pb=$('#profileScroll .pbtns');if(pb&&PAY.ok()&&!S.teen&&!$('#pyVp',pb.parentNode))pb.insertAdjacentHTML('afterend',`<button class="vpcta${PAY.vp()?' on':''}" id="pyVp">${PAY.vp()?'<span class="vpb">✓</span> Vybe+ attivo · temi e vantaggi':'✨ Prova Vybe+ · badge, temi e avatar esclusivi'}</button>`);const v=$('#pyVp');if(v)v.onclick=()=>PAY.vpSheet()}catch(e){}return r}}
+{const orl=openReal;openReal=function(id){const r=orl.apply(this,arguments);const ov=$$('#layer>.ovf').pop();if(!ov)return r;const w=USERS[id];if(!w||!w.rid)return r;
+  (async()=>{try{if(!PAY.ok())await PAY.info();if(!PAY.ok())return;const[q,c]=await Promise.all([PAY.call({op:'vpq',L:[w.rid]}),PAY.canRecv([w.rid])]);const vp=(q.on||[]).includes(w.rid);
+   const tick=()=>{if(!ov.isConnected)return clearInterval(t);PAY.badge($('.pname',ov),vp);const pb=$('.pbtns',ov);if(pb&&c.includes(w.rid)&&!S.teen&&!$('.pytipb',pb)){pb.insertAdjacentHTML('beforeend','<button class="fbtn pytipb">💸 Supporta</button>');$('.pytipb',pb).onclick=()=>PAY.tipSheet(w.rid)}};const t=setInterval(tick,800);tick()}catch(e){}})();return r}}
+/* regali a pagamento nella diretta */
+{const lw=liveWatch;liveWatch=function(h){const r=lw.apply(this,arguments);PAY.liveH=h;(async()=>{try{await PAY.info();if(!PAY.ok())return;for(let i=0;i<20;i++){const b=$('#lvgift');if(b){b.onclick=e=>{e.preventDefault();PAY.giftSheet(h)};return}await new Promise(r=>setTimeout(r,300))}}catch(e){}})();return r}}
+/* menu del profilo */
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);(async()=>{try{await PAY.info();if(!PAY.ok())return;const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(!m||$('#pyMenu',m))return;
+  const items=[`<button id="pyMenu"><span class="mi">✨</span><div>Vybe+<small>${PAY.vp()?'Attivo · temi e vantaggi':'Badge ✓, temi e avatar esclusivi'}</small></div></button>`];
+  if(!S.teen)items.push('<button id="cxMenu"><span class="mi">💸</span><div>Ricevi regali e mance<small>Guadagna dalle tue dirette e dal profilo</small></div></button>');
+  if(PAY.i.admin)items.push('<button id="paMenu"><span class="mi">💳</span><div>Pagamenti (amministratore)<small>Incassi e rimborsi</small></div></button>');
+  m.firstElementChild.insertAdjacentHTML('beforebegin',items.join(''));
+  const bind=(id,f)=>{const b=$('#'+id,m);if(b)b.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();closeAll();setTimeout(f,300)},true)};bind('pyMenu',()=>PAY.vpSheet());bind('cxMenu',()=>PAY.cxSheet());bind('paMenu',()=>PAY.adminSheet())}catch(e){}})();return r}}
+/* avatar 3D: accessori esclusivi Vybe+ */
+AV3.AC.push(['sole','🕶️ Occhiali da sole'],['corona','👑 Corona']);
+{const bd=AV3.build.bind(AV3);AV3.build=function(T,c){const R=bd(T,c);try{c=this.clean(c)||{};const head=R.ref.head;
+  if(c.ac==='sole'){const fr=new T.MeshStandardMaterial({color:'#0b0b0c',roughness:.25,metalness:.4}),ln=new T.MeshPhysicalMaterial({color:'#151a22',roughness:.05,metalness:.6,clearcoat:1});
+   [-1,1].forEach(sd=>{const l=new T.Mesh(new T.CircleGeometry(.021,32),ln);l.scale.set(1.2,.88,1);l.position.set(sd*.031,.016,.091);head.add(l);const r=new T.Mesh(new T.TorusGeometry(.021,.0024,8,32),fr);r.scale.set(1.2,.88,1);r.position.set(sd*.031,.016,.0915);head.add(r);const a=new T.Mesh(new T.CylinderGeometry(.0016,.0016,.09,6),fr);a.rotation.x=Math.PI/2;a.position.set(sd*.076,.02,.045);head.add(a)});
+   const br=new T.Mesh(new T.CylinderGeometry(.002,.002,.02,6),fr);br.rotation.z=Math.PI/2;br.position.set(0,.022,.094);head.add(br)}
+  if(c.ac==='corona'){const gold=new T.MeshPhysicalMaterial({color:'#f5c542',roughness:.18,metalness:1,clearcoat:.6}),gem=new T.MeshPhysicalMaterial({color:'#e11d48',roughness:.05,transmission:.3,clearcoat:1});
+   const band=new T.Mesh(new T.CylinderGeometry(.07,.072,.03,40,1,true),gold);band.position.y=.118;head.add(band);
+   for(let i=0;i<8;i++){const a=i/8*Math.PI*2;const sp=new T.Mesh(new T.ConeGeometry(.012,.032,10),gold);sp.position.set(Math.sin(a)*.07,.147,Math.cos(a)*.07);head.add(sp);if(i%2===0){const gm=new T.Mesh(new T.SphereGeometry(.0065,12,10),gem);gm.position.set(Math.sin(a)*.073,.118,Math.cos(a)*.073);head.add(gm)}}}}catch(e){}return R}}
+{const ed=AV3.edit.bind(AV3);AV3.edit=async function(){const r=ed.apply(this,arguments);setTimeout(()=>{try{$$('.a3ch[data-k="ac"]').forEach(b=>{if(['sole','corona'].includes(b.dataset.v)){b.classList.add('vpx');if(!PAY.vp())b.addEventListener('click',e=>{e.stopImmediatePropagation();e.preventDefault();toast('Accessorio esclusivo Vybe+ ✨');PAY.vpSheet()},true)}})}catch(e){}},400);return r}}
+/* all'avvio e quando torni nell'app */
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(async()=>{try{await PAY.info();await PAY.check()}catch(e){}},2500);try{if(/[?&]pay=/.test(location.search))history.replaceState(null,'',location.pathname)}catch(e){}return r}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>{try{PAY.check();if(PAY.pend().length===0&&PAY.i)PAY.info(true)}catch(e){}},1200)});
+{const st=document.createElement('style');st.textContent=`
+.vpb{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--vy,linear-gradient(135deg,#a855f7,#ec4899));color:#fff;font-size:11px;font-weight:900;vertical-align:2px;box-shadow:0 0 10px rgba(168,85,247,.5)}.vpb.big{width:56px;height:56px;font-size:30px}
+.vpcta{display:block;width:calc(100% - 32px);margin:10px 16px 0;padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,rgba(168,85,247,.22),rgba(236,72,153,.18));color:inherit;font-weight:700;font-size:14px;text-align:left;transition:transform .16s cubic-bezier(.23,1,.32,1)}.vpcta:active{transform:scale(.97)}.vpcta.on{background:rgba(127,127,127,.12)}
+.vpsh{padding:6px 0 10px}.vphero{text-align:center;padding:8px 20px 10px}.vphero h3{font-size:26px;margin:10px 0 4px}.vphero p{opacity:.7;margin:0}
+.vpl{display:flex;flex-direction:column;gap:10px;padding:10px 22px 14px}.vpl>div{display:flex;gap:12px;align-items:center;font-size:20px}.vpl span{font-size:14.5px}
+.vpth{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px 16px 10px}.vpth button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:14px;background:rgba(127,127,127,.12);color:inherit;font-size:12.5px;font-weight:700}.vpth i{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--a),var(--b))}.vpth button.on{box-shadow:inset 0 0 0 2px var(--a)}
+.pygrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:6px 16px 8px}.pygrid button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:14px 6px;border-radius:18px;background:rgba(127,127,127,.12);color:inherit;animation:tgin .4s cubic-bezier(.23,1,.32,1) both;animation-delay:calc(var(--i)*40ms);transition:transform .16s cubic-bezier(.23,1,.32,1)}.pygrid button:active{transform:scale(.94)}
+.pygrid span{font-size:34px}.pygrid b{font-size:13px}.pygrid small{font-size:13px;font-weight:800;color:var(--acc)}
+.pynote{font-size:12.5px;opacity:.65;text-align:center;margin:6px 20px 16px;line-height:1.45}
+.pytip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 16px}.pytip button{padding:14px 4px;border-radius:14px;background:rgba(127,127,127,.12);color:inherit;font-weight:800;font-size:15px}.pytip button.on{background:var(--vy);color:#fff}
+.pyfree{display:flex;justify-content:space-between;align-items:center;margin:4px 16px 8px;padding:10px 14px;border-radius:14px;background:rgba(127,127,127,.1);font-size:14px}.pyfree input{width:70px;text-align:right;background:none;border:0;color:inherit;font-size:16px;font-weight:700;outline:none}
+.pyok{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:14px 22px 24px}.pyic{font-size:64px;animation:tgpop .7s cubic-bezier(.34,1.56,.64,1)}.pyok h3{margin:4px 0;font-size:22px}.pyok p{margin:0 0 10px;opacity:.75;line-height:1.45}.pyok .btn{width:100%}
+.cxsh{padding:4px 0 6px}.cxhero{text-align:center;padding:6px 22px 8px}.cxhero span{font-size:46px}.cxhero h3{margin:6px 0}.cxhero p{opacity:.72;line-height:1.45;margin:0;font-size:14px}
+.cxsteps{margin:10px 22px;padding-left:20px;line-height:1.7;font-size:14px}.cxok{text-align:center;font-weight:800;margin:6px 0 10px;color:#34d399}.cxl{max-height:34vh;overflow:auto;padding:6px 16px}.cxl .urow em{margin-left:auto;font-style:normal;font-weight:800}
+.paym{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}.paym>div{flex:1;display:flex;flex-direction:column;gap:2px}.paym span{font-size:12px;opacity:.65}.paym.ref{opacity:.5}.paym em{font-style:normal;font-size:12px;opacity:.8}
+.pytest{font-size:10px;background:#f59e0b;color:#000;border-radius:6px;padding:2px 6px;vertical-align:3px}
+.a3ch.vpx::after{content:' ✨';}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
