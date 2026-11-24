@@ -7893,6 +7893,28 @@ svg.sm{width:15px;height:15px;stroke-width:6}
 @media (prefers-reduced-motion:reduce){.gf4 i.gnew,.gtris button.gnew svg *,.gwl span.gnew{animation:none!important;stroke-dashoffset:0!important}}
 `;document.head.appendChild(st)}
 
+/* v86 – 🎮 tasto "sticker" dei giochi nella barra in alto della chat, accanto alla fiamma: lo tocchi e scegli il gioco.
+   Se in questa chat c'è una partita in cui tocca a te, il tasto ha un pallino verde e si muove un po'. */
+GAME.mine=function(cid){const c=VC.conv(cid);if(!c)return 0;const ids=[...new Set((c.msgs||[]).filter(m=>!m.del&&m.pl&&m.pl.gm&&m.pl.gm.a==='new').map(m=>m.pl.gm.id))];
+ let n=0;for(const id of ids){const st=this.state(c,id);if(st&&!st.done&&st.turn===VC.me)n++}return n};
+{const ov=openVConv;openVConv=function(cid){const r=ov.apply(this,arguments);try{const o=$$('#layer>.ovf').pop();if(o&&String(cid).startsWith('d:')){
+  const put=()=>{const h=$('.wch',o);if(!h||$('#gmTap',o))return;const ref=$('#stkTap',o)||[...h.querySelectorAll('button')].filter(b=>b.id!=='wcb'&&b.id!=='wcm')[0]||$('#wcm',o);if(!ref)return;
+   ref.insertAdjacentHTML('beforebegin','<button class="iconbtn gmtap" id="gmTap" aria-label="Giochi"><span>🎮</span></button>');
+   $('#gmTap',o).onclick=e=>{e.stopPropagation();GAME.pick(cid)};paint()};
+  const paint=()=>{const b=$('#gmTap',o);if(b)b.classList.toggle('turn',GAME.mine(cid)>0)};
+  put();setTimeout(put,450);setTimeout(put,1300);const iv=setInterval(()=>{if(!o.isConnected)return clearInterval(iv);put();paint()},2000)}}catch(e){}return r}}
+try{const g=GUIDE.S.find(x=>/Giochi in chat/.test(x[1]));if(g)g[2]='Apri una chat con un amico e tocca il tasto <b>🎮</b> in alto, accanto alla fiamma 🔥: scegli Tris, Forza 4 o Indovina la parola. Le mosse arrivano all’amico come messaggi cifrati.'}catch(e){}
+{const st=document.createElement('style');st.textContent=`
+.gmtap{position:relative;width:38px;height:38px}
+.gmtap span{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;font-size:17px;line-height:1;transform:rotate(-8deg);
+ background:linear-gradient(135deg,#22c55e,#0ea5e9);box-shadow:0 0 0 2px #fff,0 3px 8px rgba(0,0,0,.35);transition:transform .16s cubic-bezier(.23,1,.32,1)}
+.gmtap:active span{transform:rotate(-8deg) scale(.9)}
+.gmtap.turn::after{content:'';position:absolute;right:2px;top:3px;width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px var(--bg,#0b0a10)}
+.gmtap.turn span{animation:gmwob 1.6s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes gmwob{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(4deg) scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.gmtap.turn span{animation:none}}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
