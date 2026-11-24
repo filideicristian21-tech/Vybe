@@ -7655,6 +7655,94 @@ button,[role=button],.iconbtn,.btn,.fbtn,.grab,#nav,.chip,.tab,.vmchips,.vmgrab{
 @media (prefers-contrast:more){.sheet{border-top:1px solid rgba(255,255,255,.35)}}
 `;document.head.appendChild(st)}
 
+/* v83 – barra in basso come iOS 26 (Liquid Glass): capsula di vetro sospesa con le schede, tasto + in un cerchio di vetro a parte,
+   pillola della scheda attiva che, se tieni premuto e strisci, si solleva in una lente che segue il dito 1:1, si allunga con la velocità,
+   ingrandisce le icone sotto e al rilascio scatta sulla scheda più vicina con una molla (dati Apple: smorzamento 0.8, risposta ~0.35s). */
+const LG={
+ x:null,w:0,s:1,sx:1,sy:1,v:0,vs:0,vx:0,vy:0,raf:0,drag:null,tabs:[],
+ on(){try{return matchMedia('(max-width: 899px)').matches}catch(e){return true}},
+ RM(){try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}},
+ build(){const nav=$('#nav');if(!nav||!this.on()){if(nav)nav.classList.remove('lg');return}
+  const B=$$(':scope>button',nav);if(!B.length)return;const L={home:'Home',discover:'Esplora',reels:'Reels',profile:'Profilo'};
+  const bar=document.createElement('div');bar.className='lgbar';const lens=document.createElement('div');lens.className='lglens';bar.appendChild(lens);
+  const pl=document.createElement('div');pl.className='lgplus';
+  B.forEach(b=>{if(b.dataset.a==='create'){pl.appendChild(b);return}const v=b.dataset.v;if(L[v]&&!b.querySelector('.lgl'))b.insertAdjacentHTML('beforeend',`<span class="lgl">${L[v]}</span>`);bar.appendChild(b)});
+  nav.innerHTML='';nav.appendChild(bar);nav.appendChild(pl);nav.classList.add('lg');
+  this.bar=bar;this.lens=lens;this.tabs=$$('button[data-v]',bar);this.bind();
+  requestAnimationFrame(()=>{this.measure();const t=this.cur();if(this.x==null||this.RM()){this.x=t;this.paint()}else{this.paint();this.go(t,1)}})},
+ measure(){const r=this.bar.getBoundingClientRect();this.L=r.left;this.W=r.width;this.C=this.tabs.map(b=>{const q=b.getBoundingClientRect();return q.left-r.left+q.width/2});this.w=this.tabs.length?this.W/this.tabs.length-6:60},
+ cur(){const i=this.tabs.findIndex(b=>b.classList.contains('on'));return this.C&&this.C.length?this.C[Math.max(0,i)]:0},
+ near(x){let k=0,d=1e9;this.C.forEach((c,i)=>{const e=Math.abs(c-x);if(e<d){d=e;k=i}});return k},
+ rb(o,d,c=.55){return (o*d*c)/(d+c*Math.abs(o))},
+ paint(){const l=this.lens;if(!l)return;const lift=this.s;l.style.width=this.w+'px';
+  l.style.transform=`translateX(${this.x-this.w/2}px) scale(${lift*this.sx},${lift*this.sy})`;l.classList.toggle('up',lift>1.04);
+  /* icone sotto la lente: più grandi e accese, in base alla distanza */
+  const up=Math.max(0,(lift-1)/.3);this.tabs.forEach((b,i)=>{const d=Math.abs(this.C[i]-this.x)/(this.w+6),k=Math.max(0,1-d);b.style.setProperty('--m',(1+.22*k*up).toFixed(3));b.style.setProperty('--k',k.toFixed(3))})},
+ /* molla (stile Apple: smorzamento + risposta) per posizione, sollevamento e allungamento */
+ spring(c,t,v,dt,z,r){const k=Math.pow(2*Math.PI/r,2),b=4*Math.PI*z/r;const a=-k*(c-t)-b*v;v+=a*dt;c+=v*dt;return[c,v]},
+ go(tx,ts,vx){this.tx=tx;this.ts=ts==null?1:ts;if(vx!=null)this.v=vx;if(this.RM()){this.x=tx;this.s=1;this.sx=this.sy=1;this.paint();return}
+  if(this.raf)return;let last=performance.now();const step=n=>{const dt=Math.min(.032,(n-last)/1000);last=n;
+   if(!this.drag){[this.x,this.v]=this.spring(this.x,this.tx,this.v,dt,.8,.35)}else if(!this.drag.caught){[this.x,this.v]=this.spring(this.x,this.tx,this.v,dt,1,.18);if(Math.abs(this.x-this.tx)<3)this.drag.caught=true}
+   [this.s,this.vs]=this.spring(this.s,this.drag?1.28:this.ts,this.vs,dt,this.drag?.75:.7,.3);
+   const want=this.drag?Math.min(.32,Math.abs(this.dv||0)*.18):Math.min(.25,Math.abs(this.v)/3500);
+   [this.sx,this.vx]=this.spring(this.sx,1+want,this.vx,dt,.6,.25);[this.sy,this.vy]=this.spring(this.sy,1-want*.45,this.vy,dt,.6,.25);
+   this.paint();const still=!this.drag&&Math.abs(this.x-this.tx)<.3&&Math.abs(this.v)<5&&Math.abs(this.s-this.ts)<.002&&Math.abs(this.sx-1)<.002&&Math.abs(this.vs)<.01;
+   if(still){this.x=this.tx;this.s=this.ts;this.sx=this.sy=1;this.paint();this.raf=0;return}this.raf=requestAnimationFrame(step)};this.raf=requestAnimationFrame(step)},
+ bind(){const bar=this.bar;
+  bar.addEventListener('pointerdown',e=>{if(e.button>0)return;this.measure();const x=e.clientX-this.L;
+   this.drag={x0:e.clientX,id:e.pointerId,moved:false,h:[{t:performance.now(),x}],grab:x-this.x,start:this.near(x)};
+   /* la lente parte da dove sei: se tocchi un'altra scheda, prima ci va sotto il dito */
+   if(Math.abs(x-this.x)>this.w*.6){this.drag.grab=0;this.drag.caught=false;this.tx=x}else{this.drag.caught=true;this.tx=this.x}this.dv=0;this.go(this.tx)},{passive:true});
+  bar.addEventListener('pointermove',e=>{const g=this.drag;if(!g||e.pointerId!==g.id)return;const x=e.clientX-this.L;
+   if(!g.moved){if(Math.abs(e.clientX-g.x0)<8)return;g.moved=true;try{bar.setPointerCapture(e.pointerId)}catch(_){}}
+   let p=x-g.grab;const lo=this.C[0],hi=this.C[this.C.length-1];if(p<lo)p=lo-this.rb(lo-p,this.W);if(p>hi)p=hi+this.rb(p-hi,this.W);
+   const n=performance.now();g.h.push({t:n,x:p});if(g.h.length>8)g.h.shift();const a=g.h[0],b=g.h[g.h.length-1];this.dv=b.t>a.t?(b.x-a.x)/(b.t-a.t)*1000/1000:0;
+   this.tx=p;if(g.caught){this.x=p;this.v=0;this.paint()}});
+  const end=e=>{const g=this.drag;if(!g||e.pointerId!==g.id)return;this.drag=null;
+   if(!g.moved){/* tocco semplice: ci pensa il clic normale; la lente torna giù */this.go(this.cur(),1);return}
+   const H=g.h,a=H[0],b=H[H.length-1],vel=b.t>a.t?(b.x-a.x)/(b.t-a.t)*1000:0;/* proietto dove andrebbe il dito (formula di Apple) */
+   const proj=this.x+(vel/1000)*.99/(1-.99);const i=this.near(proj);this.go(this.C[i],1,vel);
+   const btn=this.tabs[i];if(btn&&!btn.classList.contains('on'))setTimeout(()=>btn.click(),60);
+   /* il clic "fantasma" di fine trascinamento non deve aprire altro */
+   const kill=ev=>{ev.stopPropagation();ev.preventDefault()};document.addEventListener('click',kill,true);setTimeout(()=>document.removeEventListener('click',kill,true),40)};
+  bar.addEventListener('pointerup',end);bar.addEventListener('pointercancel',e=>{const g=this.drag;if(g){g.moved=g.moved||false;end(e)}})},
+ init(){const rn=renderNav;renderNav=function(){const r=rn.apply(this,arguments);try{LG.build()}catch(e){}return r};
+  addEventListener('resize',()=>{clearTimeout(this.rt);this.rt=setTimeout(()=>{try{renderNav()}catch(e){}},150)});
+  try{if($('#nav')&&$('#nav').children.length)LG.build()}catch(e){}}};
+LG.init();
+{const st=document.createElement('style');st.textContent=`
+@media (max-width:899px){
+#nav.lg{background:transparent!important;border-top:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:0 14px calc(6px + env(safe-area-inset-bottom,0px))!important;pointer-events:none}
+html.vshort #nav.lg{background:transparent!important;padding-bottom:6px!important}
+#nav.lg>*{pointer-events:auto}
+/* vetro: sfocatura + saturazione, bordo che prende la luce in alto, ombra morbida */
+#nav.lg .lgbar,#nav.lg .lgplus{position:relative;height:60px;border-radius:999px;background:rgba(30,27,44,.38);-webkit-backdrop-filter:blur(14px) saturate(190%) brightness(1.06);backdrop-filter:blur(14px) saturate(190%) brightness(1.06);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(255,255,255,.07),inset 0 0 0 .6px rgba(255,255,255,.14),0 10px 30px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.25)}
+#nav.lg .lgbar::before,#nav.lg .lgplus::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 45%),radial-gradient(120% 90% at 0% 50%,rgba(255,255,255,.07),transparent 40%),radial-gradient(120% 90% at 100% 50%,rgba(255,255,255,.07),transparent 40%)}
+#nav.lg .lgbar{flex:1;display:flex;align-items:center;padding:0 3px;touch-action:none;-webkit-user-select:none;user-select:none}
+#nav.lg .lgbar>button{flex:1;width:auto;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(235,230,255,.62);position:relative;z-index:2;filter:none;transition:color .2s ease;transform:none!important;animation:none!important}
+#nav.lg .lgbar>button>svg,#nav.lg .lgbar>button>.meav{transform:scale(var(--m,1));transition:transform .08s linear;width:24px;height:24px}
+#nav.lg .lgbar>button .meav{width:25px;height:25px}
+#nav.lg .lgbar>button.on{color:#d8b4fe;filter:none}
+#nav.lg .lgbar>button[data-v].on::after{display:none}
+#nav.lg .lgl{font-size:10px;font-weight:650;letter-spacing:.01em;line-height:1}
+#nav.lg .lgbar>button .nbadge{top:2px;right:calc(50% - 22px)}
+/* pillola / lente */
+#nav.lg .lglens{position:absolute;left:0;top:4px;height:52px;border-radius:999px;z-index:1;pointer-events:none;transform-origin:50% 50%;will-change:transform;
+ background:rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.32),inset 0 0 0 .6px rgba(255,255,255,.2),0 2px 10px rgba(0,0,0,.18);transition:background-color .2s ease,box-shadow .2s ease}
+#nav.lg .lglens.up{background:rgba(255,255,255,.05);-webkit-backdrop-filter:blur(1.5px) saturate(1.8) brightness(1.15);backdrop-filter:blur(1.5px) saturate(1.8) brightness(1.15);
+ box-shadow:inset 0 0 0 1px rgba(255,255,255,.42),inset 0 7px 12px rgba(255,255,255,.2),inset 0 -6px 12px rgba(255,255,255,.1),inset 8px 0 14px rgba(192,132,252,.12),inset -8px 0 14px rgba(236,72,153,.1),0 12px 30px rgba(0,0,0,.35)}
+/* tasto + in un cerchio di vetro colorato a parte */
+#nav.lg .lgplus{width:60px;flex:0 0 60px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(147,51,234,.78),rgba(219,39,119,.7))}
+#nav.lg .lgplus>button{width:60px;height:60px;display:grid;place-items:center;border-radius:50%;transform:none;animation:none!important}
+#nav.lg .lgplus .plus{background:transparent!important;box-shadow:none!important;width:auto;height:auto;color:#fff!important}
+#nav.lg .lgplus:active{transform:scale(.94)}#nav.lg .lgplus{transition:transform .15s cubic-bezier(.23,1,.32,1)}
+#nav.lg.dark .lgbar{background:rgba(20,20,24,.34)}
+}
+@media (prefers-reduced-transparency:reduce){#nav.lg .lgbar,#nav.lg .lgplus{background:#1b1926!important}#nav.lg .lgplus{background:linear-gradient(135deg,#7e22ce,#be185d)!important}#nav.lg .lglens.up{background:rgba(255,255,255,.16)}}
+@media (prefers-contrast:more){#nav.lg .lgbar,#nav.lg .lgplus{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}}
+`;document.head.appendChild(st)}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
