@@ -9669,6 +9669,11 @@ VE.scan();setInterval(()=>VE.scan(),5000);
 /* v115 — lingue: le traduzioni nuove preparate dal server arrivano da sole, senza riaprire l'app */
 setInterval(()=>{try{if(I18N.lang!=='it'&&document.visibilityState==='visible'){I18N.F.clear();I18N.preload(I18N.lang)}}catch(e){}},90000);
 document.addEventListener('visibilitychange',()=>{try{if(document.visibilityState==='visible'&&I18N.lang!=='it'){I18N.F.clear();I18N.preload(I18N.lang)}}catch(e){}});
+/* v116 — volume del video rispettato anche a metà (es. 30%), non solo a zero */
+VE.gain=function(v,e){if(!(e.vo>.01&&e.vo<.99))return;if(v.__vg){v.__vg.gain.value=e.vo;return}const ac=this.ctx();if(!ac)return;
+ const src=v.currentSrc||v.src||'';if(!/^blob:/.test(src)&&v.crossOrigin!=='anonymous'){if(v.__vgr)return;v.__vgr=1;const t=v.currentTime,pl=!v.paused;v.crossOrigin='anonymous';try{v.load();if(t)v.currentTime=t;if(pl)v.play().catch(()=>{})}catch(x){}return}
+ try{const s=ac.createMediaElementSource(v),g=ac.createGain();g.gain.value=e.vo;s.connect(g).connect(ac.destination);v.__vg=g}catch(x){}};
+{const ap=VE.apply.bind(VE);VE.apply=function(v){ap(v);const e=this.get(v);if(e)this.gain(v,e)}}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
