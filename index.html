@@ -9301,6 +9301,23 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState!==
 .wfx{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.08);font-size:19px;flex:none;align-self:center;margin-right:2px}.wfx.on{background:rgba(168,85,247,.35);box-shadow:0 0 0 1.5px rgba(192,132,252,.8)}
 #wcin.hastx .wfx,#wcin.recording .wfx{display:none}
 .vfxg{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.vfxg button{border:0;border-radius:18px;padding:12px 0 10px;background:rgba(255,255,255,.07);color:inherit;display:flex;flex-direction:column;align-items:center;gap:3px}.vfxg span{font-size:28px}.vfxg b{font-size:13px}.vfxg button.on{background:linear-gradient(135deg,rgba(168,85,247,.45),rgba(236,72,153,.4));box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4)}`;document.head.appendChild(st)})();
+/* v107 — i video si vedono da tutti: ogni video ha la sua copertina (senza copertina il post non veniva pubblicato) */
+const VPOST={
+ make(src){return new Promise(res=>{let done=false;const v=document.createElement('video');v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';if(!/^blob:/.test(src))v.crossOrigin='anonymous';
+  const fin=x=>{if(done)return;done=true;clearTimeout(t);try{v.removeAttribute('src');v.load()}catch(e){}res(x)};const t=setTimeout(()=>fin(null),10000);
+  v.onloadeddata=()=>{try{v.currentTime=Math.min(.5,(isFinite(v.duration)&&v.duration>0?v.duration:1)/3)}catch(e){fin(null)}};
+  v.onseeked=()=>{try{const W=v.videoWidth,H=v.videoHeight;if(!W||!H)return fin(null);const s=Math.min(1,480/Math.max(W,H)),c=document.createElement('canvas');c.width=Math.round(W*s);c.height=Math.round(H*s);c.getContext('2d').drawImage(v,0,0,c.width,c.height);fin(c.toDataURL('image/jpeg',.72))}catch(e){fin(null)}};
+  v.onerror=()=>fin(null);v.src=src;try{v.load()}catch(e){}})},
+ /* sistema i video già pubblicati senza copertina */
+ async fix(){const a=S.acc;if(!a||this.busy)return 0;this.busy=true;let n=0;try{const P=VUP.posters();
+  for(const p of (a.own||[])){if(n>=4)break;if(p.type!=='video'||!p.video||p.poster)continue;const k=P[p.video]||await this.make(p.video);if(k){p.poster=k;if(VURX.test(p.video))P[p.video]=k;n++}}
+  for(const f of (typeof myStories==='function'?myStories():[])){if(n>=6)break;if(!f.video||f.poster)continue;const k=P[f.video]||await this.make(f.video);if(k){f.poster=k;n++}}}catch(e){}finally{this.busy=false}
+  if(n){save();try{if(Real.db===VDB){VDB.lastHard='';VDB.lastFull=''}Real.publishSoon(800)}catch(e){}}return n}
+};
+{const r0=VJOB.run.bind(VJOB);VJOB.run=async function(job,m,st,pre){if(!m.poster){try{const k=await VPOST.make(m.url);if(k)m=Object.assign({},m,{poster:k})}catch(e){}}return r0(job,m,st,pre)}}
+{const up0=VJOB.up.bind(VJOB);VJOB.up=async function(job){if(!job.poster&&job.blob){try{const u=URL.createObjectURL(job.blob);job.poster=await VPOST.make(u);URL.revokeObjectURL(u)}catch(e){}}return up0(job)}}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>VPOST.fix(),6000);return r}}
+setInterval(()=>{if(document.visibilityState==='visible')VPOST.fix()},90000);
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
