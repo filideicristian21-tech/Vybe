@@ -4375,7 +4375,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 .rpost .urow{position:relative;padding-right:56px!important}
 .rpx{position:absolute;right:12px;top:50%;transform:translateY(-55%);width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:22px;line-height:38px;display:grid;place-items:center;cursor:pointer}
 .rpx:active{background:rgba(255,255,255,.22)}`;document.head.appendChild(st)})();
-{const orp2=openRealPost;openRealPost=function(id,i){orp2(id,i);const sh=$$('#layer>.ov').pop();if(!sh||!$('.rpost',sh))return;const row=$('.rpost .urow',sh);if(row&&!$('.rpx',row)){row.insertAdjacentHTML('beforeend','<button class="rpx" aria-label="Chiudi">✕</button>');$('.rpx',row).onclick=e=>{e.stopPropagation();closeOv(sh)}}}}
+{const orp2=openRealPost;openRealPost=function(id,i){orp2(id,i);const sh=$$('#layer>.ov').pop();if(!sh||!$('.rpost',sh))return;const row=$('.rpost .urow',sh);if(row&&!$('.rpx',row)){row.insertAdjacentHTML('beforeend','<button class="rpx" data-a="rpclose" aria-label="Chiudi">✕</button>');$('.rpx',row).onclick=e=>{e.stopPropagation();closeOv(sh)}}}}
 
 /* v31: virtual people removed for good — stories only me + real people; real-only mode can't be turned off */
 (function(){const st=document.createElement('style');st.textContent='[data-m="realmode"]{display:none!important}';document.head.appendChild(st)})();
@@ -9334,6 +9334,8 @@ setInterval(()=>{if(document.visibilityState==='visible')VPOST.fix()},90000);
 #v-home>header.top::before{background:#07060c!important}
 #homeScroll,#discoverScroll{overscroll-behavior-y:contain}
 html::before{content:'';position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:#07060c;z-index:2147483000;pointer-events:none}`;document.head.appendChild(st)})();
+/* v110 — la X del post chiude il post (prima il tocco finiva sul nome e apriva il profilo) */
+ACT.rpclose=t=>{const ov=t.closest('.ov');if(ov)closeOv(ov)};
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
