@@ -9197,6 +9197,9 @@ fetch('/api/mail',{cache:'no-store'}).then(r=>r.json()).then(j=>{BOT.hc=j&&j.hc|
 {const ma=MAIL.api.bind(MAIL);MAIL.api=async function(o){if(!o||o.op!=='send')return ma(o);
   const once=async()=>{const x=Object.assign({},o);const c=await ma({op:'pow',email:o.email});x.pow=Object.assign({},c,{number:await BOT.solve(c)});if(BOT.hc){try{x.hc=await BOT.hcap()}catch(e){throw{code:'captcha'}}}return ma(x)};
   try{return await once()}catch(e){if(e&&e.code==='bot')return await once();if(e&&e.code==='captcha')toast('Completa la verifica "non sono un robot" e riprova');throw e}}}
+{const ca=Cloud.api.bind(Cloud);Cloud.api=async function(action,extra){if(action!=='register'||(extra&&extra.pow))return ca(action,extra);
+  const once=async()=>{let pow=null;try{const c=await ca('pow');if(c&&c.status===200&&c.challenge){const x={salt:c.salt,challenge:c.challenge,signature:c.signature,max:c.max};x.number=await BOT.solve(x);pow=x}}catch(e){}return ca(action,Object.assign({},extra||{},pow?{pow}:{}))};
+  let r=await once();if(r&&r.status===403&&r.error==='bot')r=await once();return r}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
