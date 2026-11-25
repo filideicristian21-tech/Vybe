@@ -9318,6 +9318,16 @@ const VPOST={
 {const up0=VJOB.up.bind(VJOB);VJOB.up=async function(job){if(!job.poster&&job.blob){try{const u=URL.createObjectURL(job.blob);job.poster=await VPOST.make(u);URL.revokeObjectURL(u)}catch(e){}}return up0(job)}}
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>VPOST.fix(),6000);return r}}
 setInterval(()=>{if(document.visibilityState==='visible')VPOST.fix()},90000);
+/* v108 — Reels: mi piace, commenti e nome sempre sopra la foto/video; barra in alto della Home ferma al suo posto */
+(function(){const st=document.createElement('style');st.textContent=`
+.reel .dbl{z-index:0}.reel .rshade{z-index:1;pointer-events:none}.reel .rinfo,.reel .ract{z-index:3}
+.reel .ract,.reel .rinfo{filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
+#v-home>header.top{position:absolute!important;top:0;left:0;right:0;z-index:6;margin:0}
+#v-home>header.top::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:80px;background:inherit}
+#homeScroll{padding-top:var(--hh,62px);overscroll-behavior-y:contain}`;document.head.appendChild(st)})();
+(function fixHead(){const v=document.getElementById('v-home'),sc=document.getElementById('homeScroll');const h=sc&&sc.querySelector(':scope>header.top');
+ if(!v||!sc||!h)return;v.insertBefore(h,sc);const set=()=>{const H=Math.ceil(h.getBoundingClientRect().height)||62;sc.style.setProperty('--hh',H+'px')};set();
+ try{new ResizeObserver(set).observe(h)}catch(e){setInterval(set,2000)}})();
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
