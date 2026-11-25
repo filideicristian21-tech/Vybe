@@ -9666,6 +9666,9 @@ VE.scan();setInterval(()=>VE.scan(),5000);
   const H=innerHeight;let i=L.findIndex(v=>{const r=v.getBoundingClientRect();return r.bottom>H*.3&&r.top<H*.7});if(i<0)i=0;
   L.forEach((v,k)=>{const want=k>=i&&k<=i+2?'auto':'metadata';if(v.preload!==want){v.preload=want;if(want==='auto'&&v.readyState<2&&v.paused){try{v.load()}catch(e){}}}})}catch(e){}};
  setInterval(pre,900);document.addEventListener('scroll',()=>{clearTimeout(pre._t);pre._t=setTimeout(pre,150)},true)})();
+/* v115 — lingue: le traduzioni nuove preparate dal server arrivano da sole, senza riaprire l'app */
+setInterval(()=>{try{if(I18N.lang!=='it'&&document.visibilityState==='visible'){I18N.F.clear();I18N.preload(I18N.lang)}}catch(e){}},90000);
+document.addEventListener('visibilitychange',()=>{try{if(document.visibilityState==='visible'&&I18N.lang!=='it'){I18N.F.clear();I18N.preload(I18N.lang)}}catch(e){}});
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
