@@ -9210,6 +9210,8 @@ fetch('/api/mail',{cache:'no-store'}).then(r=>r.json()).then(j=>{BOT.hc=j&&j.hc|
   const once=async()=>{let pow=null;try{const c=await ca('pow');if(c&&c.status===200&&c.challenge){const x={salt:c.salt,challenge:c.challenge,signature:c.signature,max:c.max};x.number=await BOT.solve(x);pow=x}}catch(e){}return ca(action,Object.assign({},extra||{},pow?{pow}:{}))};
   let r=await once();if(r&&r.status===403&&r.error==='bot')r=await once();return r}}
 
+/* v102: nella guida "NUOVO" resta solo sulle novità di adesso */
+try{const NEW=/Editor video|Commenti vocali|Videomessaggi|Il tuo animale|Serie e classifica|Avatar 3D|Traguardi/;GUIDE.S.forEach(x=>{if(!NEW.test(x[1]))x[1]=x[1].replace(/ — NUOVO$/,'')})}catch(e){}
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
