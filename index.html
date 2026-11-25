@@ -1445,8 +1445,8 @@ function mountSpace(host,mode,o={}){
   const c0=P(0,.22,0),rad=f*.12/c0[2],g=x.createRadialGradient(c0[0],c0[1],0,c0[0],c0[1],rad*4.2);
   g.addColorStop(0,'rgba(255,245,255,.95)');g.addColorStop(.16,'rgba(236,72,153,.8)');g.addColorStop(.42,'rgba(124,58,237,.28)');g.addColorStop(1,'rgba(124,58,237,0)');x.fillStyle=g;x.beginPath();x.arc(c0[0],c0[1],rad*4.2,0,7);x.fill()}
  function frame(now){if(!alive)return;if(!cv.isConnected){stop();return}const dt=Math.min(.05,(now-last)/1000);last=now;
-  if(cv.offsetWidth){t+=dt;try{mode==='warp'?warp(dt):grid(dt)}catch(e){}}raf=requestAnimationFrame(frame)}
- function stop(){alive=false;cancelAnimationFrame(raf);if(ro)ro.disconnect();cv.remove()}
+  if(!document.hidden&&cv.offsetWidth){t+=dt;try{mode==='warp'?warp(dt):grid(dt)}catch(e){}raf=requestAnimationFrame(frame)}else{raf=setTimeout(()=>{last=performance.now();raf=requestAnimationFrame(frame)},400)}}
+ function stop(){alive=false;cancelAnimationFrame(raf);clearTimeout(raf);if(ro)ro.disconnect();cv.remove()}
  raf=requestAnimationFrame(frame);return{stop}}
 function hideSplash(){if(S.sp){S.sp.stop();S.sp=null}$('#splash').classList.add('hidden')}
 function cube(stage,dir,mid,done){const w=stage.offsetWidth||400;stage.style.transformOrigin=`50% 50% ${-w/2}px`;
@@ -4680,8 +4680,8 @@ function mountCover(host,m,o={}){
    for(let k=0;k<5;k++){const a=t*.15+k*1.3,cx=W*(.5+.3*Math.cos(a*1.1+k)),cy=H*(.5+.3*Math.sin(a*.9+k*2)),r=Math.max(W,H)*(.28+.06*Math.sin(t*.5+k));const c=[['236,72,153'],['124,58,237'],['34,211,238'],['250,204,21'],['168,85,247']][k];glow(cx,cy,r,`rgba(${c},.28)`,`rgba(${c},0)`)}
    x.globalCompositeOperation='source-over';const f=W*.5;for(const s of P){s.z-=.06*dt;if(s.z<=.05)s.z=1;const px=W/2+s.x/s.z*f*.5,py=H/2+s.y/s.z*f*.5,sz=Math.max(.5,(1-s.z)*2.4);x.fillStyle=`rgba(255,255,255,${(1-s.z)*.9})`;x.fillRect(px,py,sz,sz)}}
  };
- const fn=D[m];function frame(now){if(!alive)return;if(!cv.isConnected){stop();return}const dt=Math.min(.05,(now-last)/1000);last=now;if(cv.offsetWidth){t+=dt;try{fn(dt)}catch(e){}}raf=requestAnimationFrame(frame)}
- function stop(){alive=false;cancelAnimationFrame(raf);if(ro)ro.disconnect();cv.remove()}raf=requestAnimationFrame(frame);return{stop}}
+ const fn=D[m];function frame(now){if(!alive)return;if(!cv.isConnected){stop();return}const dt=Math.min(.05,(now-last)/1000);last=now;if(!document.hidden&&cv.offsetWidth){t+=dt;try{fn(dt)}catch(e){}raf=requestAnimationFrame(frame)}else{raf=setTimeout(()=>{last=performance.now();raf=requestAnimationFrame(frame)},400)}}
+ function stop(){alive=false;cancelAnimationFrame(raf);clearTimeout(raf);if(ro)ro.disconnect();cv.remove()}raf=requestAnimationFrame(frame);return{stop}}
 function photoCover(host,img){const w=document.createElement('div');w.className='pccov';w.innerHTML=`<img src="${img}" alt=""><canvas></canvas>`;host.prepend(w);
  const cv=w.querySelector('canvas'),x=cv.getContext('2d'),dpr=Math.min(2,window.devicePixelRatio||1);let W=1,H=1,t=0,last=performance.now(),raf,alive=true;
  const size=()=>{const r=host.getBoundingClientRect();W=Math.max(1,r.width);H=Math.max(1,r.height);cv.width=W*dpr;cv.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)};size();
@@ -9593,7 +9593,80 @@ try{I18N.start()}catch(e){console.warn('i18n',e)}
 .lgrow .lgf{font-size:24px}.lgrow b{flex:1;font-weight:700}.lgrow i{font-style:normal;color:#c084fc;font-weight:900}
 .lgnote{font-size:12px;opacity:.55;padding:4px 20px 20px;text-align:center}
 .lgauth{position:absolute;z-index:50;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;padding:7px 12px;border-radius:99px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-size:15px;font-weight:700}
-#auth{position:relative}`;document.head.appendChild(st)}/* ============ BOOT ============ */
+#auth{position:relative}`;document.head.appendChild(st)}/* v113 — ⚡ VIDEO LAMPO: se il video è leggero non lo "ricreo" più (ci voleva tutta la durata del video):
+   carico subito l'originale e le modifiche (taglio, velocità, testi, musica, volume) vengono applicate mentre lo guardi. */
+const VE={map:{},ac:null,
+ num(v,a,b,d){v=+v;return isFinite(v)?Math.min(b,Math.max(a,v)):d},
+ clean(e){if(!e||typeof e!=='object')return null;const o={a:this.num(e.a,0,3600,0),b:this.num(e.b,0,3600,0),sp:[.5,1,1.5,2].includes(+e.sp)?+e.sp:1,vo:this.num(e.vo,0,1,1),vm:this.num(e.vm,0,1,.8)};
+  if(!(o.b>o.a+.2))o.b=0;
+  if(e.mu&&typeof e.mu==='object'&&typeof e.mu.u==='string'&&/^https:\/\/[^\s"'<>]{8,400}$/.test(e.mu.u))o.mu={u:e.mu.u,t:String(e.mu.t||'').slice(0,80)};
+  const tx=(Array.isArray(e.tx)?e.tx:Array.isArray(e.texts)?e.texts:[]).slice(0,4).filter(t=>t&&typeof t==='object'&&String(t.t||'').trim()).map(t=>({t:String(t.t).slice(0,80),x:this.num(t.x,0,1,.5),y:this.num(t.y,0,1,.5),size:this.num(t.size,.02,.2,.075),style:['ombra','box','neon','bold'].includes(t.style)?t.style:'ombra',c:/^#[0-9a-f]{6}$/i.test(t.c||'')?t.c:'#ffffff'}));
+  if(tx.length)o.tx=tx;
+  if(!o.mu&&!o.tx&&o.sp===1&&o.vo>=.99&&!o.b&&o.a<.15)return null;return o},
+ reg(url,e){if(url&&e)this.map[url]=e},
+ get(v){if(!v||v.id==='vedV'||v.dataset.vj||v.closest('.vedov'))return null;return this.map[v.currentSrc]||this.map[v.getAttribute('src')]||this.map[v.src]||null},
+ ctx(){try{if(!this.ac){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;this.ac=new A()}if(this.ac.state==='suspended')this.ac.resume().catch(()=>{})}catch(e){return null}return this.ac},
+ /* musica sincronizzata con il video */
+ stopMu(v){const m=v.__vm;if(m){try{m.n.stop()}catch(e){}try{m.n.disconnect();m.g.disconnect()}catch(e){}v.__vm=null}},
+ async startMu(v){const e=this.get(v);this.stopMu(v);if(!e||!e.mu||e.vm<=.01||v.muted||v.paused)return;const ac=this.ctx();if(!ac)return;const tok=v.__vt=(v.__vt||0)+1;
+  let buf;try{buf=await VED.loadMu(e.mu.u,ac)}catch(x){return}if(tok!==v.__vt||v.paused||v.muted||!v.isConnected)return;this.stopMu(v);
+  const n=ac.createBufferSource(),g=ac.createGain();n.buffer=buf;n.loop=true;g.gain.value=e.vm;n.connect(g).connect(ac.destination);
+  const off=(((v.currentTime-(e.a||0))/(e.sp||1))%buf.duration+buf.duration)%buf.duration;try{n.start(0,off)}catch(x){return}v.__vm={n,g}},
+ /* taglio e velocità */
+ trim(v,e){const a=e.a||0,b=e.b||0,t=v.currentTime;if(t<a-.12){try{v.currentTime=a}catch(x){}return}
+  if(b&&t>=b-.04){if(v.loop||v.hasAttribute('loop')){try{v.currentTime=a}catch(x){}}else v.pause()}},
+ watch(v){if(v.__vw)return;v.__vw=1;const step=()=>{const e=this.get(v);if(!e||!v.isConnected){v.__vw=0;return}if(!v.paused)this.trim(v,e);if(v.requestVideoFrameCallback&&!v.paused)v.requestVideoFrameCallback(step);else setTimeout(step,120)};step()},
+ /* testi sopra il video */
+ draw(v){const e=this.get(v);let c=v.__vc;if(!e||!e.tx){if(c){c.remove();v.__vc=null}return}
+  if(!c||!c.isConnected){c=document.createElement('canvas');c.className='vetx';v.after(c);v.__vc=c;if(!v.__vro){try{v.__vro=new ResizeObserver(()=>this.draw(v));v.__vro.observe(v)}catch(x){}}}
+  const W=v.offsetWidth,H=v.offsetHeight;if(!W||!H)return;const vw=v.videoWidth||W,vh=v.videoHeight||H;const fit=getComputedStyle(v).objectFit;
+  const s=fit==='cover'?Math.max(W/vw,H/vh):fit==='fill'?0:Math.min(W/vw,H/vh);const cw=s?vw*s:W,ch=s?vh*s:H,ox=(W-cw)/2,oy=(H-ch)/2;
+  const dpr=Math.min(2,devicePixelRatio||1);c.style.cssText=`position:absolute;pointer-events:none;left:${v.offsetLeft}px;top:${v.offsetTop}px;width:${W}px;height:${H}px;z-index:${(+getComputedStyle(v).zIndex||0)+1}`;
+  c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);x.save();x.translate(ox,oy);try{e.tx.forEach(t=>VED.drawText(x,t,cw,ch))}catch(z){}x.restore()},
+ apply(v){const e=this.get(v);if(!e){if(v.__vc){v.__vc.remove();v.__vc=null}this.stopMu(v);return}
+  if(e.sp&&v.playbackRate!==e.sp){v.defaultPlaybackRate=e.sp;v.playbackRate=e.sp}if(e.vo<=.01&&!v.muted)v.muted=true;
+  if(v.readyState>=1)this.trim(v,e);this.draw(v);this.watch(v)},
+ /* registro: i miei post/storie e quelli degli altri */
+ scan(){try{const a=S.acc;if(!a)return;(a.own||[]).forEach(p=>{if(p.ve&&p.video)this.reg(p.video,p.ve)});(a.stories||[]).forEach(f=>{if(f.ve&&f.video)this.reg(f.video,f.ve)})}catch(e){}}
+};
+['loadedmetadata','play','playing','seeked'].forEach(ev=>document.addEventListener(ev,e=>{const v=e.target;if(v&&v.tagName==='VIDEO'){VE.apply(v);if(ev!=='loadedmetadata')VE.startMu(v)}},true));
+['pause','ended','seeking','emptied'].forEach(ev=>document.addEventListener(ev,e=>{const v=e.target;if(v&&v.tagName==='VIDEO')VE.stopMu(v)},true));
+document.addEventListener('volumechange',e=>{const v=e.target;if(v&&v.tagName==='VIDEO'&&VE.get(v)){if(v.muted)VE.stopMu(v);else VE.startMu(v)}},true);
+document.addEventListener('loadstart',e=>{const v=e.target;if(v&&v.tagName==='VIDEO'&&!VE.get(v)&&v.__vc){v.__vc.remove();v.__vc=null}},true);
+['touchend','click'].forEach(ev=>document.addEventListener(ev,()=>{if(VE.ac||Object.keys(VE.map).length)VE.ctx()},{capture:true,passive:true}));
+/* pubblicazione: niente più "Preparo il video" per i video leggeri */
+VJOB.run=async function(job,m,st,pre){try{let blob=null,poster=m.poster||null;
+  try{blob=await (await fetch(m.url)).blob()}catch(e){}
+  const D=m.dur||(st&&st.b)||0,rate=blob&&D?blob.size*8/D:0;
+  const light=blob&&blob.size<=48*1024*1024&&/^video\/(mp4|quicktime)/.test(blob.type||'video/mp4')&&(!rate||rate<=10e6);
+  if(light){job.ve=st?VE.clean(st):null;VE.reg(job.local,job.ve);VED.drop(pre);job.blob=blob;job.poster=poster;this.sweep();await this.up(job);return}
+  if(!st)st={a:0,b:Math.min(D,180),sp:1,texts:[],mu:null,vo:1,vm:.8,sel:-1};
+  job.st='render';job.k=0;this.pill();const out=await VED.render(m,st,null,{bg:1,pre,job,onp:k=>{job.k=k;this.pill()}});
+  if(!out)throw{code:job.stop?'stop':'render'};blob=out.blob;poster=out.poster||poster;job.edit=URL.createObjectURL(blob);job.dur=out.dur;job.poster=poster;this.sweep();
+  job.blob=blob;job.poster=poster;await this.up(job)}
+ catch(e){console.log('vjob',e);VED.drop(pre);job.st='err';job.code=e&&e.code||'render';this.pill()}};
+{const sw=VJOB.sweep.bind(VJOB);VJOB.sweep=function(){try{const a=S.acc;if(a)for(const j of Object.values(this.J)){if(!j.ve)continue;if(j.final)VE.reg(j.final,j.ve);
+  const fix=o=>{if(o&&(o.video===j.local||o.video===j.final)&&!o.ve)o.ve=j.ve};(a.own||[]).forEach(fix);(a.stories||[]).forEach(fix)}}catch(e){}return sw()}}
+{const st0=VJOB.start.bind(VJOB);VJOB.start=function(m,st,pre,done){const e=st?VE.clean(st):null;if(e)VE.reg(m.url,e);return st0(m,st,pre,done)}}
+/* le modifiche viaggiano insieme al video verso gli altri */
+{const pl=Real.payload;Real.payload=async function(){const d=await pl.apply(this,arguments);const a=S.acc;
+  (d.posts||[]).forEach(x=>{if(!x.v)return;const p=(a.own||[]).find(o=>o.id===x.id);const e=p&&VE.clean(p.ve);if(e)x.ve=e});
+  (d.st||[]).forEach(it=>{if(!it.v)return;const f=(typeof myStories==='function'?myStories():[]).find(z=>z.time===it.t);const e=f&&VE.clean(f.ve);if(e)it.ve=e});return d}}
+{const ob=Real.obj.bind(Real);Real.obj=function(uid,d){const o=ob(uid,d);try{const src=Array.isArray(d&&d.posts)?d.posts:[];(o.posts||[]).forEach(p=>{if(!p.v)return;const s=src.find(x=>x&&String(x.id||'').slice(0,40)===p.id);const e=s&&VE.clean(s.ve);if(e){p.ve=e;VE.reg(p.v,e)}});
+  const ss=Array.isArray(d&&d.st)?d.st:[];(o.st||[]).forEach(f=>{if(!f.v)return;const s=ss.find(x=>x&&+x.t===f.t);const e=s&&VE.clean(s.ve);if(e){f.ve=e;VE.reg(f.v,e)}})}catch(e){}return o}}
+{const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);VE.scan();return r}}
+VE.scan();setInterval(()=>VE.scan(),5000);
+{const st=document.createElement('style');st.textContent=`.vetx{position:absolute;pointer-events:none}`;document.head.appendChild(st)}
+/* v114 — ⚡ Vybe più veloce: meno animazioni che consumano sempre, reel successivi già pronti */
+{const st=document.createElement('style');st.textContent=`
+.logo{animation-iteration-count:2!important}.logo::after{animation-iteration-count:3!important}
+.pubbtn,.btn:not(.soft):not(.red){animation:none!important;background-position:0% 50%}`;document.head.appendChild(st)}
+/* i prossimi video dei Reels si caricano mentre guardi quello di adesso */
+(function(){const pre=()=>{try{const box=document.getElementById('rscroll');if(!box||!box.offsetParent)return;const L=[...box.querySelectorAll('video')];if(!L.length)return;
+  const H=innerHeight;let i=L.findIndex(v=>{const r=v.getBoundingClientRect();return r.bottom>H*.3&&r.top<H*.7});if(i<0)i=0;
+  L.forEach((v,k)=>{const want=k>=i&&k<=i+2?'auto':'metadata';if(v.preload!==want){v.preload=want;if(want==='auto'&&v.readyState<2&&v.paused){try{v.load()}catch(e){}}}})}catch(e){}};
+ setInterval(pre,900);document.addEventListener('scroll',()=>{clearTimeout(pre._t);pre._t=setTimeout(pre,150)},true)})();
+/* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
  try{await Promise.race([Persist.init(),new Promise(r=>setTimeout(r,4500))]);if(Persist.ready)remote=await Promise.race([Persist.load(),new Promise(r=>setTimeout(()=>r(undefined),6000))])}catch(e){}
