@@ -5209,13 +5209,13 @@ const VOICE={mime(){const C=['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac
   const sync=()=>bar.classList.toggle('hastx',!!inp.value.trim());inp.addEventListener('input',sync);sync();setInterval(()=>{if(ov.isConnected)sync()},800);
   let st=null;
   const finish=send=>{const s=st;if(!s)return;st=null;clearInterval(s.tm);rec.style.display='none';bar.classList.remove('recording');b.classList.remove('rec');
-   if(!s.mr){if(s.stream)s.stream.getTracks().forEach(t=>t.stop());return}
-   const dur=(Date.now()-s.t0)/1000;s.mr.onstop=async()=>{s.stream.getTracks().forEach(t=>t.stop());if(!send)return;if(dur<1){toast('Tieni premuto per registrare un vocale 🎤');return}
+   if(!s.mr){if(s.stream)s.stream.getTracks().forEach(t=>t.stop());if(typeof VFX!=='undefined')VFX.end(s);return}
+   const dur=(Date.now()-s.t0)/1000;s.mr.onstop=async()=>{s.stream.getTracks().forEach(t=>t.stop());if(typeof VFX!=='undefined')VFX.end(s);if(!send)return;if(dur<1){toast('Tieni premuto per registrare un vocale 🎤');return}
     const blob=new Blob(s.ch,{type:s.mr.mimeType||mt||'audio/mp4'});toast('Invio del vocale…');await this.send(cid,blob,dur);VC.emit()};try{s.mr.stop()}catch(e){}};
   b.addEventListener('pointerdown',async ev=>{ev.preventDefault();if(st)return;if(!rl('vcmsg',20,30000))return toast('Stai inviando troppi messaggi');const me={x0:ev.clientX,t0:Date.now(),ch:[],up:false};st=me;
-   b.classList.add('rec');try{me.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}catch(e){st=null;b.classList.remove('rec');return toast('Consenti il microfono per i messaggi vocali')}
+   b.classList.add('rec');me.fxc=(typeof VFX!=='undefined')?VFX.pre():null;try{me.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}catch(e){if(typeof VFX!=='undefined')VFX.end(me);st=null;b.classList.remove('rec');return toast('Consenti il microfono per i messaggi vocali')}
    if(st!==me||me.up){me.stream.getTracks().forEach(t=>t.stop());if(st===me)st=null;b.classList.remove('rec');return toast('Microfono pronto: ora tieni premuto per registrare 🎤')}
-   try{me.mr=new MediaRecorder(me.stream,mt?{mimeType:mt,audioBitsPerSecond:32000}:{audioBitsPerSecond:32000})}catch(e){try{me.mr=new MediaRecorder(me.stream)}catch(e2){finish(false);return toast('Registrazione non supportata')}}
+   const rsm=(typeof VFX!=='undefined')?VFX.wrap(me):me.stream;try{me.mr=new MediaRecorder(rsm,mt?{mimeType:mt,audioBitsPerSecond:32000}:{audioBitsPerSecond:32000})}catch(e){try{me.mr=new MediaRecorder(rsm)}catch(e2){finish(false);return toast('Registrazione non supportata')}}
    me.mr.ondataavailable=e=>{if(e.data&&e.data.size)me.ch.push(e.data)};me.mr.start(250);me.t0=Date.now();rec.style.display='';bar.classList.add('recording');
    me.tm=setInterval(()=>{const s=(Date.now()-me.t0)/1000;$('#wrT',rec).textContent=fmtDur(s);if(s>=120)finish(true)},250);try{navigator.vibrate&&navigator.vibrate(20)}catch(e){}});
   b.addEventListener('pointermove',ev=>{if(st&&st.mr&&ev.clientX-st.x0<-80){toast('Vocale annullato');finish(false)}});
@@ -8238,7 +8238,7 @@ const VCM={MAX:60,AU:/^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/
   const sync=()=>{const t=!!I.value.trim();mic.style.display=t?'none':'';S1.style.display=t?'':'none'};I.addEventListener('input',sync);sync();
   let st=null;
   const end=async send=>{const s=st;if(!s)return;st=null;clearInterval(s.tm);cancelAnimationFrame(s.raf);try{s.ac&&s.ac.close()}catch(e){}rec.hidden=true;bar.classList.remove('recing');
-   const dur=(Date.now()-s.t0)/1000;s.mr.onstop=async()=>{s.stream.getTracks().forEach(t=>t.stop());if(!send)return;if(dur<1)return toast('Vocale troppo corto');
+   const dur=(Date.now()-s.t0)/1000;s.mr.onstop=async()=>{s.stream.getTracks().forEach(t=>t.stop());if(typeof VFX!=='undefined')VFX.end(s);if(!send)return;if(dur<1)return toast('Vocale troppo corto');
     const blob=new Blob(s.ch,{type:s.mr.mimeType||s.mt||'audio/mp4'});if(blob.size>780000)return toast('Vocale troppo lungo');
     mic.disabled=true;mic.classList.add('busy');toast('Invio del commento vocale…');
     try{const au=await this.b64(blob);const j=await CMT.api({op:'add',o,p:pid,au,am:blob.type||'audio/mp4',d:Math.min(this.MAX,dur)});add(j.it);try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
@@ -9246,6 +9246,61 @@ const PSTAT={
 .psc.on{background:rgba(34,197,94,.12)}.psc.on i{width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:pspulse 1.6s infinite}
 @keyframes pspulse{70%{box-shadow:0 0 0 10px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
 .psrow{display:flex;justify-content:space-between;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,.04);margin-bottom:6px;font-size:14.5px}`;document.head.appendChild(st)})();
+/* ============ v106 — Classifica creator, effetti voce nei vocali, numerino sull'icona di Vybe ============ */
+/* ---------- 🏆 Classifica creator (Esplora) ---------- */
+const CTOP={
+ async open(tab){let T=tab||'week';const sh=openSheet(`<div class="shead">🏆 Classifica creator</div><div class="ctt"><button data-ct="week">🔥 Questa settimana</button><button data-ct="all">👑 Di sempre</button></div><div class="sbody" id="ctB" style="padding:4px 14px 20px"><div class="cmw">Carico…</div></div>`);
+  let D=null;const draw=()=>{$$('[data-ct]',sh).forEach(b=>b.classList.toggle('on',b.dataset.ct===T));const B=$('#ctB',sh);if(!B)return;if(!D){B.innerHTML='<div class="cmw">Non riesco a caricare la classifica, riprova tra poco.</div>';return}
+   const L=(D[T]||[]).filter(r=>USERS['r_'+r.id]);
+   if(!L.length){B.innerHTML=`<div class="cmw">${T==='week'?'Questa settimana nessuno ha ancora guadagnato follower. Torna più tardi!':'Ancora nessun creator in classifica.'}</div>`;return}
+   B.innerHTML=L.map((r,i)=>{const w=USERS['r_'+r.id],me=r.id===Real.uid;return`<button class="ctr${me?' me':''}" data-cu="r_${r.id}"><span class="ctn">${i<3?['🥇','🥈','🥉'][i]:i+1}</span>${avHTML(w,44)}<div><b>${esc(w.first||w.n||'')}${me?' · tu':''}</b><small>@${esc(w.u||'')}</small></div><em>${T==='week'?'+'+fmt(r.gain):fmt(r.fol)}<small>${T==='week'?'follower':'follower'}</small></em></button>`}).join('')+'<p class="pnote" style="text-align:center;opacity:.55;font-size:12px;margin-top:10px">In classifica ci sono solo i profili pubblici degli adulti. Si aggiorna ogni 10 minuti.</p>';
+   $$('[data-cu]',B).forEach(b=>b.onclick=()=>{closeOv(sh);openReal(b.dataset.cu)})};
+  $$('[data-ct]',sh).forEach(b=>b.onclick=()=>{T=b.dataset.ct;draw()});
+  try{D=await moreCall('vcnt',{op:'top'})}catch(e){D=null}draw()}
+};
+{const rd=renderDiscover;renderDiscover=function(){const r=rd.apply(this,arguments);try{const el=$('#discoverScroll');const at=el&&el.querySelector('.sinput');if(at&&Real.on&&!el.querySelector('.ctban'))at.insertAdjacentHTML('afterend','<button class="ctban" data-ctop="1"><span>🏆</span><div><b>Classifica creator</b><small>I più seguiti e chi cresce di più questa settimana</small></div><i>›</i></button>')}catch(e){}return r}}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-ctop]');if(!b)return;e.stopPropagation();CTOP.open()},true);
+
+/* ---------- 🎭 Effetti voce nei messaggi vocali ---------- */
+const VFX={
+ L:[['none','🎙️','Normale'],['robot','🤖','Robot'],['squirrel','🐿️','Scoiattolo'],['deep','🐻','Vocione'],['echo','🏔️','Eco'],['cave','🕳️','Grotta'],['phone','📞','Telefono']],
+ cur(){const k=(S.acc&&S.acc.vfx)||'none';return this.L.find(x=>x[0]===k)||this.L[0]},
+ set(k){if(!S.acc)return;S.acc.vfx=k;save();$$('.wfx').forEach(b=>{b.textContent=this.cur()[1];b.classList.toggle('on',k!=='none')})},
+ /* creo l'audio nel momento del tocco (iPhone lo permette solo lì) */
+ pre(){if(this.cur()[0]==='none')return null;try{const c=new (window.AudioContext||window.webkitAudioContext)();c.resume().catch(()=>{});return c}catch(e){return null}},
+ pitch(c,ratio){const N=8192,W=2048,buf=new Float32Array(N);let w=0,ph=0;const sp=c.createScriptProcessor(2048,1,1);
+  const rd=d=>{let p=w-d;while(p<0)p+=N;const i=Math.floor(p),f=p-i,a=buf[i%N],b=buf[(i+1)%N];return a+(b-a)*f};
+  sp.onaudioprocess=e=>{const x=e.inputBuffer.getChannelData(0),y=e.outputBuffer.getChannelData(0);for(let n=0;n<x.length;n++){buf[w]=x[n];
+   ph+=(1-ratio)/W;if(ph>=1)ph-=1;if(ph<0)ph+=1;const p2=(ph+.5)%1,g1=1-Math.abs(2*ph-1),g2=1-Math.abs(2*p2-1);y[n]=rd(ph*W+1)*g1+rd(p2*W+1)*g2;w=(w+1)%N}};return sp},
+ imp(c,sec,dec){const L=Math.floor(c.sampleRate*sec),b=c.createBuffer(2,L,c.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<L;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/L,dec)}return b},
+ /* restituisce lo stream da registrare: quello del microfono con l'effetto applicato */
+ wrap(me){const k=this.cur()[0];if(k==='none'||!me.fxc)return me.stream;if(me.fxStream)return me.fxStream;const c=me.fxc;
+  try{const src=c.createMediaStreamSource(me.stream),dst=c.createMediaStreamDestination(),out=c.createGain();out.connect(dst);
+   if(k==='robot'){const g=c.createGain();g.gain.value=0;const o=c.createOscillator();o.type='sine';o.frequency.value=48;o.connect(g.gain);o.start();src.connect(g);const sh=c.createWaveShaper();const cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i/128-1;cv[i]=Math.tanh(2.5*x)}sh.curve=cv;g.connect(sh);sh.connect(out);out.gain.value=1.4}
+   else if(k==='squirrel'||k==='deep'){const p=this.pitch(c,k==='squirrel'?1.65:.68);src.connect(p);p.connect(out);me.fxKeep=p;if(k==='deep'){const lp=c.createBiquadFilter();lp.type='lowshelf';lp.frequency.value=250;lp.gain.value=5;p.disconnect();p.connect(lp);lp.connect(out)}}
+   else if(k==='echo'){const d=c.createDelay(1),fb=c.createGain(),wet=c.createGain();d.delayTime.value=.28;fb.gain.value=.42;wet.gain.value=.55;src.connect(out);src.connect(d);d.connect(fb);fb.connect(d);d.connect(wet);wet.connect(out)}
+   else if(k==='cave'){const cv=c.createConvolver();cv.buffer=this.imp(c,2.6,2.2);const wet=c.createGain();wet.gain.value=.7;src.connect(out);src.connect(cv);cv.connect(wet);wet.connect(out)}
+   else if(k==='phone'){const hp=c.createBiquadFilter(),lp=c.createBiquadFilter();hp.type='highpass';hp.frequency.value=500;lp.type='lowpass';lp.frequency.value=3000;const sh=c.createWaveShaper();const cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i/128-1;cv[i]=Math.tanh(3*x)}sh.curve=cv;src.connect(hp);hp.connect(lp);lp.connect(sh);sh.connect(out);out.gain.value=.9}
+   me.fxSrc=src;me.fxStream=dst.stream;return dst.stream}catch(e){return me.stream}},
+ end(s){try{s&&s.fxc&&s.fxc.close()}catch(e){}},
+ sheet(){const sh=openSheet(`<div class="shead">🎭 Effetti voce</div><div class="sbody" style="padding:4px 16px 20px"><p class="pnote" style="text-align:center;opacity:.7;margin:0 0 12px">Scegli un effetto: lo senti nel prossimo vocale che registri tenendo premuto il microfono.</p><div class="vfxg">${this.L.map(x=>`<button data-vfx="${x[0]}" class="${this.cur()[0]===x[0]?'on':''}"><span>${x[1]}</span><b>${x[2]}</b></button>`).join('')}</div></div>`);
+  $$('[data-vfx]',sh).forEach(b=>b.onclick=()=>{this.set(b.dataset.vfx);closeOv(sh);toast(b.dataset.vfx==='none'?'Voce normale 🎙️':'Effetto '+this.cur()[2]+' '+this.cur()[1]+' attivo')})}
+};
+{const at=VOICE.attach.bind(VOICE);VOICE.attach=function(ov,cid){const r=at(ov,cid);try{const mic=$('#wcv',ov);if(mic&&!$('.wfx',ov)){const b=document.createElement('button');b.className='wfx'+(VFX.cur()[0]!=='none'?' on':'');b.setAttribute('aria-label','Effetti voce');b.textContent=VFX.cur()[1];b.onclick=e=>{e.preventDefault();VFX.sheet()};mic.parentNode.insertBefore(b,mic)}}catch(e){}return r}}
+
+/* ---------- numerino rosso sull'icona di Vybe nella schermata Home (messaggi non letti) ---------- */
+{const ub=updateBadges;updateBadges=function(){const r=ub.apply(this,arguments);try{const n=(typeof VC!=='undefined'&&VC.unreadN)||0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(()=>{});else navigator.clearAppBadge().catch(()=>{})}}catch(e){}return r}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;try{navigator.serviceWorker&&navigator.serviceWorker.getRegistration().then(g=>g&&g.getNotifications().then(L=>L.forEach(x=>x.close()))).catch(()=>{})}catch(e){}});
+
+(function(){const st=document.createElement('style');st.textContent=`
+.ctban{display:flex;align-items:center;gap:12px;width:calc(100% - 28px);margin:0 14px 14px;padding:12px 14px;border:0;border-radius:20px;color:inherit;text-align:left;background:linear-gradient(135deg,rgba(250,204,21,.18),rgba(236,72,153,.16));box-shadow:inset 0 0 0 .5px rgba(255,255,255,.18)}
+.ctban>span{font-size:30px}.ctban div{flex:1;display:flex;flex-direction:column}.ctban small{opacity:.7;font-size:12.5px}.ctban i{font-style:normal;font-size:22px;opacity:.5}
+.ctt{display:flex;gap:8px;padding:2px 14px 10px}.ctt button{flex:1;border:0;border-radius:999px;padding:9px 6px;background:rgba(255,255,255,.07);color:inherit;font:600 13.5px -apple-system,system-ui,sans-serif}.ctt button.on{background:#fff;color:#111}
+.ctr{display:flex;align-items:center;gap:11px;width:100%;border:0;background:rgba(255,255,255,.04);color:inherit;border-radius:16px;padding:9px 12px;margin-bottom:7px;text-align:left}.ctr.me{background:rgba(168,85,247,.16)}
+.ctr .ctn{width:28px;text-align:center;font-weight:800;font-size:17px}.ctr div{flex:1;display:flex;flex-direction:column;min-width:0}.ctr small{opacity:.6;font-size:12px}.ctr em{font-style:normal;font-weight:800;display:flex;flex-direction:column;align-items:flex-end}
+.wfx{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.08);font-size:19px;flex:none;align-self:center;margin-right:2px}.wfx.on{background:rgba(168,85,247,.35);box-shadow:0 0 0 1.5px rgba(192,132,252,.8)}
+#wcin.hastx .wfx,#wcin.recording .wfx{display:none}
+.vfxg{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.vfxg button{border:0;border-radius:18px;padding:12px 0 10px;background:rgba(255,255,255,.07);color:inherit;display:flex;flex-direction:column;align-items:center;gap:3px}.vfxg span{font-size:28px}.vfxg b{font-size:13px}.vfxg button.on{background:linear-gradient(135deg,rgba(168,85,247,.45),rgba(236,72,153,.4));box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4)}`;document.head.appendChild(st)})();
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
