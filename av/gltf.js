@@ -63,7 +63,7 @@ import {
 	Vector3,
 	VectorKeyframeTrack,
 	SRGBColorSpace,
-	InstancedBufferAttribute
+	InstancedBufferAttribute,
 	TrianglesDrawMode
 } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js';
 function toTrianglesDrawMode( geometry, drawMode ) {
