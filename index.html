@@ -9328,6 +9328,12 @@ setInterval(()=>{if(document.visibilityState==='visible')VPOST.fix()},90000);
 (function fixHead(){const v=document.getElementById('v-home'),sc=document.getElementById('homeScroll');const h=sc&&sc.querySelector(':scope>header.top');
  if(!v||!sc||!h)return;v.insertBefore(h,sc);const set=()=>{const H=Math.ceil(h.getBoundingClientRect().height)||62;sc.style.setProperty('--hh',H+'px')};set();
  try{new ResizeObserver(set).observe(h)}catch(e){setInterval(set,2000)}})();
+/* v109 — barra in alto piena e nitida su tutti gli iPhone (niente trasparenza/sfocatura, niente striscia sopra) */
+(function(){const st=document.createElement('style');st.textContent=`
+.top,header.top{background:#07060c!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;border-bottom:0!important}
+#v-home>header.top::before{background:#07060c!important}
+#homeScroll,#discoverScroll{overscroll-behavior-y:contain}
+html::before{content:'';position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:#07060c;z-index:2147483000;pointer-events:none}`;document.head.appendChild(st)})();
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
