@@ -9109,6 +9109,17 @@ const SPET={p:undefined,busy:false,
  setP(p){this.p=p;const s=this.st();s.pet=p;save();this.rows()},
  async load(){try{const j=await this.api({op:'sget'});this.setP(j.pet||null)}catch(e){}return this.cur()},
  add(r,t){const s=this.st();s.msgs.push({r,t,ts:Date.now()});if(s.msgs.length>80)s.msgs.splice(0,s.msgs.length-80);save()},
+ /* risposta dell'animale: prima chiedo dal telefono al servizio gratuito (così il limite è per ogni persona e regge anche con tantissimi utenti),
+    se non va ci pensa il server con le sue riserve; se anche lì c'è un intoppo riprovo da solo una volta */
+ sys:null,sysT:0,
+ async getSys(){if(this.sys&&Date.now()-this.sysT<10*60e3)return this.sys;try{const j=await this.api({op:'ssys'});this.sys=j.sys;this.sysT=Date.now()}catch(e){}return this.sys},
+ clean(c){c=String(c||'').replace(/<think>[\s\S]*?<\/think>/g,'');c=c.split(/\n\s*(?:---+|\*\*\*+)\s*\n/)[0];c=c.split(/\n+/).filter(l=>!/pollinations|powered by|important notice|sponsor|\bads?\b.*(free|support)/i.test(l)).join('\n');return c.replace(/^["“]|["”]$/g,'').trim().slice(0,420)},
+ async direct(tx,h){const sys=await this.getSys();if(!sys)return '';const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),16000);
+  try{const r=await fetch('https://text.pollinations.ai/openai',{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openai',messages:[{role:'system',content:sys},...h.map(m=>({role:m.r==='p'?'assistant':'user',content:m.t})),{role:'user',content:tx}],max_tokens:160,temperature:.9,private:true,referrer:'vybe'})});
+   if(!r.ok)return '';const j=await r.json();return this.clean((((j.choices||[])[0]||{}).message||{}).content)}catch(e){return ''}finally{clearTimeout(tm)}},
+ async talk(tx,h){const rp=await this.direct(tx,h);
+  if(rp){try{return await this.api({op:'stalk',tx,h,rp})}catch(e){if(e&&(e.code==='slow'||e.code==='day'))throw e;return{t:rp,pet:this.cur(),grew:false}}}
+  try{return await this.api({op:'stalk',tx,h})}catch(e){if(e&&(e.code==='slow'||e.code==='day'||e.code==='nopet'))throw e;await new Promise(r=>setTimeout(r,2500));return await this.api({op:'stalk',tx,h})}},
  rowHTML(){const p=this.cur(),s=this.st(),last=[...s.msgs].reverse().find(m=>m.r!=='e');
   return`<div class="war spetr" data-spet="1"><span class="avw"><span class="spav ${p?PET.mood(p)[0]:''}">${p?PET.face(p):'🥚'}</span></span><div class="wam"><div class="war1"><b>${p?esc(p.nm):'Il tuo animale'} <span class="sptag">🐾</span></b><small>${last?vcTime(last.ts):''}</small></div><div class="war2"><span>${last?(last.r==='u'?'Tu: ':'')+esc(String(last.t).slice(0,70)):p?'Scrivigli qualcosa!':'Tocca per adottare il tuo animaletto'}</span></div></div></div>`},
  rows(){$$('.spetr').forEach(el=>{el.outerHTML=this.rowHTML()})},
@@ -9136,7 +9147,7 @@ const SPET={p:undefined,busy:false,
   const bump=a=>{const b=$('#spSt .pbody',ov);if(b){b.classList.add('a-'+a);setTimeout(()=>b.classList.remove('a-'+a),1200)}};
   const send=async()=>{const tx=T.value.replace(/\s+/g,' ').trim();if(!tx||this.busy)return;if(isBad(tx))return toast('Scrivi in modo gentile 💜');
    const p=this.cur();if(!p)return;const h=this.st().msgs.filter(m=>m.r!=='e').slice(-10).map(m=>({r:m.r,t:m.t}));this.add('u',tx);T.value='';T.style.height='';this.busy=true;typing=true;draw();head();
-   try{const j=await this.api({op:'stalk',tx,h});typing=false;this.add('p',j.t);this.setP(j.pet);if(j.grew){this.add('e','🌱 '+j.pet.nm+' è cresciuto perché oggi gli hai parlato! 🔥 '+j.pet.st+(j.pet.st===1?' giorno':' giorni'));fx('✨',8)}bump('pet')}
+   try{const j=await this.talk(tx,h);typing=false;this.add('p',j.t);this.setP(j.pet);if(j.grew){this.add('e','🌱 '+j.pet.nm+' è cresciuto perché oggi gli hai parlato! 🔥 '+j.pet.st+(j.pet.st===1?' giorno':' giorni'));fx('✨',8)}bump('pet')}
    catch(e){typing=false;if(e&&e.code==='slow')this.add('e','⏳ Stai scrivendo troppo veloce: aspetta un attimo');else if(e&&e.code==='day')this.add('e','😴 '+p.nm+' è stanco per oggi: ci sentiamo domani!');else this.add('e','💤 '+p.nm+' non riesce a risponderti adesso (servizio di risposte non raggiungibile). Riprova tra poco.')}
    finally{this.busy=false;draw();head()}};
   const SAY={feed:['🍖 '+'{n} mangia la pappa… gnam gnam!','🥕 {n} ha fatto il pieno, che buono!'],play:['🎾 {n} rincorre la pallina felicissimo!','🎾 {n} salta e gioca con te!'],pet:['🤚 {n} si gode le coccole 💜','🤚 {n} fa le fusa… o qualcosa del genere 💜']};
