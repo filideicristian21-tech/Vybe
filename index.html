@@ -9508,7 +9508,92 @@ Object.assign(AV3,{
 .avch span{font-size:28px;line-height:1}.avch small{font-weight:700;font-size:12px}
 .avch.on{background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff}.avch:active{transform:scale(.94)}
 .avnote{font-size:12px;opacity:.55;margin-top:16px;text-align:center}`;document.head.appendChild(st)}
-/* ============ BOOT ============ */
+/* v112 — 🌐 Vybe in altre lingue: inglese (UK e USA), francese, spagnolo, cinese, giapponese, croato, svedese.
+   I testi dell'app vengono riconosciuti dal codice stesso (mai i post, i commenti o i messaggi delle persone),
+   tradotti una volta sola con l'IA sul server e tenuti in memoria per tutti. */
+const I18N={
+ L:[['it','Italiano','🇮🇹'],['en','English (UK)','🇬🇧'],['us','English (US)','🇺🇸'],['fr','Français','🇫🇷'],['es','Español','🇪🇸'],['zh','中文','🇨🇳'],['ja','日本語','🇯🇵'],['hr','Hrvatski','🇭🇷'],['sv','Svenska','🇸🇪']],
+ HL:{it:'it',en:'en-GB',us:'en-US',fr:'fr',es:'es',zh:'zh-Hans',ja:'ja',hr:'hr',sv:'sv'},
+ lang:'it',D:{},W:null,PT:null,F:new Set(),Q:new Set(),P:new Set(),busy:0,
+ detect(){try{const s=localStorage.getItem('vybe_lang');if(s&&this.L.some(x=>x[0]===s))return s}catch(e){}
+  const ls=(navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||'it']).map(x=>String(x).toLowerCase());
+  for(const l of ls){const b=l.split('-')[0];if(b==='it')return'it';if(b==='en')return/-(us|ca|ph)\b/.test(l)?'us':'en';if(['fr','es','zh','ja','hr','sv'].includes(b))return b}return'it'},
+ /* testi dell'interfaccia presi dal codice dell'app */
+ build(){if(this.W)return;const W=new Set(),PT=new Map();let src='';try{src=[...document.scripts].map(s=>s.textContent||'').join('\n')}catch(e){}
+  const PH=/\$\{(?:[^{}`]|\{[^{}]*\}|`[^`]*`)*\}/g;
+  const add=t=>{t=t.replace(/\\n/g,' ').replace(/\\'/g,"'").replace(/\\"/g,'"').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+   if(t.length<2||t.length>600||!/\p{L}{2}/u.test(t))return;const bare=t.replace(/\{n\}/g,' ').trim();if(/[{}]|=>|\(\)|;\s*$|^[',:\s]|\\/.test(bare))return;
+   if(!t.includes('{n}')){W.add(t);return}
+   t.split('{n}').forEach(f=>add(f));t=t.replace(/^(\{n\}\s*)+|(\s*\{n\})+$/g,'');if(!t.includes('{n}')){add(t);return}
+   let k=0;const p=t.replace(/\{n\}/g,()=>'{'+(++k)+'}');if(k>4||W.has(p))return;W.add(p);
+   const parts=p.split(/\{\d\}/),re=new RegExp('^'+parts.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('(.+?)')+'$');
+   const w=(p.replace(/\{\d\}/g,' ').match(/\p{L}{2,}/u)||[''])[0].toLowerCase();if(!w)return;if(!PT.has(w))PT.set(w,[]);PT.get(w).push({p,re})};
+  let m;const r1=/(?:>|^)([^<>`]{1,600}?)(?=<)/gm;while((m=r1.exec(src)))add(m[1].includes('${')?m[1].replace(PH,'{n}'):m[1]);
+  const r2=/'((?:[^'\\\n]|\\.){2,500})'/g;while((m=r2.exec(src)))add(m[1]);
+  const r3=/"((?:[^"\\\n]|\\.){2,500})"/g;while((m=r3.exec(src)))add(m[1]);
+  const r4=/`([^`<>]{2,500})`/g;while((m=r4.exec(src)))add(m[1].includes('${')?m[1].replace(PH,'{n}'):m[1]);
+  this.W=W;this.PT=PT},
+ /* chiave per un testo visibile: uguale al codice, oppure con numeri/nomi al posto dei {1},{2} */
+ key(t){if(this.W.has(t))return{k:t,v:[]};let k=0;const v=[];const n=t.replace(/\d[\d.,:]*(?:\s?(?:k|K|M|mln|mila))?/g,x=>{v.push(x);return'{'+(++k)+'}'});
+  if(k&&k<5&&this.W.has(n))return{k:n,v};
+  const ws=(t.match(/\p{L}{2,}/gu)||[]).slice(0,8);const seen=new Set();
+  for(const w0 of ws){const w=w0.toLowerCase();if(seen.has(w))continue;seen.add(w);const L=this.PT.get(w);if(!L)continue;for(const x of L){const mm=t.match(x.re);if(mm)return{k:x.p,v:mm.slice(1)}}}return null},
+ isName(c){const U=typeof USERS!=='undefined'&&USERS?USERS:[];if(!this._nm||this._nmL!==U.length){this._nmL=U.length;this._nm=new Set();U.forEach(u=>{if(u){if(u.u)this._nm.add(String(u.u).toLowerCase());if(u.n)this._nm.add(String(u.n).toLowerCase());if(u.first)this._nm.add(String(u.first).toLowerCase())}});try{const a=S.acc;if(a)[a.u,a.n,a.name,a.user].forEach(x=>x&&this._nm.add(String(x).toLowerCase()))}catch(e){}}const x=c.toLowerCase().replace(/^@/,'');try{const me=ME();if(me&&(String(me.u||'').toLowerCase()===x||String(me.n||'').toLowerCase()===x))return true}catch(e){}return this._nm.has(x)},
+ tr(t){const lead=t.match(/^\s*/)[0],trail=t.match(/\s*$/)[0],c=t.trim();if(!c||!/\p{L}/u.test(c)||this.isName(c))return null;const K=this.key(c);if(!K)return null;
+  const d=this.D[K.k];if(d==null){if(!this.F.has(K.k))this.ask(K.k);return null}
+  return lead+d.replace(/\{(\d)\}/g,(_,i)=>K.v[+i-1]!=null?K.v[+i-1]:'')+trail},
+ skip(el){for(let e=el;e&&e!==document.body;e=e.parentElement){if(e.nodeType!==1)continue;const tg=e.tagName;if(tg==='SCRIPT'||tg==='STYLE'||tg==='TEXTAREA'||e.isContentEditable||e.classList.contains('noi18n'))return true}return false},
+ text(n){let orig=n.nodeValue;
+  if(n.__tv!=null){if(n.nodeValue===n.__tv){if(n.__tl===this.lang)return;orig=n.__it}n.__it=n.__tv=n.__tl=null}
+  if(this.lang==='it'){if(n.nodeValue!==orig)n.nodeValue=orig;return}
+  const t=this.tr(orig);if(t==null||t===orig){if(n.nodeValue!==orig)n.nodeValue=orig;return}n.__it=orig;n.__tv=t;n.__tl=this.lang;n.nodeValue=t},
+ AT:['placeholder','title','aria-label'],
+ attrs(el){const o=el.__ia||(el.__ia={});for(const a of this.AT){if(!el.hasAttribute(a))continue;const cur=el.getAttribute(a);let orig=cur;
+  if(o[a]){if(cur===o[a].t){if(o[a].l===this.lang)continue;orig=o[a].i}delete o[a]}
+  if(this.lang==='it'){if(cur!==orig)el.setAttribute(a,orig);continue}
+  const t=this.tr(orig);if(t==null||t===orig){if(cur!==orig)el.setAttribute(a,orig);continue}o[a]={i:orig,t,l:this.lang};el.setAttribute(a,t)}},
+ walk(root){if(!root)return;if(root.nodeType===3){if(!this.skip(root.parentElement))this.text(root);return}if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11)return;
+  if(root.nodeType===1&&this.skip(root))return;
+  const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT,{acceptNode:n=>{if(n.nodeType===1){const tg=n.tagName;return(tg==='SCRIPT'||tg==='STYLE'||tg==='TEXTAREA'||n.classList.contains('noi18n')||n.isContentEditable)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT}return NodeFilter.FILTER_ACCEPT}});
+  let n=root.nodeType===1?root:tw.nextNode();while(n){if(n.nodeType===3)this.text(n);else if(n.__ia||n.hasAttribute('placeholder')||n.hasAttribute('title')||n.hasAttribute('aria-label'))this.attrs(n);n=tw.nextNode()}},
+ all(){this.busy++;try{this.walk(document.body)}finally{this.busy--}},
+ /* testi nuovi: li chiedo al server a gruppi */
+ ask(k){if(this.lang==='it'||this.P.has(k))return;this.Q.add(k);clearTimeout(this._qt);this._qt=setTimeout(()=>this.flush(),250)},
+ async flush(){if(this._fl||!this.Q.size)return;this._fl=1;const l=this.lang;
+  try{while(this.Q.size&&l===this.lang){const s=[...this.Q].slice(0,60);s.forEach(x=>{this.Q.delete(x);this.P.add(x)});let j=null;
+    try{const r=await fetch('/api/more?m=i18n',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({l,s})});j=r.ok?await r.json():null}catch(e){}
+    s.forEach(x=>this.P.delete(x));if(l!==this.lang)break;const t=(j&&j.t)||{};s.forEach(x=>{if(t[x]!=null)this.D[x]=t[x];else this.F.add(x)});this.save();this.all();if(j&&j.slow)break}}
+  finally{this._fl=0;if(this.Q.size&&l===this.lang)setTimeout(()=>this.flush(),1500)}},
+ save(){clearTimeout(this._st);this._st=setTimeout(()=>{try{localStorage.setItem('vybe_i18n_'+this.lang,JSON.stringify(this.D))}catch(e){}},600)},
+ async preload(l){try{const r=await fetch('/api/more?m=i18n&op=all&l='+l);if(!r.ok)return;const j=await r.json();if(l!==this.lang)return;Object.assign(this.D,j.d||{});this.save();this.all()}catch(e){}},
+ set(l,first){if(!this.L.some(x=>x[0]===l))l='it';const was=this.lang;this.lang=l;try{localStorage.setItem('vybe_lang',l)}catch(e){}
+  document.documentElement.lang=this.HL[l]||l;this.Q.clear();this.F.clear();this.P.clear();
+  if(l==='it'){this.D={};if(!first&&was!=='it')this.all();return}
+  this.build();try{this.D=JSON.parse(localStorage.getItem('vybe_i18n_'+l)||'{}')||{}}catch(e){this.D={}}this.all();this.preload(l)},
+ start(){const l=this.detect();this._anyIt=l!=='it';this.set(l,true);
+  this.mo=new MutationObserver(ms=>{if(this.busy||this.lang==='it'&&!this._anyIt)return;this.busy++;try{for(const m of ms){
+    if(m.type==='characterData'){const n=m.target;if(n.nodeValue!==n.__tv&&!this.skip(n.parentElement))this.text(n)}
+    else if(m.type==='attributes')this.attrs(m.target)
+    else m.addedNodes.forEach(n=>this.walk(n))}}finally{this.busy--}});
+  this.mo.observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:this.AT})},
+ pick(){const sh=openSheet(`<div class="shead">🌐 Lingua · Language</div><div class="sbody noi18n" id="lgL">${this.L.map(x=>`<button class="lgrow${x[0]===this.lang?' on':''}" data-l="${x[0]}"><span class="lgf">${x[2]}</span><b>${x[1]}</b>${x[0]===this.lang?'<i>✓</i>':''}</button>`).join('')}</div><p class="lgnote">Le traduzioni sono fatte con l’intelligenza artificiale. La prima volta alcune scritte possono restare in italiano per qualche secondo.</p>`);
+  $$('[data-l]',sh).forEach(b=>b.onclick=()=>{const l=b.dataset.l;closeOv(sh);this._anyIt=true;this.set(l);try{toast(l==='it'?'Lingua: Italiano':'✓ '+this.L.find(x=>x[0]===l)[1])}catch(e){}})}
+};
+try{I18N.start()}catch(e){console.warn('i18n',e)}
+/* ingresso nel menu del profilo e nella schermata di accesso */
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);setTimeout(()=>{try{const ms=$$('#layer .ov .menu'),m=ms[ms.length-1];if(!m||$('#lgMenu',m))return;
+  const cur=I18N.L.find(x=>x[0]===I18N.lang);m.insertAdjacentHTML('beforeend',`<button id="lgMenu"><span class="mi">🌐</span><div>Lingua<small class="noi18n">Language · ${cur[2]} ${cur[1]}</small></div></button>`);
+  $('#lgMenu',m).onclick=()=>{const ov=m.closest('.ov');if(ov)closeOv(ov);I18N.pick()}}catch(e){}},0);return r}}
+(function(){const put=()=>{const a=document.getElementById('auth');if(!a||document.getElementById('lgAuth'))return;const cur=I18N.L.find(x=>x[0]===I18N.lang);
+  a.insertAdjacentHTML('beforeend',`<button id="lgAuth" class="lgauth noi18n" aria-label="Language">🌐 <span>${cur[2]}</span></button>`);document.getElementById('lgAuth').onclick=()=>I18N.pick()};
+ put();setInterval(()=>{const b=document.getElementById('lgAuth');if(!b)put();else{const cur=I18N.L.find(x=>x[0]===I18N.lang);const s=b.querySelector('span');if(s&&s.textContent!==cur[2])s.textContent=cur[2]}},1500)})();
+{const st=document.createElement('style');st.textContent=`
+.lgrow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;border-radius:14px;color:inherit;text-align:left;font-size:16px}
+.lgrow:active{background:rgba(127,127,127,.15)}.lgrow.on{background:rgba(168,85,247,.16)}
+.lgrow .lgf{font-size:24px}.lgrow b{flex:1;font-weight:700}.lgrow i{font-style:normal;color:#c084fc;font-weight:900}
+.lgnote{font-size:12px;opacity:.55;padding:4px 20px 20px;text-align:center}
+.lgauth{position:absolute;z-index:50;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;padding:7px 12px;border-radius:99px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-size:15px;font-weight:700}
+#auth{position:relative}`;document.head.appendChild(st)}/* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
  try{await Promise.race([Persist.init(),new Promise(r=>setTimeout(r,4500))]);if(Persist.ready)remote=await Promise.race([Persist.load(),new Promise(r=>setTimeout(()=>r(undefined),6000))])}catch(e){}
