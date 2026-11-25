@@ -9120,6 +9120,9 @@ const SPET={p:undefined,busy:false,
  async talk(tx,h){const rp=await this.direct(tx,h);
   if(rp){try{return await this.api({op:'stalk',tx,h,rp})}catch(e){if(e&&(e.code==='slow'||e.code==='day'))throw e;return{t:rp,pet:this.cur(),grew:false}}}
   try{return await this.api({op:'stalk',tx,h})}catch(e){if(e&&(e.code==='slow'||e.code==='day'||e.code==='nopet'))throw e;await new Promise(r=>setTimeout(r,2500));return await this.api({op:'stalk',tx,h})}},
+ /* promemoria dei limiti: al massimo 2 volte al giorno */
+ remind(){const s=this.st(),p=this.cur();if(!p)return;const d=new Date().toLocaleDateString('sv-SE');s.rem=s.rem&&s.rem.d===d?s.rem:{d,n:0,t:0};
+  if(s.rem.n<2&&Date.now()-s.rem.t>5*3600e3){s.rem.n++;s.rem.t=Date.now();this.add('e','ℹ️ Ricorda: con '+p.nm+' puoi mandare fino a 25 messaggi ogni 10 minuti e 200 messaggi al giorno.')}},
  rowHTML(){const p=this.cur(),s=this.st(),last=[...s.msgs].reverse().find(m=>m.r!=='e');
   return`<div class="war spetr" data-spet="1"><span class="avw"><span class="spav ${p?PET.mood(p)[0]:''}">${p?PET.face(p):'🥚'}</span></span><div class="wam"><div class="war1"><b>${p?esc(p.nm):'Il tuo animale'} <span class="sptag">🐾</span></b><small>${last?vcTime(last.ts):''}</small></div><div class="war2"><span>${last?(last.r==='u'?'Tu: ':'')+esc(String(last.t).slice(0,70)):p?'Scrivigli qualcosa!':'Tocca per adottare il tuo animaletto'}</span></div></div></div>`},
  rows(){$$('.spetr').forEach(el=>{el.outerHTML=this.rowHTML()})},
@@ -9147,7 +9150,7 @@ const SPET={p:undefined,busy:false,
   const bump=a=>{const b=$('#spSt .pbody',ov);if(b){b.classList.add('a-'+a);setTimeout(()=>b.classList.remove('a-'+a),1200)}};
   const send=async()=>{const tx=T.value.replace(/\s+/g,' ').trim();if(!tx||this.busy)return;if(isBad(tx))return toast('Scrivi in modo gentile 💜');
    const p=this.cur();if(!p)return;const h=this.st().msgs.filter(m=>m.r!=='e').slice(-10).map(m=>({r:m.r,t:m.t}));this.add('u',tx);T.value='';T.style.height='';this.busy=true;typing=true;draw();head();
-   try{const j=await this.talk(tx,h);typing=false;this.add('p',j.t);this.setP(j.pet);if(j.grew){this.add('e','🌱 '+j.pet.nm+' è cresciuto perché oggi gli hai parlato! 🔥 '+j.pet.st+(j.pet.st===1?' giorno':' giorni'));fx('✨',8)}bump('pet')}
+   try{const j=await this.talk(tx,h);typing=false;this.add('p',j.t);this.setP(j.pet);const L=j.left;if(L){if(L.day<=20&&(L.day<=5||L.day%5===0))this.add('e',L.day?'📊 Ti restano '+L.day+' messaggi per oggi con '+j.pet.nm:'📊 Per oggi hai finito i messaggi: '+j.pet.nm+' ti aspetta domani!');else if(L.m10<=3)this.add('e',L.m10?'⏳ Ancora '+L.m10+(L.m10===1?' messaggio':' messaggi')+' in questi 10 minuti':'⏳ Aspetta qualche minuto: hai mandato 25 messaggi in 10 minuti')}if(j.grew){this.add('e','🌱 '+j.pet.nm+' è cresciuto perché oggi gli hai parlato! 🔥 '+j.pet.st+(j.pet.st===1?' giorno':' giorni'));fx('✨',8)}bump('pet')}
    catch(e){typing=false;if(e&&e.code==='slow')this.add('e','⏳ Stai scrivendo troppo veloce: aspetta un attimo');else if(e&&e.code==='day')this.add('e','😴 '+p.nm+' è stanco per oggi: ci sentiamo domani!');else this.add('e','💤 '+p.nm+' non riesce a risponderti adesso (servizio di risposte non raggiungibile). Riprova tra poco.')}
    finally{this.busy=false;draw();head()}};
   const SAY={feed:['🍖 '+'{n} mangia la pappa… gnam gnam!','🥕 {n} ha fatto il pieno, che buono!'],play:['🎾 {n} rincorre la pallina felicissimo!','🎾 {n} salta e gioca con te!'],pet:['🤚 {n} si gode le coccole 💜','🤚 {n} fa le fusa… o qualcosa del genere 💜']};
@@ -9156,7 +9159,7 @@ const SPET={p:undefined,busy:false,
   $('#spB',ov).onclick=()=>closeOv(ov);$('#spS',ov).onclick=send;T.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
   T.addEventListener('input',()=>{T.style.height='';T.style.height=Math.min(110,T.scrollHeight)+'px'});
   $$('[data-sa]',ov).forEach(b=>b.onclick=()=>act(b.dataset.sa));$('#spI',ov).onclick=()=>this.card(()=>{draw();head()},()=>closeOv(ov));
-  head();draw();if(born)setTimeout(()=>fx('✨',10),250);
+  this.remind();head();draw();if(born)setTimeout(()=>fx('✨',10),250);
   this.load().then(()=>{if(ov.isConnected)head()});const tm=setInterval(()=>{if(!ov.isConnected)return clearInterval(tm);this.load().then(()=>{if(ov.isConnected&&!this.busy)head()})},60000)},
  /* scheda con felicità, crescita, nome */
  card(onCh,onFree){const p=this.cur();if(!p)return;const m=PET.mood(p),i=PET.stage(p.xp),nx=PET.ST[i+1];const pr=nx?Math.min(100,Math.round((p.xp-PET.ST[i][0])/(nx[0]-PET.ST[i][0])*100)):100;
@@ -9223,6 +9226,24 @@ fetch('/api/mail',{cache:'no-store'}).then(r=>r.json()).then(j=>{BOT.hc=j&&j.hc|
 
 /* v102: nella guida "NUOVO" resta solo sulle novità di adesso */
 try{const NEW=/Editor video|Commenti vocali|Videomessaggi|Il tuo animale|Serie e classifica|Avatar 3D|Traguardi/;GUIDE.S.forEach(x=>{if(!NEW.test(x[1]))x[1]=x[1].replace(/ — NUOVO$/,'')})}catch(e){}
+/* v104 — solo per l'amministratore: quante persone ci sono su Vybe e quante sono online adesso */
+const PSTAT={
+ async open(){let tm=null;const sh=openSheet(`<div class="shead">📊 Persone su Vybe</div><div class="sbody" id="psB" style="padding:4px 16px 20px"><div class="cmw">Carico…</div></div>`);
+  const draw=async()=>{let j;try{j=await moreCall('vcnt',{op:'stats'})}catch(e){const b=$('#psB',sh);if(b)b.innerHTML=`<div class="cmw">${e&&e.code==='admin'?'Solo l’amministratore può vedere questi numeri.':'Non riesco a caricare i numeri, riprovo tra poco.'}</div>`;return}
+   const b=$('#psB',sh);if(!b)return;b.innerHTML=`<div class="psgrid"><div class="psc"><b>${fmt(j.total)}</b><span>Persone iscritte</span></div><div class="psc on"><b><i></i>${fmt(j.online)}</b><span>Online adesso</span></div></div>
+    <div class="psrow"><span>Adulti</span><b>${fmt(j.total-j.teen)}</b></div><div class="psrow"><span>Ragazzi Teen (sotto i 18)</span><b>${fmt(j.teen)}</b></div>
+    <p class="pnote" style="text-align:center;opacity:.6;font-size:12px;margin-top:12px">Online = con Vybe aperta nell’ultimo minuto e mezzo. Si aggiorna da solo ogni 15 secondi · ${new Date(j.t).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</p>`};
+  await draw();tm=setInterval(()=>{if(!sh.isConnected)return clearInterval(tm);draw()},15000)}
+};
+{const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);setTimeout(async()=>{try{if(typeof adminState==='function'&&!(typeof ADMIN!=='undefined'&&ADMIN))await adminState()}catch(e){}
+  try{const ms=$$('#layer .ov .menu'),m=ms[ms.length-1];if(!m||$('#psMenu',m)||!(typeof ADMIN!=='undefined'&&ADMIN&&ADMIN.admin))return;
+   m.insertAdjacentHTML('afterbegin','<button id="psMenu"><span class="mi">📊</span><div>Persone su Vybe<small>Iscritti e online adesso · solo tu</small></div></button>');
+   $('#psMenu',m).onclick=()=>{const ov=m.closest('.ov');if(ov)closeOv(ov);PSTAT.open()}}catch(e){}},0);return r}}
+(function(){const st=document.createElement('style');st.textContent=`.psgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}
+.psc{border-radius:20px;padding:16px 10px;text-align:center;background:rgba(255,255,255,.06)}.psc b{display:flex;align-items:center;justify-content:center;gap:8px;font-size:34px;font-weight:800}.psc span{font-size:13px;opacity:.7}
+.psc.on{background:rgba(34,197,94,.12)}.psc.on i{width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:pspulse 1.6s infinite}
+@keyframes pspulse{70%{box-shadow:0 0 0 10px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.psrow{display:flex;justify-content:space-between;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,.04);margin-bottom:6px;font-size:14.5px}`;document.head.appendChild(st)})();
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
