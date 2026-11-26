@@ -9737,6 +9737,27 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
   };
 }
 
+/* ============ v119: versione App Store / Play Store senza pagamenti con carta ============
+   Dentro l'app installata dagli store (iPhone e Android) gli acquisti digitali dovrebbero passare dai
+   sistemi di Apple e Google: per la prima uscita li spengo del tutto lì. Sul sito resta tutto com'è. */
+const STOREAPP = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('app');
+    if (q === 'ios' || q === 'android') localStorage.setItem('vybe_store', q);
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) localStorage.setItem('vybe_store', window.Capacitor.getPlatform && window.Capacitor.getPlatform() || 'app');
+    if (/^android-app:\/\//.test(document.referrer || '')) localStorage.setItem('vybe_store', 'android');
+    return localStorage.getItem('vybe_store') || '';
+  } catch (e) { return '' }
+})();
+if (STOREAPP) {
+  document.documentElement.classList.add('storeapp');
+  try { const st = document.createElement('style'); st.textContent = '.storeapp .pytipb,.storeapp #pyVp,.storeapp #pyMenu,.storeapp #cxMenu,.storeapp #paMenu,.storeapp #lvgift,.storeapp .vpcta{display:none!important}'; document.head.appendChild(st) } catch (e) { }
+  PAY.info = async function () { this.i = { on: false, store: true, _t: Date.now() }; return this.i };
+  PAY.ok = () => false; PAY.vp = () => false;
+  PAY.go = async () => { };
+  ['vpSheet', 'giftSheet', 'tipSheet', 'cxSheet'].forEach(k => { PAY[k] = async () => { } });
+}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
