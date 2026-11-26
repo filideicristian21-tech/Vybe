@@ -9758,6 +9758,34 @@ if (STOREAPP) {
   ['vpSheet', 'giftSheet', 'tipSheet', 'cxSheet'].forEach(k => { PAY[k] = async () => { } });
 }
 
+/* ============ v120: un solo controllo invece di tre (messaggi + chiamate + dirette) ============
+   Prima il telefono chiedeva al server i messaggi ogni 20 s, le chiamate ogni 12 s e le dirette ogni 25 s:
+   ora le chiamate e le dirette arrivano insieme ai messaggi. Meno richieste = Vybe regge molte più persone. */
+{
+  const PIG = { inc: 0, lv: 0, lvAsk: 0 };
+  const handleInc = j => {
+    if (!j || CALL.cur || (typeof GCALL !== 'undefined' && (GCALL.g || $('#giNo')))) return;
+    if (j.g && j.rid) { if (typeof GCALL !== 'undefined' && !GCALL.seen[j.rid]) { GCALL.seen[j.rid] = 1; GCALL.incoming(j) } }
+    else if (j.cid && !CALL.seen[j.cid] && Date.now() - (+j.t || 0) < 60000) { CALL.seen[j.cid] = 1; CALL.incoming(j) }
+  };
+  const oc = CDB.call;
+  CDB.call = async function (b) {
+    const sync = b && b.op === 'sync' && S.acc && document.visibilityState !== 'hidden';
+    if (sync) { b.x = 1; if (Real.on && Date.now() - PIG.lvAsk > 20000) { b.lv = 1; PIG.lvAsk = Date.now() } }
+    const j = await oc.apply(this, arguments);
+    if (sync && j) {
+      try { if ('inc' in j) { PIG.inc = Date.now(); handleInc(j.inc) } } catch (e) { }
+      try { if (b.lv && Array.isArray(j.lv)) { PIG.lv = Date.now(); LIVE.list = j.lv.filter(x => x.h !== Real.uid); liveChips() } } catch (e) { }
+    }
+    return j;
+  };
+  /* i controlli separati restano solo come riserva, se quello unico non sta girando */
+  const cp = CALL.poll; CALL.poll = async function () { if (Date.now() - PIG.inc < 35000) return; return cp.apply(this, arguments) };
+  const lr = LIVE.refresh; LIVE.refresh = async function () { if (Date.now() - PIG.lv < 45000) return; return lr.apply(this, arguments) };
+  /* visualizzazioni dei miei post: ogni 5 minuti invece di ogni 100 secondi */
+  const vr = VSYNC.run; VSYNC.run = function (force) { if (!force && Date.now() - VSYNC.t < 300000) return; return vr.apply(this, arguments) };
+}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
