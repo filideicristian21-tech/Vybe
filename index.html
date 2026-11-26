@@ -9674,6 +9674,44 @@ VE.gain=function(v,e){if(!(e.vo>.01&&e.vo<.99))return;if(v.__vg){v.__vg.gain.val
  const src=v.currentSrc||v.src||'';if(!/^blob:/.test(src)&&v.crossOrigin!=='anonymous'){if(v.__vgr)return;v.__vgr=1;const t=v.currentTime,pl=!v.paused;v.crossOrigin='anonymous';try{v.load();if(t)v.currentTime=t;if(pl)v.play().catch(()=>{})}catch(x){}return}
  try{const s=ac.createMediaElementSource(v),g=ac.createGain();g.gain.value=e.vo;s.connect(g).connect(ac.destination);v.__vg=g}catch(x){}};
 {const ap=VE.apply.bind(VE);VE.apply=function(v){ap(v);const e=this.get(v);if(e)this.gain(v,e)}}
+/* v117 — 🎵 la musica dei Reels parte sempre da sola.
+   Su iPhone ogni "nuovo lettore audio" ha bisogno di un tocco per suonare: ora c'è UN solo lettore, sbloccato al primo tocco
+   e riusato per tutte le canzoni, così scorrendo i Reels la musica parte senza dover togliere e rimettere l'audio. */
+const PAU={el:null,ok:false,want:null,vol:.9,pend:false,
+ sil(){if(this._s)return this._s;const n=800,b=new Uint8Array(44+n),d=new DataView(b.buffer),w=(o,s)=>{for(let i=0;i<s.length;i++)b[o+i]=s.charCodeAt(i)};
+  w(0,'RIFF');d.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);d.setUint32(24,8000,true);d.setUint32(28,8000,true);d.setUint16(32,1,true);d.setUint16(34,8,true);w(36,'data');d.setUint32(40,n,true);b.fill(128,44);
+  let s='';b.forEach(x=>s+=String.fromCharCode(x));return this._s='data:audio/wav;base64,'+btoa(s)},
+ a(){if(!this.el){const a=new Audio();a.setAttribute('playsinline','');a.setAttribute('webkit-playsinline','');a.preload='auto';a.loop=true;this.el=a}return this.el},
+ unlock(){const a=this.a();if(this.ok||this._u)return;this._u=1;
+  if(!this.want){a.src=this.sil();a.volume=0}
+  const p=a.play();Promise.resolve(p).then(()=>{this.ok=true;if(!this.want)a.pause()}).catch(()=>{}).finally(()=>{this._u=0;a.volume=this.vol;if(this.want&&a.paused)this.kick()})},
+ kick(){const a=this.a();if(!this.want)return;a.play().then(()=>{this.ok=true;this.pend=false}).catch(()=>{this.pend=true})},
+ play(u,vol){this.want=u;this.vol=vol==null?.9:vol;const a=this.a();if(a.getAttribute('src')!==u){a.src=u;try{a.currentTime=0}catch(e){}}a.loop=true;a.volume=this.vol;
+  return a.play().then(()=>{this.ok=true;this.pend=false}).catch(e=>{this.pend=true;throw e})},
+ stop(){this.want=null;this.pend=false;if(this.el){try{this.el.pause()}catch(e){}}},
+ get playing(){return!!(this.el&&this.want&&!this.el.paused)}
+};
+/* canzoni dei post (Reels, post aperti) */
+playPostMusic=function(mu,btn){stopPostMusic();if(!mu)return;
+ if(mu.u&&/^https:\/\//.test(mu.u)){PMA=PAU.a();PAU.play(mu.u,.9).then(()=>{if(btn)btn.innerHTML=ic('pause',16,2)}).catch(()=>{if(btn)btn.innerHTML=ic('pause',16,2)})}
+ else if(mu.syn&&TRACK_MAP[mu.syn]){Music.unlock();Music.muted=false;Music.set(mu.syn);S.pmSyn=1;if(btn)btn.innerHTML=ic('pause',16,2)}};
+stopPostMusic=function(){if(PMA){PAU.stop();PMA=null}if(S.pmSyn){Music.stop();S.pmSyn=0}};
+/* anche le canzoni scelte dall'archivio usano lo stesso lettore */
+{const st=Music._start.bind(Music);Music._start=function(id){
+  if(id&&(id.startsWith('it:')||id.startsWith('file:'))){const u=id.startsWith('it:')?(S.acc&&S.acc.itunes&&S.acc.itunes[id.slice(3)]||{}).u:AUD[id.slice(5)];if(!u)return;
+   PAU.play(u,id.startsWith('it:')?.9:.85).catch(()=>{});this.audio={pause:()=>PAU.stop(),get paused(){return!PAU.playing}};return}
+  return st(id)}}
+/* qualsiasi tocco sullo schermo sblocca l'audio e fa ripartire quello che era rimasto fermo */
+(function(){let last=0;const go=()=>{const n=Date.now();if(n-last<250)return;last=n;
+  try{Music.unlock()}catch(e){}try{if(typeof VE!=='undefined'&&VE.ac&&VE.ac.state!=='running')VE.ac.resume().catch(()=>{})}catch(e){}
+  PAU.unlock();if(PAU.want&&(PAU.pend||PAU.el&&PAU.el.paused))PAU.kick();
+  try{const r=S.actReel,v=r&&r.querySelector('video.rv');if(v&&S.sound&&v.muted&&v.__am&&S.view==='reels'){v.muted=false;v.__am=0;v.play().catch(()=>{v.muted=true;v.__am=1})}}catch(e){}};
+ ['touchstart','touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,go,{capture:true,passive:true}))})();
+/* il video del Reel che è partito senza audio lo ricordo, così al primo tocco torna il suono */
+{const er=enterReel;enterReel=function(r){const o=er.apply(this,arguments);try{const v=r&&r.querySelector('video.rv');if(v&&S.sound){setTimeout(()=>{if(S.actReel===r&&v.muted&&S.sound)v.__am=1},400)}}catch(e){}return o}}
+/* se la musica si ferma da sola (rete lenta, chiamata, cuffie) riprova */
+setInterval(()=>{try{if(PAU.want&&PAU.el&&PAU.el.paused&&document.visibilityState==='visible'&&S.sound!==false)PAU.kick()}catch(e){}},2500);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){try{if(PAU.el)PAU.el.pause()}catch(e){}}else if(PAU.want)PAU.kick()});
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
