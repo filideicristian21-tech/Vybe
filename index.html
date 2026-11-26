@@ -9786,6 +9786,94 @@ if (STOREAPP) {
   const vr = VSYNC.run; VSYNC.run = function (force) { if (!force && Date.now() - VSYNC.t < 300000) return; return vr.apply(this, arguments) };
 }
 
+/* ============ v121: tutorial guidato per chi entra la prima volta ============
+   1) benvenuto  2) mettersi online (account online, passo per passo)  3) seguire le persone  4) fatto.
+   Il tutorial aspetta che la persona faccia davvero ogni passaggio e poi va avanti da solo. */
+const ONB = {
+  on: false, step: 0, t: null, q: '',
+  need() { const a = S.acc; if (!a || a.onb2) return false; const online = !Cloud.avail() || Cloud.on; return !online || !(a.rfw || []).length },
+  fol() { return ((S.acc && S.acc.rfw) || []).length },
+  start(force) {
+    if (this.on || !S.acc) return; if (!force && !this.need()) return;
+    this.on = true; this.step = (!Cloud.avail() || Cloud.on) ? 2 : 0; if (force) this.step = 0;
+    this.f0 = this.fol(); this.draw(); clearInterval(this.t); this.t = setInterval(() => this.tick(), 1000);
+  },
+  end(done) {
+    this.on = false; clearInterval(this.t); const b = $('#onbx'); if (b) b.remove(); $$('.onbhi').forEach(x => x.classList.remove('onbhi'));
+    if (S.acc && done) { S.acc.onb2 = 1; save() }
+  },
+  /* controlla se la persona ha fatto il passaggio richiesto */
+  tick() {
+    if (!this.on) return;
+    /* se è aperta un'altra finestra (per esempio quella della password) il tutorial si fa da parte */
+    const bx = $('#onbx'); if (bx) bx.classList.toggle('hide', !!$$('#layer>*').length);
+    if (this.step === 1) { const cb = $('#cloudban'); $$('.onbhi').forEach(x => { if (x !== cb) x.classList.remove('onbhi') }); if (cb) cb.classList.add('onbhi');
+      if (Cloud.on) { this.step = 2; this.f0 = this.fol(); this.draw() } }
+    else if (this.step === 2) { $$('.onbhi').forEach(x => x.classList.remove('onbhi')); const n = (Real.on ? Real.list() : []).length; if (n !== this.n0) this.draw() }
+  },
+  people() {
+    if (!Real.on) return [];
+    const q = this.q.trim().toLowerCase();
+    return Real.list().filter(w => w && w.rid && w.rid !== Real.uid && (!q || String(w.n || '').toLowerCase().includes(q) || String(w.u || '').toLowerCase().includes(q))).slice(0, 40);
+  },
+  draw() {
+    let b = $('#onbx'); if (!b) { document.body.insertAdjacentHTML('beforeend', '<div id="onbx" class="onbx"></div>'); b = $('#onbx') }
+    const dots = [0, 1, 2, 3].map(i => `<i class="${i <= this.step ? 'on' : ''}"></i>`).join('');
+    const skip = '<button class="onbskip" id="onbS">Salta</button>';
+    let h = '';
+    if (this.step === 0) h = `<div class="onbtop"><div class="onbdots">${dots}</div>${skip}</div><div class="onbem">👋</div><h3>Benvenuto su Vybe!</h3>
+      <p>Ti guido in 2 passaggi facili: ti <b>metti online</b>, così i tuoi amici ti trovano, e poi <b>segui le persone</b> che vuoi.</p>
+      <button class="btn" id="onbN">Iniziamo</button>`;
+    else if (this.step === 1) h = `<div class="onbtop"><div class="onbdots">${dots}</div>${skip}</div><div class="onbem">☁️</div><h3>Passo 1: mettiti online</h3>
+      <ol class="onbl"><li>Tocca il pulsante qui sotto <b>“Mettimi online”</b></li><li>Scrivi la <b>password</b> che hai scelto quando ti sei iscritto</li><li>Tocca <b>Attiva</b></li></ol>
+      <p class="onbs">Quando hai fatto, vado avanti io da solo ✓</p><button class="btn" id="onbC">☁️ Mettimi online</button>`;
+    else if (this.step === 2) {
+      const L = this.people(); this.n0 = (Real.on ? Real.list() : []).length; const f = this.fol() - this.f0;
+      h = `<div class="onbtop"><div class="onbdots">${dots}</div>${skip}</div><h3>Passo 2: segui le persone</h3>
+      <p class="onbs" style="margin:0 0 8px">Tocca <b>Segui</b> sulle persone che conosci. Puoi cercarle per nome.</p>
+      <div class="sinput onbq">${ic('search', 17)}<input id="onbQ" placeholder="Cerca un nome" autocapitalize="none" value="${esc(this.q)}"></div>
+      <div class="onbp">${L.length ? L.map(w => { const st = Real.state(w.id); return `<div class="onbr">${avHTML(w, 40)}<div><b>${esc(w.n || '')}</b><small>@${esc(w.u || '')}</small></div><button class="fbtn ${st !== 'none' ? 'on' : ''}" data-of="${w.id}">${st === 'on' ? 'Segui già' : st === 'req' ? 'Richiesta inviata' : 'Segui'}</button></div>` }).join('')
+          : `<p class="onbs" style="text-align:center;padding:14px 0">${Real.on ? (this.q ? 'Nessuno con questo nome' : 'Sto caricando le persone…') : 'Sto caricando le persone…'}</p>`}</div>
+      <button class="btn" id="onbN" ${f > 0 ? '' : 'style="opacity:.55"'}>${f > 0 ? 'Avanti' : 'Segui almeno una persona'}</button>`;
+    }
+    else h = `<div class="onbtop"><div class="onbdots">${dots}</div></div><div class="onbem">🎉</div><h3>Fatto! Sei online</h3>
+      <p>I tuoi amici ora ti trovano e vedi i loro post. Due consigli per iniziare:</p>
+      <ul class="onbl"><li>Tocca <b>+</b> per pubblicare il tuo primo post o una storia</li><li>Tocca la <b>lente 🔍</b> per cercare altre persone quando vuoi</li></ul>
+      <button class="btn" id="onbN">Inizia a usare Vybe</button>`;
+    b.innerHTML = '<div class="onbc">' + h + '</div>';
+    const s = $('#onbS', b); if (s) s.onclick = () => { if (confirm('Vuoi saltare il tutorial? Potrai rifarlo dal menu ☰ del profilo.')) this.end(true) };
+    const n = $('#onbN', b); if (n) n.onclick = () => {
+      if (this.step === 0) { this.step = (!Cloud.avail() || Cloud.on) ? 2 : 1; this.f0 = this.fol(); this.draw() }
+      else if (this.step === 2) { if (this.fol() - this.f0 <= 0 && (Real.on && Real.list().length)) return toast('Tocca Segui su almeno una persona'); this.step = 3; this.draw() }
+      else this.end(true);
+    };
+    const c = $('#onbC', b); if (c) c.onclick = () => { closeAll(); enterAppCloudPrompt(); b.classList.add('hide'); setTimeout(() => { const i = $('#cpw3'); if (i) i.focus() }, 300) };
+    const qi = $('#onbQ', b); if (qi) qi.oninput = () => { this.q = qi.value; const pos = qi.selectionStart; this.draw(); const q2 = $('#onbQ'); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos) } catch (e) { } } };
+    $$('[data-of]', b).forEach(x => x.onclick = () => { Real.follow(x.dataset.of); setTimeout(() => this.draw(), 80) });
+  }
+};
+(() => {
+  const st = document.createElement('style');
+  st.textContent = `.onbx.hide{display:none}.onbx{position:fixed;left:0;right:0;bottom:0;z-index:9000;padding:0 10px calc(10px + env(safe-area-inset-bottom));pointer-events:none}
+.onbc{pointer-events:auto;max-width:520px;margin:0 auto;background:var(--card,#16161c);color:var(--text,#fff);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:14px 16px 16px;box-shadow:0 -10px 40px rgba(0,0,0,.45);max-height:72vh;overflow:auto;animation:onbin .35s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes onbin{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.onbc h3{font-size:19px;margin:4px 0 6px}.onbc p{margin:0 0 10px;line-height:1.45}.onbem{font-size:40px;line-height:1}
+.onbtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.onbdots{display:flex;gap:6px}.onbdots i{width:22px;height:5px;border-radius:3px;background:rgba(127,127,127,.35)}.onbdots i.on{background:var(--acc,#a855f7)}
+.onbskip{background:none;border:0;color:var(--muted,#999);font-size:14px;padding:6px}
+.onbl{margin:0 0 10px;padding-left:22px;line-height:1.6}.onbs{color:var(--muted,#aaa);font-size:13.5px}
+.onbc .btn{width:100%;margin-top:4px}.onbq{margin:0 0 8px}.onbp{max-height:34vh;overflow:auto;margin-bottom:8px}
+.onbr{display:flex;align-items:center;gap:10px;padding:7px 2px}.onbr>div{flex:1;min-width:0}.onbr b{display:block;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.onbr small{color:var(--muted,#999)}
+.onbhi{position:relative;z-index:8999;animation:onbpulse 1.3s ease-in-out infinite;outline:3px solid #fff;outline-offset:3px}
+@keyframes onbpulse{0%,100%{box-shadow:0 0 0 0 rgba(168,85,247,.7)}50%{box-shadow:0 0 0 12px rgba(168,85,247,0)}}`;
+  document.head.appendChild(st);
+})();
+/* parte da solo quando entri, se non sei ancora online o non segui nessuno */
+{const ea = enterApp; enterApp = function () { const r = ea.apply(this, arguments); setTimeout(() => { if (!$$('#layer>*').length) ONB.start(); else { let k = 0; const w = setInterval(() => { if (++k > 30 || ONB.on) return clearInterval(w); if (!$$('#layer>*').length) { clearInterval(w); ONB.start() } }, 2000) } }, 2500); return r }}
+/* durante il benvenuto non apro da solo la finestra della password (ci pensa il tutorial) */
+{const ec = enterAppCloudPrompt; enterAppCloudPrompt = function () { if (ONB.on && ONB.step === 0) return; return ec.apply(this, arguments) }}
+/* il tutorial si può rifare dal menu del profilo */
+{const pm = profileMenu; profileMenu = function () { const r = pm.apply(this, arguments); try { const ms = $$('#layer .ov .menu'); const m = ms[ms.length - 1]; if (m && !$('#onbMenu', m)) { m.insertAdjacentHTML('afterbegin', '<button id="onbMenu"><span class="mi">🎓</span><div>Tutorial: mettiti online<small>Rifai la guida passo per passo</small></div></button>'); $('#onbMenu', m).onclick = () => { closeAll(); setTimeout(() => ONB.start(true), 300) } } } catch (e) { } return r }}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
