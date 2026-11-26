@@ -6913,7 +6913,7 @@ setInterval(()=>{try{if(S.acc&&!$('#recapBtn'))RECAP.btn()}catch(e){}},1500);
 
 /* v75: 🎬 EDITOR VIDEO (taglia, velocità, testo, musica) + i video ora vengono caricati davvero online,
    così li vedono anche gli altri (prima restavano solo sul telefono di chi li pubblicava). */
-const VURX=/^https:\/\/([a-z0-9]+\.public\.blob\.vercel-storage\.com|[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/vybe)\/v\/[A-Za-z0-9\/_.-]+\.(mp4|mov|webm)$/;
+const VURX=/^https:\/\/([a-z0-9]+\.public\.blob\.vercel-storage\.com|[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/vybe|vybe-pink-pi\.vercel\.app\/b2)\/v\/[A-Za-z0-9\/_.-]+\.(mp4|mov|webm)$/;
 const VUP={
  ok(){return typeof CDB!=='undefined'&&CDB.isV&&CDB.isV()},
  async call(o,retry){if(!CDB.sid){try{CDB.sid=localStorage.getItem(CDB.key())}catch(e){}}if(!CDB.sid&&!await CDB.auth())throw{code:'auth'};
@@ -6922,8 +6922,8 @@ const VUP={
   const j=await r.json().catch(()=>({}));if(!r.ok)throw{code:j.error||'http'+r.status};return j},
  type(b){const t=String(b&&b.type||'').split(';')[0].trim();return/^video\/(mp4|quicktime|webm)$/.test(t)?t:'video/mp4'},
  async up(blob,onp){const type=this.type(blob);const j=await this.call({size:blob.size,type});
-  if(j.sb)return await new Promise((res,rej)=>{if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/upload\/sign\//.test(j.up||'')||!VURX.test(j.pub||''))return rej({code:'url'});const x=new XMLHttpRequest();x.open('PUT',j.up);
-   x.setRequestHeader('Content-Type',type);x.setRequestHeader('x-upsert','false');x.setRequestHeader('cache-control','max-age=31536000');
+  if(j.sb)return await new Promise((res,rej)=>{if(!/^https:\/\/([a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/upload\/sign\/|s3\.[a-z0-9-]+\.backblazeb2\.com\/)/.test(j.up||'')||!VURX.test(j.pub||''))return rej({code:'url'});const x=new XMLHttpRequest();x.open('PUT',j.up);
+   x.setRequestHeader('Content-Type',type);if(!/backblazeb2\.com/.test(j.up)){x.setRequestHeader('x-upsert','false');x.setRequestHeader('cache-control','max-age=31536000')}
    x.upload.onprogress=e=>{if(e.lengthComputable&&onp)onp(e.loaded/e.total)};x.onerror=()=>rej({code:'net'});x.ontimeout=()=>rej({code:'net'});x.timeout=900000;
    x.onload=()=>{if(x.status>=200&&x.status<300)res(j.pub);else rej({code:'put'+x.status})};x.send(blob)});
   return await new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open('PUT','https://blob.vercel-storage.com/?pathname='+encodeURIComponent(j.path));
@@ -9712,6 +9712,31 @@ stopPostMusic=function(){if(PMA){PAU.stop();PMA=null}if(S.pmSyn){Music.stop();S.
 /* se la musica si ferma da sola (rete lenta, chiamata, cuffie) riprova */
 setInterval(()=>{try{if(PAU.want&&PAU.el&&PAU.el.paused&&document.visibilityState==='visible'&&S.sound!==false)PAU.kick()}catch(e){}},2500);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){try{if(PAU.el)PAU.el.pause()}catch(e){}}else if(PAU.want)PAU.kick()});
+/* ============ v118: un post segnalato sparisce subito per chi lo segnala (regola Apple 1.2) ============ */
+{
+  const HK = () => 'vybe_hidp_' + (Real && Real.uid || '');
+  const hid = () => { try { return new Set(JSON.parse(localStorage.getItem(HK()) || '[]')) } catch (e) { return new Set() } };
+  const addHid = k => { try { const s = hid(); s.add(k); localStorage.setItem(HK(), JSON.stringify([...s].slice(-500))) } catch (e) { } };
+  const osp = syncRealPosts;
+  syncRealPosts = function () {
+    const ch = osp.apply(this, arguments); const H = hid(); if (!H.size) return ch;
+    const L = REALP.filter(p => !H.has(p.rid + ':' + p.rpid));
+    if (L.length !== REALP.length) { REALP = L; REALSIG = L.map(p => p.id).join(','); return true }
+    return ch;
+  };
+  const oc = CDB.call;
+  CDB.call = async function (b) {
+    const r = await oc.apply(this, arguments);
+    try {
+      if (b && b.op === 'report' && b.target && typeof b.item === 'string' && b.item) {
+        addHid(b.target + ':' + b.item); syncRealPosts(); S.reelN = 0; const rs = $('#rscroll'); if (rs) rs.innerHTML = ''; refreshAll();
+        toast('Post nascosto: non lo vedrai più');
+      }
+    } catch (e) { }
+    return r;
+  };
+}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
