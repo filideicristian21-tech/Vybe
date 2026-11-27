@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Vybe – il social di foto, video, storie e live</title>
+<meta name="description" content="Vybe è il social italiano per condividere foto, video, storie e dirette con amici e famiglia. Chat privata, notifiche e profilo 3D.">
+<meta name="robots" content="index,follow">
+<meta name="google-site-verification" content="XaReOlm7LHqhWewYZdltDSi1Qnt3kSSmMaF3eq1SD0s">
+<link rel="canonical" href="https://vybe-pink-pi.vercel.app/">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Vybe"><meta property="og:title" content="Vybe – il social di foto, video, storie e live"><meta property="og:description" content="Vybe è il social italiano per condividere foto, video, storie e dirette con amici e famiglia. Chat privata, notifiche e profilo 3D."><meta property="og:url" content="https://vybe-pink-pi.vercel.app/"><meta property="og:locale" content="it_IT"><meta property="og:image" content="https://vybe-pink-pi.vercel.app/icon-192.png">
+<meta name="twitter:card" content="summary"><meta name="twitter:title" content="Vybe"><meta name="twitter:description" content="Vybe è il social italiano per condividere foto, video, storie e dirette con amici e famiglia. Chat privata, notifiche e profilo 3D.">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Vybe","url":"https://vybe-pink-pi.vercel.app/","applicationCategory":"SocialNetworkingApplication","operatingSystem":"iOS, Android, Web","inLanguage":"it","description":"Vybe è il social italiano per condividere foto, video, storie e dirette con amici e famiglia. Chat privata, notifiche e profilo 3D.","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vybe">
+<meta name="theme-color" content="#0b0a10">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/filideicristian21-tech/Vybe@7ca781c6141d3e1b9380b2ab3f63eeac4a0a0636/icon.png">
+<link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/filideicristian21-tech/Vybe@7ca781c6141d3e1b9380b2ab3f63eeac4a0a0636/icon.png">
+<style>html,body{margin:0;height:100%;background:#0b0a10;color:#fff;font-family:-apple-system,system-ui,sans-serif}#l{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}#l b{font-size:44px;font-weight:900;background:linear-gradient(90deg,#c084fc,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}#l i{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#c084fc;animation:s 1s linear infinite}#l span{font-size:14px;opacity:.7}@keyframes s{to{transform:rotate(360deg)}}</style>
+</head><body><div id="l"><b>Vybe</b><i></i><span id="m"></span></div><noscript><h1>Vybe – il social di foto, video, storie e live</h1><p>Vybe è il social italiano per condividere foto, video, storie e dirette con amici e famiglia. Chat privata, notifiche e profilo 3D.</p><p><a href="/privacy.html">Privacy</a> · <a href="/termini.html">Termini</a></p></noscript>
+<script>
+/* "Installa app": il browser lo propone una volta sola, spesso prima che l'app sia caricata: lo teniamo da parte per il pulsante dell'app */
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e});
+/* offline: il service worker salva questa pagina, così si apre anche senza rete */
+try{if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){})}catch(e){}
+(async function(){
+ /* apertura veloce: l'app resta salvata sul telefono e si scarica di nuovo solo quando c'è una versione nuova */
+ var R='https://raw.githubusercontent.com/filideicristian21-tech/Vybe/',J='https://cdn.jsdelivr.net/gh/filideicristian21-tech/Vybe@',c=null,cs=null,cached=null,sha=null;
+ try{if(window.caches)c=await caches.open('vybe-app')}catch(e){}
+ try{cs=localStorage.getItem('vybe_sha')}catch(e){}
+ if(c){try{var o=await c.match('/vybe-app.html');if(o)cached=await o.text();if(cached&&cached.indexOf('<html')<0)cached=null}catch(e){}}
+ async function ver(ms){if(navigator.onLine===false)return null;try{var a=new AbortController();var t=setTimeout(function(){a.abort()},ms);var r=await fetch('/api/ver',{signal:a.signal});clearTimeout(t);if(r.ok){var j=await r.json();if(j&&/^[0-9a-f]{40}$/.test(j.sha||''))return j.sha}}catch(e){}return null}
+ async function get(s){var U=(s?[R+s+'/index.html',J+s+'/index.html']:[]).concat([R+'main/index.html?t='+Math.floor(Date.now()/60000),J+'main/index.html']);
+  for(var i=0;i<U.length;i++){try{var r=await fetch(U[i]);if(r.ok){var h=await r.text();if(h.indexOf('<html')>=0){if(c){try{await c.put('/vybe-app.html',new Response(h,{headers:{'Content-Type':'text/html'}}))}catch(e){}}if(s){try{localStorage.setItem('vybe_sha',s)}catch(e){}}return h}}}catch(e){}}return null}
+ function go(h){document.open();document.write(h);document.close()}
+ sha=await ver(cached?900:3000);
+ if(cached&&(!sha||sha===cs)){go(cached);if(!sha){var s2=await ver(8000);if(s2&&s2!==cs)get(s2)}return}
+ var h=await get(sha);if(h){go(h);return}
+ if(cached){go(cached);return}
+ document.getElementById('m').textContent='Nessuna connessione. Riprova tra poco.';document.querySelector('#l i').style.display='none';
+})();
+</script></body></html>
