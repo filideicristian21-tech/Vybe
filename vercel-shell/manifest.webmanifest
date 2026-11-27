@@ -13,7 +13,7 @@
   "categories": ["social"],
   "icons": [
     {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
-    {"src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+    {"src": "https://cdn.jsdelivr.net/gh/filideicristian21-tech/Vybe@e71d928a0a85239b49674d738764a3722d5b233a/vercel-shell/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "https://cdn.jsdelivr.net/gh/filideicristian21-tech/Vybe@e71d928a0a85239b49674d738764a3722d5b233a/vercel-shell/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ]
 }
