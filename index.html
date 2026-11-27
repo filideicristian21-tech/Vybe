@@ -10478,6 +10478,46 @@ addEventListener('appinstalled',()=>{INST.evt=null;INST.done()});
 {const ea=enterApp;enterApp=function(){const r=ea.apply(this,arguments);setTimeout(()=>{try{INST.maybe()}catch(e){}},45000);return r}}
 {const pm=profileMenu;profileMenu=function(){const r=pm.apply(this,arguments);try{if(INST.can()){const ms=$$('#layer .ov .menu');const m=ms[ms.length-1];if(m&&!$('#instMenu',m)){m.insertAdjacentHTML('afterbegin','<button id="instMenu"><span class="mi">📲</span><div>Installa Vybe<small>Si apre dall’icona, anche senza rete</small></div></button>');$('#instMenu',m).onclick=()=>{closeAll();setTimeout(()=>INST.open(),250)}}}}catch(e){}return r}}
 
+/* ============ BOZZE: post e storie iniziati e non pubblicati restano salvati ============
+   se chiudi l'editor senza pubblicare, foto/video, testo e colore restano sul telefono (IndexedDB);
+   li ritrovi in Crea → Bozze */
+const DRAFT={list:null,lp:null,
+ TITLES:{'Nuovo post':'post','Nuovo Reel':'post','Post di testo':'tpost','Storia di testo':'tstory','Nuova storia':'story'},
+ k(){return 'drafts_'+((S.acc&&S.acc.username)||'')},
+ load(){return this.lp||(this.lp=IDBS.get(this.k()).then(L=>this.list=Array.isArray(L)?L:[]))},
+ persist(){IDBS.set(this.k(),this.list||[])},
+ async del(id){await this.load();this.list=this.list.filter(x=>x.id!==id);this.persist()},
+ track(ov){const h=$('.fhead h2',ov),kind=h&&this.TITLES[h.textContent.trim()];if(!kind||!$('#pub',ov)||!S.acc)return;ov._draft={kind,n0:(S.acc.own||[]).length,s0:(S.acc.stories||[]).length}},
+ /* fotografia dell'editor al momento della chiusura */
+ snap(ov){const d=ov._draft;if(!d||!S.acc)return;if((S.acc.own||[]).length>d.n0||(S.acc.stories||[]).length>d.s0){if(ov._draftId)this.del(ov._draftId);return}
+  const tx=$('#cap',ov)||$('#tx',ov),text=tx?tx.value:'';const sw=$('.swatches .on',ov),bg=sw?sw.dataset.c:null;
+  const el=$('.cpreview img,.cpreview video,#spv>img,#spv>video',ov);let media=null;
+  if(el&&el.src){const v=el.tagName==='VIDEO';media={kind:v?'video':'image',src:el.src,w:v?el.videoWidth:el.naturalWidth,h:v?el.videoHeight:el.naturalHeight,dur:v&&isFinite(el.duration)?el.duration:0,poster:v?el.getAttribute('poster')||'':''}}
+  if(!media&&!text.trim())return;this.save({kind:d.kind,text,bg,media},ov._draftId)},
+ async save(d,oldId){try{if(d.media){const b=await (await fetch(d.media.src)).blob();if(b.size>150e6){toast('Video troppo grande per salvarlo come bozza');return}d.media.blob=b;delete d.media.src}
+  await this.load();if(oldId)this.list=this.list.filter(x=>x.id!==oldId);d.id='d'+Date.now().toString(36);d.t=Date.now();this.list.unshift(d);
+  const drop=this.list.slice(12);this.list=this.list.slice(0,12);this.persist();if(drop.length)toast('Tengo solo le ultime 12 bozze');
+  toast(oldId?'Bozza aggiornata 📝':'Bozza salvata 📝 La ritrovi in Crea → Bozze')}catch(e){}},
+ open(d){closeAll();setTimeout(()=>{let m=null;if(d.media){m={kind:d.media.kind,url:URL.createObjectURL(d.media.blob),w:d.media.w||1080,h:d.media.h||1080,dur:d.media.dur||0,poster:d.media.poster||'',ved:true,temp:d.media.kind==='video'}}
+  if(d.kind==='post'){if(!m)return;composeMedia(m)}else if(d.kind==='tpost')composeText('post');else if(d.kind==='tstory')composeText('story');else composeStory(m);
+  const ov=$$('#layer>.ovf').pop();if(!ov)return;ov._draftId=d.id;
+  if(d.bg){const b=$(`.swatches [data-c="${d.bg}"]`,ov);if(b)b.click()}
+  const tx=$('#cap',ov)||$('#tx',ov);if(tx&&d.text){tx.value=d.text;tx.dispatchEvent(new Event('input',{bubbles:true}))}},300)},
+ async sheet(){await this.load();const L=this.list;if(!L.length)return toast('Nessuna bozza');const urls=[];
+  const lab={post:'Post',tpost:'Post di testo',tstory:'Storia di testo',story:'Storia'};
+  const row=d=>{let th='';if(d.media){if(d.media.kind==='image'){const u=URL.createObjectURL(d.media.blob);urls.push(u);th=`<img src="${u}" alt="" style="width:100%;height:100%;object-fit:cover">`}else th=d.media.poster?`<img src="${esc(d.media.poster)}" alt="" style="width:100%;height:100%;object-fit:cover">`:'🎬'}else th=`<span style="font-size:20px">✍️</span>`;
+   return`<div class="drow" data-d="${d.id}" style="display:flex;align-items:center;gap:12px;padding:8px 0;cursor:pointer"><div style="width:54px;height:54px;border-radius:12px;overflow:hidden;flex:none;display:grid;place-items:center;background:${d.bg||'var(--soft)'}">${th}</div>
+   <div style="flex:1;min-width:0"><b style="font-size:14px">${lab[d.kind]||'Bozza'}</b><div style="font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.text||'Senza testo')}</div><small style="color:var(--muted)">${new Date(d.t).toLocaleString('it-IT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</small></div>
+   <button class="iconbtn" data-x="${d.id}" aria-label="Elimina bozza">${ic('x',18)}</button></div>`};
+  const sh=openSheet(`<div style="padding:4px 18px 22px"><h3 style="font-size:19px;margin:0 0 6px">📝 Bozze</h3><div id="dl">${L.map(row).join('')}</div></div>`);
+  $('.sheet',sh).style.maxHeight='80%';$('.sheet',sh).style.overflowY='auto';const pc=sh.onclose;sh.onclose=()=>{urls.forEach(u=>URL.revokeObjectURL(u));if(pc)pc()};
+  $('#dl',sh).onclick=async e=>{const x=e.target.closest('[data-x]');if(x){e.stopPropagation();await this.del(x.dataset.x);x.closest('.drow').remove();toast('Bozza eliminata');if(!this.list.length)closeOv(sh);return}
+   const r=e.target.closest('[data-d]');if(r){const d=this.list.find(z=>z.id===r.dataset.d);if(d)this.open(d)}}}};
+{const of=openFull;openFull=function(){const ov=of.apply(this,arguments);try{DRAFT.track(ov)}catch(e){}return ov}}
+{const co=closeOv;closeOv=function(ov){try{if(ov&&ov._draft&&!ov._closing)DRAFT.snap(ov)}catch(e){}return co.apply(this,arguments)}}
+{const oc=openCreate;openCreate=function(only){const r=oc.apply(this,arguments);DRAFT.load().then(()=>{const L=DRAFT.list||[];if(!L.length)return;const ov=$$('#layer>.ov').pop();const m=ov&&$('.menu',ov);if(!m||$('#cdraft',m))return;
+  m.insertAdjacentHTML('afterbegin',`<button id="cdraft"><span class="mi">📝</span><div>Bozze (${L.length})<small>Post e storie che non hai pubblicato</small></div></button>`);$('#cdraft',m).onclick=()=>{closeOv(ov);setTimeout(()=>DRAFT.sheet(),250)}});return r}}
+
 /* post e storie creati senza rete: restano sul telefono e partono da soli quando torna la rete */
 {const ap=afterPublish;afterPublish=function(){const r=ap.apply(this,arguments);if(OFFD.off()){S.offPub=1;try{const t=[...document.querySelectorAll('#toasts .toast span')].reverse().find(x=>/Pubblicato/.test(x.textContent));if(t)t.textContent='Salvato sul telefono ⏳ Lo pubblico appena torna la rete'}catch(e){}}return r}}
 {const bk=OFFD.back.bind(OFFD);OFFD.back=function(){bk();if(S.offPub&&S.acc){S.offPub=0;setTimeout(()=>toast('Rete tornata: pubblico quello che hai creato offline ✨'),900)}}}
