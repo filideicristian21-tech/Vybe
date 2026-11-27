@@ -10164,7 +10164,7 @@ const PZ = {
       [-.8, .8].forEach(xx => { const l = new T.Mesh(new T.BoxGeometry(.07, .5, .5), iron); l.position.set(xx, .25, -.08); b.add(l) });
       b.position.set(x, 0, z); b.lookAt(face.x, 0, face.z); sc.add(b); g.obst.push({ x, z, r: .9 }) };
     for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + Math.PI / 10; bench(Math.cos(a) * 15, Math.sin(a) * 15, { x: 0, z: 0 }) }
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; [34, 48, 74].forEach(r => { const px = Math.sin(a) * r, pz = Math.cos(a) * r, ox = Math.cos(a) * 4.2, oz = -Math.sin(a) * 4.2; bench(px + ox, pz + oz, { x: px, z: pz }) }) }
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; [34, 48, 74].forEach(r => { if (i === 2 && r > 70) return; const px = Math.sin(a) * r, pz = Math.cos(a) * r, ox = Math.cos(a) * 4.2, oz = -Math.sin(a) * 4.2; bench(px + ox, pz + oz, { x: px, z: pz }) }) }
     /* lampioni (di sera si accendono) */
     const bulbM = new T.MeshStandardMaterial({ color: '#fff3d0', emissive: '#ffcf7a', emissiveIntensity: night ? 3.2 : .15, roughness: .3 }); let nl = 0;
     const lamp = (x, z) => { const pole = new T.Mesh(new T.CylinderGeometry(.06, .09, 4, 10), iron); pole.position.set(x, 2, z); pole.castShadow = true; sc.add(pole);
@@ -10172,12 +10172,12 @@ const PZ = {
       if (night && nl < 10 && Math.hypot(x, z) < 30) { nl++; const L = new T.PointLight('#ffc477', 18, 16, 1.6); L.position.set(x, 3.8, z); sc.add(L) } };
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; lamp(Math.cos(a) * 20, Math.sin(a) * 20) }
     for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2 + .07; lamp(Math.cos(a) * 63.6, Math.sin(a) * 63.6) }
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; [40, 54, 80].forEach(r => lamp(Math.sin(a) * r - Math.cos(a) * 3.3, Math.cos(a) * r + Math.sin(a) * 3.3)) }
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; [40, 54, 80].filter(r => !(i === 2 && r > 70)).forEach(r => lamp(Math.sin(a) * r - Math.cos(a) * 3.3, Math.cos(a) * r + Math.sin(a) * 3.3)) }
     /* alberi (tanti, disegnati tutti insieme per non pesare sul telefono) */
     const blob = r => { const ge = new T.IcosahedronGeometry(r, 2), p = ge.attributes.position; for (let i = 0; i < p.count; i++) { const v = new T.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(1 + (Math.sin(v.x * 3.1) + Math.cos(v.y * 2.7) + Math.sin(v.z * 3.7)) * .07); p.setXYZ(i, v.x, v.y, v.z) } ge.computeVertexNormals(); return ge };
     const trees = []; let guard = 0;
     while (trees.length < 110 && guard++ < 4000) { const a = Math.random() * Math.PI * 2, r = rnd(27, W - 4), x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (onPath(x, z) || Math.hypot(x - LX, z - LZ) < 14 || Math.hypot(x + 34, z + 34) < 14 || Math.hypot(x + 36, z - 34) < 16 || Math.hypot(x - 36, z + 34) < 11) continue;
+      if (onPath(x, z) || (Math.abs(x) < 16 && Math.abs(z + 76) < 11) || (this.slots ? this.slots() : []).some(sl => Math.hypot(x - sl.x, z - sl.z) < 8) || Math.hypot(x - LX, z - LZ) < 14 || Math.hypot(x + 34, z + 34) < 14 || Math.hypot(x + 36, z - 34) < 16 || Math.hypot(x - 36, z + 34) < 11) continue;
       if (trees.some(t => Math.hypot(t.x - x, t.z - z) < 4.2)) continue; trees.push({ x, z, h: rnd(2.2, 3.4), s: rnd(.85, 1.25), ry: Math.random() * 6 }) }
     const bark = new T.MeshStandardMaterial({ map: tex('hardwood2_diffuse.jpg', 1, true), color: '#6a4a33', roughness: .95 });
     const trunkI = new T.InstancedMesh(new T.CylinderGeometry(.16, .28, 1, 8), bark, trees.length); trunkI.castShadow = true;
@@ -10232,6 +10232,7 @@ const PZ = {
     this.makeEnt(g, 'npc1', { n: 'Giulia', av: { m: 'michelle', mv: 'cammina', fx: 'no' }, x: 12, z: 0, npc: 1 }).then(e => { e.lines = ['Ciao! Che bella giornata 😊', 'Sei stato al laghetto? Ci sono le anatre 🦆', 'La gelateria è in fondo al viale 🍦', 'Di sera i lampioni sono bellissimi ✨']; e.walk = { r: 12, s: .07 } });
     this.makeEnt(g, 'npc2', { n: 'DJ Leo', av: { m: 'marco', mv: 'balla', fx: 'no' }, x: DX - 6, z: DZ - 6, r: Math.PI / 4, npc: 1 }).then(e => { e.lines = ['Ehi! Vieni sulla pista 🕺', 'Questa canzone è una bomba 🔥', 'Tocca 💃 e balliamo insieme!']; e.base = 'balla'; e.y = .4 });
     this.makeEnt(g, 'npc3', { n: 'Max', av: { m: 'soldato', mv: 'cammina', fx: 'no' }, x: 60, z: 0, npc: 1 }).then(e => { e.lines = ['Faccio il giro lungo, è il mio allenamento 💪', 'Questa piazza è enorme!', 'Hai provato il campetto da basket? 🏀']; e.walk = { r: 60.2, s: -.03 } });
+    try { this.extras && await this.extras(g, { T, G, sc, tex, iron, wood, stone, rnd }) } catch (e) { console.log('pz extras', e) }
     this.hello();
     this.minimap(g);
     /* ciclo */
@@ -10257,6 +10258,7 @@ const PZ = {
       sendT += dt; if (sendT > .125) { sendT = 0; const k = `${m.pos.x.toFixed(2)},${m.pos.z.toFixed(2)},${m.yaw.toFixed(2)},${m.anim}`; if (k !== last || t - (g.lastBeat || 0) > 1) { last = k; g.lastBeat = t; this.send({ t: 's', x: +m.pos.x.toFixed(2), z: +m.pos.z.toFixed(2), r: +m.yaw.toFixed(2), a: m.anim }) } }
       this.npcTalk(g, t);
       mapT += dt; if (mapT > .2) { mapT = 0; this.drawMap(g) }
+      (g.upd || []).forEach(f => { try { f(dt, t) } catch (e) { if (!g.updErr) { g.updErr = 1; console.log('pz upd', e && e.stack) } } });
       R.render(sc, cam);
     };
     tick();
@@ -10383,6 +10385,358 @@ const PZ = {
 {const ea = enterApp; enterApp = function () { const r = ea.apply(this, arguments); try { const q = new URLSearchParams(location.search); if (q.get('n') === 'pz' && /^[0-9a-f]{20}$/.test(q.get('g') || '')) setTimeout(() => PZ.open(q.get('g')), 1800) } catch (e) { } return r }}
 /* da dove si entra: menu del profilo e chat */
 {const pm = profileMenu; profileMenu = function () { const r = pm.apply(this, arguments); try { const ms = $$('#layer .ov .menu'); const m = ms[ms.length - 1]; if (m && !$('#pzMenu', m)) { m.insertAdjacentHTML('afterbegin', '<button id="pzMenu"><span class="mi">🌍</span><div>La Piazza 3D<small>Incontra i tuoi amici in un mondo 3D</small></div></button>'); $('#pzMenu', m).onclick = () => { closeAll(); setTimeout(() => PZ.open(), 250) } } } catch (e) { } return r }}
+
+/* ============ v124: Piazza — giochi, case, feste, vestiti, musica insieme; NPC che si fermano a parlare ============ */
+Object.assign(PZ, {
+  /* posti delle case ai bordi della piazza (8, tra un viale e l'altro) */
+  slots() { const o = []; for (let k = 0; k < 8; k++) { const a = (22.5 + 45 * k) * Math.PI / 180; o.push({ x: Math.cos(a) * 77, z: Math.sin(a) * 77, a }) } return o },
+  FIELD: { x: 0, z: -76, w: 24, h: 14 },
+  HOOPS: [],
+  /* ---------- NPC: camminano in avanti, e quando ti avvicini si fermano, si girano e ti parlano ---------- */
+  updEnt(g, e, dt, t) {
+    e.ch.mixer.update(dt);
+    if (e.npc) {
+      const m = g.me, d = m ? Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z) : 99; const talk = d < 3.4;
+      if (talk) { e.tr = Math.atan2(m.pos.x - e.pos.x, m.pos.z - e.pos.z); if (!e.talking) { e.talking = 1; if (e.walk) this.play(e, 'fermo'); setTimeout(() => { if (e.talking && e.ch.clips.si) this.play(e, 'si', true) }, 250) } }
+      else if (e.talking) { e.talking = 0 }
+      if (e.walk && !talk) { const w = e.walk; e.wa = (e.wa == null ? Math.atan2(e.pos.z, e.pos.x) : e.wa) + dt * w.s; e.tx = Math.cos(e.wa) * w.r; e.tz = Math.sin(e.wa) * w.r; e.tr = w.s > 0 ? -e.wa : Math.PI - e.wa; if (performance.now() > (e.onceUntil || 0) && e.anim !== 'cammina') this.play(e, 'cammina') }
+      else if (performance.now() > (e.onceUntil || 0)) { const want = talk ? 'fermo' : (e.base || 'fermo'); if (e.anim !== want) this.play(e, want) }
+      const k = Math.min(1, dt * 8); e.pos.x += (e.tx - e.pos.x) * k; e.pos.z += (e.tz - e.pos.z) * k;
+      let dy = e.tr - e.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); e.yaw += dy * Math.min(1, dt * (talk ? 6 : 8));
+    } else if (!e.mine) {
+      const k = Math.min(1, dt * 8); const dx = e.tx - e.pos.x, dz = e.tz - e.pos.z; e.pos.x += dx * k; e.pos.z += dz * k;
+      let dy = e.tr - e.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); e.yaw += dy * k;
+      if (performance.now() > (e.onceUntil || 0)) { const na = e.netA || 'fermo'; if (na !== e.anim && ['fermo', 'cammina', 'corri', 'balla', 'pronto'].includes(na)) this.play(e, na) }
+    }
+    e.ch.pivot.position.set(e.pos.x, e.y || 0, e.pos.z); e.ch.pivot.rotation.y = e.yaw;
+    if (!e.mine && !e.npc) { const p = g.peers.get(e.id); if (p && p.lv) { if (!e.spk) { e.spk = this.label(g.T, '🔊', '#fff'); e.spk.position.y = 2.25; e.spk.visible = false; e.ch.pivot.add(e.spk) } e.spk.visible = p.lv() > .02 } }
+    if (e.acc) this.followAcc(e);
+  },
+  npcTalk(g, t) {
+    const m = g.me; if (!m) return;
+    for (const e of g.ents.values()) { if (!e.npc || !e.lines) continue; const d = Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z); if (d < 3.4 && t - (e.saidT || -99) > 12) { e.saidT = t; this.say(e, e.lines[(e.li = ((e.li || 0) + 1) % e.lines.length)]) } }
+  },
+  /* se scrivi vicino a un NPC, ti risponde */
+  npcReply(g, tx) {
+    const m = g.me; if (!m) return; let best = null, bd = 6; for (const e of g.ents.values()) { if (!e.npc) continue; const d = Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z); if (d < bd) { bd = d; best = e } } if (!best) return;
+    const q = tx.toLowerCase(), nm = best.name;
+    const A = /ciao|ehi|hey|salve|buongiorno|buonasera/.test(q) ? ['Ciao! 👋 Come va?', 'Ehi ciao! Benvenuto 😊', 'Ciao ciao! Bella la piazza oggi eh?'] :
+      /come (stai|va)/.test(q) ? ['Benissimo, grazie! E tu?', 'Alla grande! 😄', 'Tutto bene, sto facendo un giro'] :
+      /nome|chi sei/.test(q) ? ['Mi chiamo ' + nm + '! Sono un personaggio della Piazza 🙂'] :
+      /basket|canestr|palla/.test(q) ? ['Il campetto è a sud-ovest, prendi la palla e tira! 🏀'] :
+      /calcio|calcetto|pallone|gol/.test(q) ? ['Il campo da calcetto è in fondo al viale nord ⚽'] :
+      /gelat/.test(q) ? ['La gelateria è a nord-est, il pistacchio è il migliore 🍦'] :
+      /musica|canzone|balla/.test(q) ? ['Vai alla pista da ballo e tocca 🎵 per mettere una canzone!'] :
+      /casa/.test(q) ? ['Le case sono ai bordi della piazza, la tua ha il tuo nome sopra 🏠'] :
+      /grazie/.test(q) ? ['Figurati! 😊', 'Di niente!'] : ['Ah sì? Interessante! 😄', 'Ahah, mi piace!', 'Davvero? Raccontami!', 'Bello! Io intanto mi godo la piazza ☀️'];
+    setTimeout(() => { if (this.g === g) { best.saidT = g.tNow || 0; this.say(best, A[(Math.random() * A.length) | 0]) } }, 900);
+  },
+  /* pulsante d'azione che cambia in base a dove sei */
+  act(g, label, fn) { const b = $('#pzAct', g.el); if (!b) return; if (!label) { b.style.display = 'none'; b.onclick = null; return } if (b._l !== label) { b._l = label; b.textContent = label } b.style.display = ''; b.onclick = fn },
+  /* ---------- tutte le aggiunte al mondo ---------- */
+  async extras(g, K) {
+    const { T, sc, iron, wood, rnd } = K;
+    g.el.insertAdjacentHTML('beforeend', `<button class="pzact" id="pzAct" style="display:none"></button><div class="pzside"><button class="pzb" id="pzOut" aria-label="Vestiti">👕</button><button class="pzb" id="pzParty" aria-label="Festa">🎉</button></div>`);
+    $('#pzOut', g.el).onclick = () => this.outfitSheet(g); $('#pzParty', g.el).onclick = () => { this.party(g, !g.party, true) };
+    g.score = {}; g.fb = { x: 0, z: -76, vx: 0, vz: 0, owner: null, sc: [0, 0] };
+    /* --- basket: la palla --- */
+    const bcv = document.createElement('canvas'); bcv.width = 128; bcv.height = 64; const bx = bcv.getContext('2d'); bx.fillStyle = '#e8641c'; bx.fillRect(0, 0, 128, 64); bx.strokeStyle = '#2a1408'; bx.lineWidth = 3; [16, 48, 80, 112].forEach(x0 => { bx.beginPath(); bx.moveTo(x0, 0); bx.lineTo(x0, 64); bx.stroke() }); bx.beginPath(); bx.moveTo(0, 32); bx.lineTo(128, 32); bx.stroke();
+    const btex = new T.CanvasTexture(bcv); btex.colorSpace = T.SRGBColorSpace;
+    const ball = new T.Mesh(new T.SphereGeometry(.13, 20, 14), new T.MeshStandardMaterial({ map: btex, roughness: .7 })); ball.castShadow = true; sc.add(ball);
+    const BX = -36, BZ = 34; this.HOOPS = [{ x: BX - 12.4 + .5, z: BZ, y: 3.05 }, { x: BX + 12.4 - .5, z: BZ, y: 3.05 }];
+    g.bb = { st: 'free', x: BX, z: BZ + 2, y: .13, u: null };
+    const bscore = this.board(T, '🏀 Basket', ['Tira per fare punti!']); bscore.position.set(BX, 5.2, BZ - 7.5); sc.add(bscore.s);
+    g.bbBoard = bscore;
+    /* --- calcetto --- */
+    const F = this.FIELD; const fcv = document.createElement('canvas'); fcv.width = 512; fcv.height = 300; const fx = fcv.getContext('2d');
+    for (let i = 0; i < 8; i++) { fx.fillStyle = i % 2 ? '#3f9a46' : '#46a74e'; fx.fillRect(i * 64, 0, 64, 300) } fx.strokeStyle = '#fff'; fx.lineWidth = 5; fx.strokeRect(10, 10, 492, 280); fx.beginPath(); fx.moveTo(256, 10); fx.lineTo(256, 290); fx.stroke(); fx.beginPath(); fx.arc(256, 150, 45, 0, 7); fx.stroke(); fx.strokeRect(10, 90, 50, 120); fx.strokeRect(452, 90, 50, 120);
+    const ftex = new T.CanvasTexture(fcv); ftex.colorSpace = T.SRGBColorSpace; ftex.anisotropy = 4;
+    const field = new T.Mesh(new T.PlaneGeometry(F.w, F.h), new T.MeshStandardMaterial({ map: ftex, roughness: .95 })); field.rotation.x = -Math.PI / 2; field.position.set(F.x, .04, F.z); field.receiveShadow = true; sc.add(field);
+    const netM = new T.MeshStandardMaterial({ color: '#ffffff', roughness: .5, transparent: true, opacity: .55, side: T.DoubleSide });
+    [-1, 1].forEach(sd => { const gx = F.x + sd * F.w / 2; const gp = new T.Group();
+      [[0, -1.6], [0, 1.6]].forEach(o => { const p = new T.Mesh(new T.CylinderGeometry(.05, .05, 1.3, 8), iron); p.position.set(0, .65, o[1]); gp.add(p) });
+      const bar = new T.Mesh(new T.CylinderGeometry(.05, .05, 3.2, 8), iron); bar.rotation.x = Math.PI / 2; bar.position.set(0, 1.3, 0); gp.add(bar);
+      const net = new T.Mesh(new T.BoxGeometry(.9, 1.3, 3.2), netM); net.position.set(sd * .45, .65, 0); gp.add(net);
+      gp.position.set(gx, 0, F.z); sc.add(gp) });
+    const fcvb = document.createElement('canvas'); fcvb.width = 64; fcvb.height = 64; const fbx = fcvb.getContext('2d'); fbx.fillStyle = '#fff'; fbx.fillRect(0, 0, 64, 64); fbx.fillStyle = '#111'; [[16, 16], [48, 20], [30, 44], [10, 50], [54, 52]].forEach(p => { fbx.beginPath(); fbx.arc(p[0], p[1], 7, 0, 7); fbx.fill() });
+    const fbtex = new T.CanvasTexture(fcvb); fbtex.colorSpace = T.SRGBColorSpace;
+    const fball = new T.Mesh(new T.SphereGeometry(.2, 20, 14), new T.MeshStandardMaterial({ map: fbtex, roughness: .6 })); fball.castShadow = true; sc.add(fball);
+    const fboard = this.board(T, '⚽ Calcetto', ['🔴 0 - 0 🔵']); fboard.position.set(F.x, 4.2, F.z - F.h / 2 - 1.5); sc.add(fboard.s); g.fbBoard = fboard;
+    g.zones.push({ n: '⚽ Calcetto', x: F.x, z: F.z });
+    /* --- le case --- */
+    g.homes = {}; g.homeGrp = new T.Group(); sc.add(g.homeGrp);
+    /* --- festa: luci colorate sulla piazza --- */
+    g.partyGrp = new T.Group(); g.partyGrp.visible = false; sc.add(g.partyGrp);
+    const bulbs = []; for (let i = 0; i < 64; i++) { const a = i / 64 * Math.PI * 2; const m = new T.Mesh(new T.SphereGeometry(.16, 10, 8), new T.MeshBasicMaterial({ color: new T.Color().setHSL(i / 64, .9, .6) })); m.position.set(Math.cos(a) * 21, 4.6 + Math.sin(i * 1.7) * .15, Math.sin(a) * 21); g.partyGrp.add(m); bulbs.push(m) }
+    const spots = []; for (let i = 0; i < 4; i++) { const L = new T.SpotLight(new T.Color().setHSL(i / 4, 1, .6), 110, 60, .3, .6, 1); L.position.set(0, 12, 0); g.partyGrp.add(L); g.partyGrp.add(L.target); spots.push(L) }
+    g.fw = []; const fwGeo = new T.BufferGeometry(); const FWN = 90; fwGeo.setAttribute('position', new T.BufferAttribute(new Float32Array(FWN * 3), 3));
+    /* --- aggiornamento a ogni fotogramma --- */
+    g.upd = g.upd || [];
+    g.upd.push((dt, t) => {
+      g.tNow = t; const m = g.me; if (!m) return;
+      /* basket */
+      const B = g.bb;
+      if (B.st === 'held') { const h = g.ents.get(B.u === Real.uid ? 'me' : B.u); if (h) { B.x = h.pos.x + Math.sin(h.yaw) * .35; B.z = h.pos.z + Math.cos(h.yaw) * .35; B.y = 1.05 + Math.abs(Math.sin(t * 6)) * .25 } else B.st = 'free' }
+      else if (B.st === 'fly') { const k = Math.min(1, (performance.now() - B.t0) / B.dur); const a = B.from, b2 = B.to; B.x = a[0] + (b2[0] - a[0]) * k; B.z = a[2] + (b2[2] - a[2]) * k; B.y = a[1] + (b2[1] - a[1]) * k + Math.sin(Math.PI * k) * B.arc;
+        if (k >= 1) { if (B.ok && !B.done) { B.done = 1; this.basketScored(g, B) } B.st = 'drop'; B.vy = 0; B.dx = (Math.random() - .5) * 2; B.dz = (Math.random() - .5) * 2 } }
+      else if (B.st === 'drop') { B.vy -= 9.8 * dt; B.y += B.vy * dt; B.x += B.dx * dt; B.z += B.dz * dt; if (B.y < .13) { B.y = .13; if (Math.abs(B.vy) > 1.2) B.vy = -B.vy * .55; else { B.st = 'free'; B.vy = 0 } } }
+      ball.position.set(B.x, B.y, B.z); ball.rotation.x += dt * (B.st === 'free' ? 0 : 6);
+      const dBall = Math.hypot(B.x - m.pos.x, B.z - m.pos.z);
+      /* calcetto: palla con la fisica, chi la tocca per ultimo la "guida" e la manda agli altri */
+      const P = g.fb, half = { x: F.w / 2 - .25, z: F.h / 2 - .25 };
+      const sp = Math.hypot(m.vx || 0, m.vz || 0);
+      if (Math.hypot(P.x - m.pos.x, P.z - m.pos.z) < .6 && sp > .3) { const ax = P.x - m.pos.x, az = P.z - m.pos.z, al = Math.hypot(ax, az) || 1; const pw = Math.max(3, sp * 1.7); P.vx = (ax / al) * pw * .6 + (m.vx || 0) * .7; P.vz = (az / al) * pw * .6 + (m.vz || 0) * .7; P.owner = Real.uid; P.kT = t }
+      if (P.owner === Real.uid || !P.owner) {
+        P.x += P.vx * dt; P.z += P.vz * dt; const fr = Math.pow(.45, dt); P.vx *= fr; P.vz *= fr;
+        const lx = P.x - F.x, lz = P.z - F.z;
+        if (Math.abs(lx) > half.x) { if (Math.abs(lz) < 1.5) { const side = lx < 0 ? 1 : 0; P.sc[side]++; this.send({ t: 'fg', sc: P.sc }); this.goal(g, side); P.x = F.x; P.z = F.z; P.vx = P.vz = 0 } else { P.x = F.x + Math.sign(lx) * half.x; P.vx = -P.vx * .7 } }
+        if (Math.abs(lz) > half.z) { P.z = F.z + Math.sign(lz) * half.z; P.vz = -P.vz * .7 }
+        if (P.owner === Real.uid && (t - (P.sT || 0) > .1) && (Math.abs(P.vx) + Math.abs(P.vz) > .05 || t - P.sT > 1)) { P.sT = t; this.send({ t: 'fb', x: +P.x.toFixed(2), z: +P.z.toFixed(2), vx: +P.vx.toFixed(2), vz: +P.vz.toFixed(2) }) }
+      } else { P.x += P.vx * dt; P.z += P.vz * dt; const fr = Math.pow(.45, dt); P.vx *= fr; P.vz *= fr }
+      fball.position.set(P.x, .2, P.z); fball.rotation.x += P.vz * dt * 5; fball.rotation.z -= P.vx * dt * 5;
+      /* pulsante d'azione in base al posto */
+      const nearDance = Math.hypot(m.pos.x + 34, m.pos.z + 34) < 13;
+      const myHome = this.homeOf(g, Real.uid), inHome = myHome && Math.hypot(m.pos.x - myHome.x, m.pos.z - myHome.z) < 4.2;
+      if (B.st === 'held' && B.u === Real.uid) this.act(g, '🏀 Tira!', () => this.shoot(g));
+      else if (B.st === 'free' && dBall < 2) this.act(g, '🏀 Prendi la palla', () => { B.st = 'held'; B.u = Real.uid; this.send({ t: 'bb', st: 'held' }) });
+      else if (inHome) this.act(g, '🛋️ Arreda casa', () => this.decorSheet(g));
+      else if (nearDance) this.act(g, g.mu ? '🎵 ' + (g.mu.ti || 'Musica').slice(0, 22) : '🎵 Metti musica', () => this.musicSheet(g));
+      else this.act(g, null);
+      /* musica: più forte vicino alla pista */
+      if (g.au && g.mu) { const d = Math.hypot(m.pos.x + 34, m.pos.z + 34); g.au.volume = Math.max(g.party ? .35 : .06, Math.min(1, 1 - (d - 12) / 60)) }
+      /* festa */
+      if (g.party) { bulbs.forEach((b, i) => b.material.color.setHSL(((i / 64) + t * .15) % 1, .9, .55 + Math.sin(t * 4 + i) * .15)); spots.forEach((L, i) => { const a = t * .6 + i * Math.PI / 2; L.target.position.set(Math.cos(a) * 10, 0, Math.sin(a) * 10) });
+        g.fwT = (g.fwT || 0) - dt; if (g.fwT < 0) { g.fwT = .9 + Math.random(); this.firework(g, T, sc) } }
+      for (let i = g.fw.length - 1; i >= 0; i--) { const f = g.fw[i]; f.t += dt; const p = f.pts.geometry.attributes.position.array; for (let j = 0; j < f.n; j++) { f.v[j * 3 + 1] -= 3 * dt; p[j * 3] += f.v[j * 3] * dt; p[j * 3 + 1] += f.v[j * 3 + 1] * dt; p[j * 3 + 2] += f.v[j * 3 + 2] * dt } f.pts.geometry.attributes.position.needsUpdate = true; f.pts.material.opacity = Math.max(0, 1 - f.t / 2.2); if (f.t > 2.2) { sc.remove(f.pts); f.pts.geometry.dispose(); g.fw.splice(i, 1) } }
+      /* case: rifaccio quando cambiano le persone */
+      const ppl = this.people(g).join(','); if (ppl !== g.pplKey) { g.pplKey = ppl; this.buildHomes(g) }
+    });
+    /* vestiti miei */
+    this.applyOutfit(g, g.me, S.acc.pzOut);
+  },
+  /* tabellone con scritte (basket, calcetto) */
+  board(T, title, lines) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 256; const tx = new T.CanvasTexture(c); tx.colorSpace = T.SRGBColorSpace;
+    const s = new T.Sprite(new T.SpriteMaterial({ map: tx, transparent: true })); s.scale.set(4, 2, 1);
+    const o = { s, position: s.position, set: (ttl, L) => { const x = c.getContext('2d'); x.clearRect(0, 0, 512, 256); x.fillStyle = 'rgba(10,12,24,.82)'; x.beginPath(); x.roundRect(4, 4, 504, 248, 30); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 52px -apple-system,system-ui,sans-serif'; x.textAlign = 'center'; x.fillText(ttl, 256, 70); x.font = '600 40px -apple-system,system-ui,sans-serif'; (L || []).slice(0, 3).forEach((l, i) => x.fillText(l, 256, 130 + i * 48)); tx.needsUpdate = true } };
+    o.set(title, lines); return o;
+  },
+  shoot(g) {
+    const B = g.bb, m = g.me; const H = this.HOOPS.reduce((a, h) => Math.hypot(h.x - m.pos.x, h.z - m.pos.z) < Math.hypot(a.x - m.pos.x, a.z - m.pos.z) ? h : a);
+    const dist = Math.hypot(H.x - m.pos.x, H.z - m.pos.z); const p = Math.max(.12, Math.min(.92, 1.02 - dist * .075)); const ok = Math.random() < p; const pts = dist > 6.75 ? 3 : 2;
+    const to = ok ? [H.x, H.y - .15, H.z] : [H.x + (Math.random() - .5) * 1.2, H.y + .1, H.z + (Math.random() - .5) * 1.2];
+    const sh = { st: 'fly', from: [B.x, B.y, B.z], to, ok, pts, dur: 650 + dist * 70, arc: 1.2 + dist * .25, u: Real.uid };
+    this.send({ t: 'bb', ...sh }); this.startShot(g, sh); this.play(m, 'si', true);
+  },
+  startShot(g, sh) { Object.assign(g.bb, sh, { t0: performance.now(), done: 0 }) },
+  basketScored(g, B) {
+    const u = B.u || Real.uid; g.score[u] = (g.score[u] || 0) + (B.pts || 2); const who = u === Real.uid ? g.me : g.ents.get(u); if (who) this.say(who, (B.pts === 3 ? '🔥 Tripla!' : '🏀 Canestro!') + ' +' + B.pts);
+    const L = Object.entries(g.score).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => { const e = k === Real.uid ? g.me : g.ents.get(k); return (e ? (e.mine ? 'Tu' : e.name) : '…') + ': ' + v });
+    g.bbBoard.set('🏀 Basket', L); try { navigator.vibrate && navigator.vibrate([20, 40, 20]) } catch (e) { }
+  },
+  goal(g, side) { g.fb.sc = g.fb.sc || [0, 0]; g.fbBoard.set('⚽ Calcetto', ['🔴 ' + g.fb.sc[0] + ' - ' + g.fb.sc[1] + ' 🔵', side === 0 ? 'Gol dei Rossi! 🎉' : 'Gol dei Blu! 🎉']); this.tst('⚽ GOOOL!'); try { navigator.vibrate && navigator.vibrate([30, 50, 30]) } catch (e) { } },
+  firework(g, T, sc) {
+    const n = 90, pos = new Float32Array(n * 3), v = new Float32Array(n * 3); const cx = (Math.random() - .5) * 30, cy = 18 + Math.random() * 10, cz = (Math.random() - .5) * 30;
+    for (let i = 0; i < n; i++) { pos.set([cx, cy, cz], i * 3); const d = new T.Vector3().randomDirection().multiplyScalar(6 + Math.random() * 3); v.set([d.x, d.y, d.z], i * 3) }
+    const ge = new T.BufferGeometry(); ge.setAttribute('position', new T.BufferAttribute(pos, 3));
+    const pts = new T.Points(ge, new T.PointsMaterial({ color: new T.Color().setHSL(Math.random(), 1, .6), size: .9, transparent: true, depthWrite: false, blending: T.AdditiveBlending })); sc.add(pts); g.fw.push({ pts, v, n, t: 0 });
+  },
+  party(g, on, mine) {
+    g.party = !!on; g.partyGrp.visible = g.party; if (mine) this.send({ t: 'party', on: g.party ? 1 : 0 });
+    const b = $('#pzParty', g.el); if (b) b.classList.toggle('on', g.party);
+    if (g.exp0 == null) { g.exp0 = g.R.toneMappingExposure; g.lit0 = []; g.sc.traverse(o => { if ((o.isDirectionalLight || o.isHemisphereLight || o.isAmbientLight) && !g.partyGrp.getObjectById(o.id)) g.lit0.push([o, o.intensity]) }) }
+    /* in festa la piazza diventa sera: luci del giorno basse, così si vedono lucine, faretti e fuochi */
+    g.lit0.forEach(([o, i]) => o.intensity = g.party ? i * (g.night ? .8 : .22) : i);
+    if (!g.night) { if (g.sky0 === undefined) { g.sky0 = null; g.sc.traverse(o => { if (!g.sky0 && o.material && o.material.uniforms && o.material.uniforms.turbidity) g.sky0 = o }); g.fog0 = g.sc.fog && g.sc.fog.color.clone(); g.bg0 = g.sc.background }
+      const T = g.T; if (g.sky0) g.sky0.visible = !g.party; g.sc.background = g.party ? new T.Color('#140c2e') : g.bg0; if (g.sc.fog && g.fog0) g.sc.fog.color.copy(g.party ? new T.Color('#1a1033') : g.fog0) }
+    if (g.party) { this.tst('🎉 Festa nella Piazza!'); g.R.toneMappingExposure = g.night ? g.exp0 : .5; if (!g.mu && mine) this.autoParty(g) } else { g.R.toneMappingExposure = g.exp0; if (mine) this.tst('Festa finita') }
+  },
+  async autoParty(g) { try { const r = await fetch('/api/music?q=' + encodeURIComponent('dance party hits')); const j = await r.json(); const x = (j.results || [])[0]; if (x && this.g === g && !g.mu) this.setMusic(g, { u: x.u, ti: x.t, ar: x.a, st: Date.now() }, true) } catch (e) { } },
+  /* ---------- musica insieme ---------- */
+  musicSheet(g) {
+    const ov = this.sheet(`<h3 style="margin:4px 0 8px">🎵 Musica per tutti</h3><p class="pzs2">La sentono tutti nella Piazza, più forte vicino alla pista.</p>
+      <div class="sinput" style="margin-bottom:8px">${ic('search', 17)}<input id="pzMq" placeholder="Cerca una canzone o un artista" autocapitalize="none"></div><div id="pzMr" class="pzlist"><p class="pzempty">Sto caricando le canzoni del momento…</p></div>
+      ${g.mu ? '<button class="btn ghost" id="pzMoff">⏹️ Ferma la musica</button>' : ''}`);
+    const R = $('#pzMr', ov); const show = L => { R.innerHTML = L.length ? L.slice(0, 25).map((x, i) => `<button class="pzsong" data-i="${i}"><img src="${esc(x.art || '')}" alt=""><div><b>${esc(x.t)}</b><small>${esc(x.a)}</small></div><span>▶</span></button>`).join('') : '<p class="pzempty">Nessuna canzone trovata</p>';
+      $$('.pzsong', R).forEach(b => b.onclick = () => { const x = L[+b.dataset.i]; this.setMusic(g, { u: x.u, ti: x.t, ar: x.a, st: Date.now() }, true); ov.close() }) };
+    const load = async q => { try { const r = await fetch(q ? '/api/music?q=' + encodeURIComponent(q) : '/api/music?top=1'); const j = await r.json(); show(j.results || []) } catch (e) { R.innerHTML = '<p class="pzempty">Non riesco a cercare le canzoni adesso</p>' } };
+    load(''); let tm; $('#pzMq', ov).oninput = e => { clearTimeout(tm); const v = e.target.value.trim(); tm = setTimeout(() => load(v.length > 1 ? v : ''), 400) }; $('#pzMq', ov).onkeydown = e => e.stopPropagation();
+    const off = $('#pzMoff', ov); if (off) off.onclick = () => { this.setMusic(g, null, true); ov.close() };
+  },
+  setMusic(g, mu, mine) {
+    if (mine) this.send({ t: 'mu', mu });
+    if (!mu || !/^https:\/\/[a-z0-9.-]+\.(apple|mzstatic)\.com\//.test(mu.u || '')) { g.mu = null; if (g.au) { g.au.pause(); g.au.removeAttribute('src') } return }
+    g.mu = mu; if (!g.au) { g.au = new Audio(); g.au.loop = true; g.au.playsInline = true; g.au.preload = 'auto' }
+    const a = g.au; a.src = '/api/music?p=' + encodeURIComponent(mu.u); const seek = () => { const d = a.duration || 30; try { a.currentTime = ((Date.now() - (mu.st || Date.now())) / 1000) % d } catch (e) { } };
+    a.onloadedmetadata = seek; a.play().catch(() => { }); this.tst('🎵 ' + (mu.ti || 'Musica') + (mu.ar ? ' · ' + mu.ar : ''));
+    const DJ = [...g.ents.values()].find(e => e.name === 'DJ Leo'); if (DJ) this.say(DJ, '🎶 ' + (mu.ti || 'Si balla!'));
+  },
+  /* ---------- vestiti (cappelli, occhiali, maglietta) ---------- */
+  OUT: { h: [['', 'Niente'], ['cap', '🧢 Cappellino'], ['beanie', '🧶 Berretto'], ['top', '🎩 Cilindro'], ['crown', '👑 Corona'], ['phones', '🎧 Cuffie']],
+    o: [['', 'Niente'], ['sun', '🕶️ Da sole'], ['round', '👓 Tondi'], ['star', '⭐ Stelle']],
+    c: [['', 'Originale'], ['#ef4444', 'Rosso'], ['#3b82f6', 'Blu'], ['#22c55e', 'Verde'], ['#f59e0b', 'Giallo'], ['#111827', 'Nero'], ['#ffffff', 'Bianco'], ['#a855f7', 'Viola']] },
+  outfitSheet(g) {
+    const o = Object.assign({ h: '', o: '', c: '' }, S.acc.pzOut || {}); const isM = (AVR.clean(S.acc.a3) || AVR.def()).m === 'marco';
+    const row = (k, L) => `<div class="pzol">${L.map(([v, n]) => `<button class="pzo${o[k] === v ? ' on' : ''}" data-k="${k}" data-v="${v}">${k === 'c' && v ? `<i style="background:${v}"></i>` : ''}${n}</button>`).join('')}</div>`;
+    const ov = this.sheet(`<h3 style="margin:4px 0 10px">👕 Vestiti</h3><div class="pzs2">Cappello</div>${row('h', this.OUT.h)}<div class="pzs2">Occhiali</div>${row('o', this.OUT.o)}${isM ? `<div class="pzs2">Maglietta</div>${row('c', this.OUT.c)}` : '<p class="pzs2">Il colore della maglietta si cambia con l’avatar Marco.</p>'}`);
+    $$('.pzo', ov).forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; $$(`.pzo[data-k="${b.dataset.k}"]`, ov).forEach(x => x.classList.toggle('on', x === b)); S.acc.pzOut = Object.assign({}, o); save(); this.applyOutfit(g, g.me, o); this.send({ t: 'out', o }) });
+  },
+  applyOutfit(g, e, o) {
+    if (!e || !g.T) return; const T = g.T; o = o || {};
+    if (e.acc) { g.sc.remove(e.acc); e.acc = null }
+    /* maglietta (solo l'avatar Marco ha la maglia separata) */
+    e.ch.root.traverse(m => { if (m.isMesh && m.material && m.material.name === 'Wolf3D_Outfit_Top') { if (!m.userData.c0) m.userData.c0 = m.material.color.clone(); m.material.color.copy(o.c ? new T.Color(o.c) : m.userData.c0) } });
+    if (!o.h && !o.o) return;
+    let head = null; e.ch.root.traverse(b => { if (!head && b.isBone && /(^|:)Head$/.test(b.name)) head = b }); if (!head) return; e.head = head;
+    const G = new T.Group(); const mat = c => new T.MeshStandardMaterial({ color: c, roughness: .5, metalness: .1 });
+    const hy = .17;
+    if (o.h === 'cap') { const c = new T.Mesh(new T.SphereGeometry(.115, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#2563eb')); c.position.y = hy - .03; G.add(c); const v = new T.Mesh(new T.CylinderGeometry(.11, .11, .015, 20, 1, false, -Math.PI / 2, Math.PI), mat('#1e40af')); v.position.set(0, hy - .03, .07); G.add(v) }
+    if (o.h === 'beanie') { const c = new T.Mesh(new T.SphereGeometry(.12, 20, 12, 0, Math.PI * 2, 0, Math.PI / 1.8), mat('#dc2626')); c.position.y = hy - .04; c.scale.y = 1.15; G.add(c); const p = new T.Mesh(new T.SphereGeometry(.035, 10, 8), mat('#fff')); p.position.y = hy + .1; G.add(p) }
+    if (o.h === 'top') { const c = new T.Mesh(new T.CylinderGeometry(.085, .09, .2, 22), mat('#111')); c.position.y = hy + .08; G.add(c); const b = new T.Mesh(new T.CylinderGeometry(.15, .15, .012, 24), mat('#111')); b.position.y = hy - .01; G.add(b); const r = new T.Mesh(new T.CylinderGeometry(.091, .091, .03, 22), mat('#b91c1c')); r.position.y = hy + .01; G.add(r) }
+    if (o.h === 'crown') { const c = new T.Mesh(new T.CylinderGeometry(.1, .1, .07, 8, 1, true), new T.MeshStandardMaterial({ color: '#facc15', metalness: .9, roughness: .25, side: T.DoubleSide })); c.position.y = hy + .02; G.add(c); for (let i = 0; i < 8; i++) { const s = new T.Mesh(new T.ConeGeometry(.018, .05, 6), new T.MeshStandardMaterial({ color: '#facc15', metalness: .9, roughness: .25 })); const a = i / 8 * Math.PI * 2; s.position.set(Math.cos(a) * .1, hy + .08, Math.sin(a) * .1); G.add(s) } }
+    if (o.h === 'phones') { const band = new T.Mesh(new T.TorusGeometry(.115, .013, 8, 24, Math.PI), mat('#111')); band.position.y = hy - .06; band.rotation.z = 0; G.add(band); [-1, 1].forEach(s => { const cup = new T.Mesh(new T.CylinderGeometry(.045, .045, .03, 18), mat('#a855f7')); cup.rotation.z = Math.PI / 2; cup.position.set(s * .115, hy - .07, 0); G.add(cup) }) }
+    const gy = .065, gz = .095;
+    if (o.o === 'sun') { const lm = new T.MeshStandardMaterial({ color: '#0b0b0f', roughness: .1, metalness: .6 }); [-1, 1].forEach(s => { const l = new T.Mesh(new T.BoxGeometry(.055, .035, .008), lm); l.position.set(s * .035, gy, gz); G.add(l) }); const br = new T.Mesh(new T.BoxGeometry(.13, .008, .008), lm); br.position.set(0, gy + .015, gz); G.add(br) }
+    if (o.o === 'round') { [-1, 1].forEach(s => { const r = new T.Mesh(new T.TorusGeometry(.024, .004, 6, 18), mat('#c9a227')); r.position.set(s * .035, gy, gz); G.add(r) }) }
+    if (o.o === 'star') { [-1, 1].forEach(s => { const st = new T.Mesh(new T.CircleGeometry(.03, 5), new T.MeshStandardMaterial({ color: '#f472b6', emissive: '#f472b6', emissiveIntensity: .4, side: T.DoubleSide })); st.position.set(s * .037, gy, gz); G.add(st) }) }
+    g.sc.add(G); e.acc = G; this.followAcc(e);
+  },
+  followAcc(e) { if (!e.acc || !e.head) return; e.head.getWorldPosition(e.acc.position); e.acc.position.y += .02; e.acc.rotation.set(0, e.yaw, 0) },
+  /* ---------- case ---------- */
+  people(g) { return [Real.uid, ...[...g.peers.keys()].filter(u => g.ents.has(u))].sort() },
+  homeOf(g, u) { const P = this.people(g), i = P.indexOf(u); if (i < 0) return null; return this.slots()[i % 8] },
+  buildHomes(g) {
+    const T = g.T; if (!T) return; const P = this.people(g); g.homeGrp.clear(); g.obst = g.obst.filter(o => !o.home);
+    P.forEach((u, i) => { const sl = this.slots()[i % 8]; const e = u === Real.uid ? g.me : g.ents.get(u); const name = u === Real.uid ? (S.acc.name || '').split(' ')[0] : e ? e.name : '…';
+      const data = u === Real.uid ? { home: S.acc.pzHome || [], ph: this.myPhotos() } : (g.homeData && g.homeData[u]) || {};
+      g.homeGrp.add(this.house(g, T, sl, name, data, u === Real.uid)) });
+  },
+  house(g, T, sl, name, data, mine) {
+    const H = new T.Group(); const hue = (Math.abs(sl.a * 57) % 360) / 360; const wallM = new T.MeshStandardMaterial({ color: new T.Color().setHSL(hue, .35, .82), roughness: .85 }), roofM = new T.MeshStandardMaterial({ color: new T.Color().setHSL(hue, .55, .38), roughness: .7 });
+    const floorM = new T.MeshStandardMaterial({ color: '#c8a27a', roughness: .8 }); const W = 7, D = 6, Hh = 3;
+    const fl = new T.Mesh(new T.BoxGeometry(W, .1, D), floorM); fl.position.y = .05; fl.receiveShadow = true; H.add(fl);
+    const wall = (w, x, z, ry) => { const m = new T.Mesh(new T.BoxGeometry(w, Hh, .18), wallM); m.position.set(x, Hh / 2, z); m.rotation.y = ry || 0; m.castShadow = m.receiveShadow = true; H.add(m) };
+    wall(W, 0, -D / 2); wall(D, -W / 2, 0, Math.PI / 2); wall(D, W / 2, 0, Math.PI / 2); wall((W - 1.8) / 2, -(W / 2 - (W - 1.8) / 4), D / 2); wall((W - 1.8) / 2, (W / 2 - (W - 1.8) / 4), D / 2);
+    const top = new T.Mesh(new T.BoxGeometry(1.8, .7, .18), wallM); top.position.set(0, Hh - .35, D / 2); H.add(top);
+    const roof = new T.Mesh(new T.ConeGeometry(5.4, 2, 4), roofM); roof.position.y = Hh + 1; roof.rotation.y = Math.PI / 4; roof.scale.z = .86; roof.castShadow = true; H.add(roof);
+    const sign = this.label(T, (mine ? '🏠 Casa tua' : '🏠 Casa di ' + name), mine ? '#22d3ee' : '#fff'); sign.position.set(0, Hh + .45, D / 2 + .3); sign.scale.multiplyScalar(1.6); H.add(sign);
+    /* foto di Vybe sulla parete di fondo */
+    const ph = (data.ph || []).slice(0, 3); const TL = new T.TextureLoader(); TL.setCrossOrigin('anonymous');
+    ph.forEach((src, k) => { const fr = new T.Mesh(new T.BoxGeometry(1.5, 1.5, .05), new T.MeshStandardMaterial({ color: '#2b2118', roughness: .6 })); fr.position.set(-2.1 + k * 2.1, 1.7, -D / 2 + .13); H.add(fr);
+      const pic = new T.Mesh(new T.PlaneGeometry(1.3, 1.3), new T.MeshStandardMaterial({ color: '#ddd', roughness: .7 })); pic.position.set(-2.1 + k * 2.1, 1.7, -D / 2 + .17); H.add(pic);
+      TL.load(src, t => { t.colorSpace = T.SRGBColorSpace; pic.material.map = t; pic.material.color.set('#fff'); pic.material.needsUpdate = true }, undefined, () => { }) });
+    (data.home || []).slice(0, 20).forEach(it => { const f = this.furn(T, it.k); if (!f) return; f.position.set(it.x, 0, it.z); f.rotation.y = it.r || 0; H.add(f) });
+    H.position.set(sl.x, 0, sl.z); H.lookAt(0, 0, 0); H.userData.slot = sl;
+    /* muri solidi (tranne la porta) */
+    H.updateMatrixWorld(true); const pts = []; for (let x = -W / 2; x <= W / 2; x += .6) { pts.push([x, -D / 2]); if (Math.abs(x) > 1) pts.push([x, D / 2]) } for (let z = -D / 2; z <= D / 2; z += .6) { pts.push([-W / 2, z]); pts.push([W / 2, z]) }
+    pts.forEach(p => { const v = new T.Vector3(p[0], 0, p[1]).applyMatrix4(H.matrixWorld); g.obst.push({ x: v.x, z: v.z, r: .32, home: 1 }) });
+    return H;
+  },
+  myPhotos() { const L = []; for (const p of (S.acc.own || [])) { const s = p.img || (p.imgs && p.imgs[0]) || p.src || ''; if (typeof s === 'string' && (/^https:\/\//.test(s) || (/^data:image\//.test(s) && s.length < 160000))) L.push(s); if (L.length >= 3) break } return L },
+  FURN: [['divano', '🛋️ Divano'], ['tavolo', '🪑 Tavolo'], ['letto', '🛏️ Letto'], ['tv', '📺 TV'], ['pianta', '🪴 Pianta'], ['lampada', '💡 Lampada'], ['tappeto', '🟥 Tappeto'], ['poltrona', '💺 Poltrona']],
+  furn(T, k) {
+    const G = new T.Group(), M = (c, r) => new T.MeshStandardMaterial({ color: c, roughness: r == null ? .7 : r }); const box = (w, h, d, c, x, y, z) => { const m = new T.Mesh(new T.BoxGeometry(w, h, d), M(c)); m.position.set(x, y, z); m.castShadow = true; G.add(m); return m };
+    if (k === 'divano') { box(2, .45, .9, '#4f46e5', 0, .32, 0); box(2, .5, .2, '#4338ca', 0, .75, -.35); box(.2, .35, .9, '#4338ca', -.9, .6, 0); box(.2, .35, .9, '#4338ca', .9, .6, 0) }
+    else if (k === 'tavolo') { box(1.2, .06, .8, '#8b5a2b', 0, .75, 0);[[-.5, -.32], [.5, -.32], [-.5, .32], [.5, .32]].forEach(p => box(.06, .75, .06, '#5b3a1c', p[0], .37, p[1])) }
+    else if (k === 'letto') { box(1.5, .35, 2.1, '#8b5a2b', 0, .2, 0); box(1.4, .15, 2, '#f8fafc', 0, .45, 0); box(1.4, .1, .4, '#93c5fd', 0, .56, -.75); box(1.5, .8, .1, '#6b4423', 0, .55, -1.05) }
+    else if (k === 'tv') { box(1.6, .5, .45, '#3f3f46', 0, .25, 0); const s = box(1.4, .8, .05, '#000', 0, 1, 0); s.material = new T.MeshStandardMaterial({ color: '#111', emissive: '#3b82f6', emissiveIntensity: .6 }) }
+    else if (k === 'pianta') { const p = new T.Mesh(new T.CylinderGeometry(.22, .16, .4, 14), M('#c2410c')); p.position.y = .2; G.add(p); const l = new T.Mesh(new T.IcosahedronGeometry(.4, 1), M('#3f8a35', .9)); l.position.y = .75; l.scale.y = 1.3; G.add(l) }
+    else if (k === 'lampada') { const p = new T.Mesh(new T.CylinderGeometry(.03, .03, 1.5, 8), M('#222', .3)); p.position.y = .75; G.add(p); const sh = new T.Mesh(new T.ConeGeometry(.25, .3, 16, 1, true), new T.MeshStandardMaterial({ color: '#fde68a', emissive: '#fbbf24', emissiveIntensity: .8, side: T.DoubleSide })); sh.position.y = 1.55; G.add(sh) }
+    else if (k === 'tappeto') { const m = new T.Mesh(new T.PlaneGeometry(2.2, 1.5), M('#be123c', .95)); m.rotation.x = -Math.PI / 2; m.position.y = .11; G.add(m) }
+    else if (k === 'poltrona') { box(.9, .4, .85, '#f59e0b', 0, .3, 0); box(.9, .55, .18, '#d97706', 0, .75, -.34); box(.15, .3, .85, '#d97706', -.38, .6, 0); box(.15, .3, .85, '#d97706', .38, .6, 0) }
+    else return null; return G;
+  },
+  decorSheet(g) {
+    const items = S.acc.pzHome || [];
+    const ov = this.sheet(`<h3 style="margin:4px 0 6px">🛋️ Arreda casa</h3><p class="pzs2">Tocca un mobile: lo metto davanti a te. Gli amici vedono la tua casa così.</p><div class="pzol">${this.FURN.map(([k, n]) => `<button class="pzo" data-f="${k}">${n}</button>`).join('')}</div>
+      <div class="pzrow" style="margin-top:12px"><button class="btn ghost" id="pzFu">↩️ Togli l’ultimo</button><button class="btn ghost" id="pzFc">🗑️ Svuota</button></div><p class="pzs2" style="margin-top:8px">${items.length}/20 mobili</p>`);
+    const sl = this.homeOf(g, Real.uid);
+    $$('[data-f]', ov).forEach(b => b.onclick = () => {
+      const L = S.acc.pzHome = S.acc.pzHome || []; if (L.length >= 20) return this.tst('Massimo 20 mobili');
+      const m = g.me, H = g.homeGrp.children.find(h => h.userData.slot && Math.abs(h.userData.slot.x - sl.x) < .01 && Math.abs(h.userData.slot.z - sl.z) < .01); if (!H) { ov.close(); return this.tst('Entra in casa tua per arredarla') } const T = g.T;
+      const wp = new T.Vector3(m.pos.x + Math.sin(m.yaw) * 1.3, 0, m.pos.z + Math.cos(m.yaw) * 1.3); const lp = H.worldToLocal(wp.clone());
+      lp.x = Math.max(-3.1, Math.min(3.1, lp.x)); lp.z = Math.max(-2.6, Math.min(2.6, lp.z));
+      L.push({ k: b.dataset.f, x: +lp.x.toFixed(2), z: +lp.z.toFixed(2), r: +((m.yaw - H.rotation.y + Math.PI) % (Math.PI * 2)).toFixed(2) }); save(); this.buildHomes(g); this.sendHome(); ov.close(); this.tst('Mobile aggiunto ✨');
+    });
+    $('#pzFu', ov).onclick = () => { (S.acc.pzHome || []).pop(); save(); this.buildHomes(g); this.sendHome(); ov.close() };
+    $('#pzFc', ov).onclick = () => { S.acc.pzHome = []; save(); this.buildHomes(g); this.sendHome(); ov.close() };
+  },
+  sendHome() { this.send({ t: 'home', home: S.acc.pzHome || [], ph: this.myPhotos().filter(s => /^https:/.test(s)) }) }
+});
+/* messaggi in più tra i telefoni (basket, calcetto, musica, festa, vestiti, case) */
+{const od = PZ.onData; PZ.onData = function (u, d) {
+  const g = this.g; if (!g || !d) return od.apply(this, arguments);
+  if (d.t === 'h') { (g.homeData = g.homeData || {})[u] = { home: Array.isArray(d.home) ? d.home.slice(0, 20) : [], ph: Array.isArray(d.ph) ? d.ph.filter(s => typeof s === 'string' && /^https:\/\//.test(s)).slice(0, 3) : [] }; g.pplKey = '';
+    od.apply(this, arguments); const tryOut = (k) => { const e = g.ents.get(u); if (e) this.applyOutfit(g, e, d.out); else if (k < 20) setTimeout(() => tryOut(k + 1), 500) }; if (d.out) tryOut(0);
+    if (d.mu && !g.mu) this.setMusic(g, d.mu, false); if (d.party && !g.party) this.party(g, true, false); if (d.bs && typeof d.bs === 'object') { for (const k in d.bs) { const v = +d.bs[k] || 0; if (v > (g.score[k] || 0)) g.score[k] = Math.min(v, 9999) } } if (d.fs && Array.isArray(d.fs) && (d.fs[0] + d.fs[1]) > ((g.fb.sc || [0, 0])[0] + (g.fb.sc || [0, 0])[1])) { g.fb.sc = d.fs; g.fbBoard && g.fbBoard.set('⚽ Calcetto', ['🔴 ' + d.fs[0] + ' - ' + d.fs[1] + ' 🔵']) } return }
+  if (d.t === 'bb') { if (d.st === 'held') { g.bb.st = 'held'; g.bb.u = u } else if (d.st === 'fly') this.startShot(g, Object.assign({}, d, { u })); return }
+  if (d.t === 'fb') { const P = g.fb; P.owner = u; P.x = +d.x; P.z = +d.z; P.vx = +d.vx; P.vz = +d.vz; return }
+  if (d.t === 'fg') { g.fb.sc = Array.isArray(d.sc) ? d.sc : g.fb.sc; this.goal(g, -1); g.fb.x = this.FIELD.x; g.fb.z = this.FIELD.z; g.fb.vx = g.fb.vz = 0; return }
+  if (d.t === 'mu') { this.setMusic(g, d.mu, false); return }
+  if (d.t === 'party') { this.party(g, !!d.on, false); return }
+  if (d.t === 'out') { const e = g.ents.get(u); if (e) this.applyOutfit(g, e, d.o); return }
+  if (d.t === 'home') { (g.homeData = g.homeData || {})[u] = { home: Array.isArray(d.home) ? d.home.slice(0, 20) : [], ph: (d.ph || []).filter(s => typeof s === 'string' && /^https:\/\//.test(s)).slice(0, 3) }; this.buildHomes(g); return }
+  if (d.t === 'c') { od.apply(this, arguments); return }
+  return od.apply(this, arguments);
+}}
+/* nel saluto mando anche vestiti, casa, musica, festa e risultato del calcetto */
+{const oh = PZ.hello; PZ.hello = function (dc) {
+  const g = this.g; if (!g || !g.me) return; const a = S.acc;
+  const m = { t: 'h', n: (a.name || '').split(' ')[0] || a.username, u: a.username, av: AVR.clean(a.a3) || AVR.def(), x: g.me.pos.x, z: g.me.pos.z, r: g.me.yaw, out: a.pzOut || null, home: a.pzHome || [], ph: this.myPhotos().filter(s => /^https:/.test(s)), mu: g.mu || null, party: g.party ? 1 : 0, fs: g.fb ? g.fb.sc : null, bs: g.score || null };
+  if (dc) { try { dc.send(JSON.stringify(m)) } catch (e) { } } else this.send(m);
+}}
+/* quando scrivi vicino a un NPC ti risponde; velocità per il pallone */
+{const os = PZ.send; PZ.send = function (o) { const r = os.apply(this, arguments); try { if (o && o.t === 'c' && this.g) this.npcReply(this.g, String(o.tx || '')) } catch (e) { } return r }}
+{const om = PZ.move; PZ.move = function (g, dt) { const m = g.me; if (!m) return; const x0 = m.pos.x, z0 = m.pos.z; om.apply(this, arguments); if (dt > 0) { m.vx = (m.pos.x - x0) / dt; m.vz = (m.pos.z - z0) / dt } }}
+(() => { const st = document.createElement('style'); st.textContent = `.pzact{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 70px);height:46px;padding:0 20px;border-radius:23px;border:0;background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff;font-weight:700;font-size:15.5px;box-shadow:0 6px 20px rgba(168,85,247,.45);max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pzside{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 170px);display:flex;flex-direction:column;gap:8px}.pzside .pzb.on{background:linear-gradient(135deg,#f59e0b,#ec4899)}
+.pzs2{color:var(--muted,#999);font-size:13.5px;margin:6px 0}.pzol{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}.pzo{border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;border-radius:999px;padding:8px 12px;font-size:14px;display:flex;align-items:center;gap:6px}.pzo.on{background:var(--acc,#a855f7);border-color:var(--acc,#a855f7);color:#fff}.pzo i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(127,127,127,.6)}
+.pzsong{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:inherit;padding:7px 2px;text-align:left}.pzsong img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:#333}.pzsong div{flex:1;min-width:0}.pzsong b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzsong small{color:var(--muted,#999)}.pzsong span{opacity:.6}`; document.head.appendChild(st) })();
+
+/* feste programmate: scegli giorno, ora e amici; arriva l'invito in chat, e all'ora giusta parte la Piazza in modalità festa con l'invito a tutti */
+Object.assign(PZ, {
+  partyPlan() {
+    const F = this.friends(); const sel = new Set(); const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
+    const loc = x => new Date(x.getTime() - x.getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
+    const ov = openSheet(`<div class="pzhead"><div class="pzglobe">🎉</div><h3>Organizza una festa</h3><p>All’ora che scegli la Piazza si riempie di luci, fuochi d’artificio e musica, e arriva l’invito a tutti.</p></div>
+      <div class="pzsub">Quando</div><input type="datetime-local" id="pzPt" class="inp" value="${loc(d)}" min="${loc(new Date())}" style="width:100%;margin-bottom:10px">
+      <div class="pzsub">Chi inviti <span id="pzPN">0/${this.MAX - 1}</span></div>
+      <div class="pzlist">${F.length ? F.map(w => `<label class="pzf"><input type="checkbox" value="${w.rid}">${avHTML(w, 38)}<div><b>${esc(w.n || '')}</b><small>@${esc(w.u || '')}</small></div><i></i></label>`).join('') : '<p class="pzempty">Qui compaiono gli amici che vi seguite a vicenda.</p>'}</div>
+      <button class="btn" id="pzPgo">🎉 Invia gli inviti</button>`);
+    $$('.pzf input', ov).forEach(c => c.onchange = () => { if (c.checked) { if (sel.size >= this.MAX - 1) { c.checked = false; return toast('Al massimo ' + (this.MAX - 1) + ' amici') } sel.add(c.value) } else sel.delete(c.value); $('#pzPN', ov).textContent = sel.size + '/' + (this.MAX - 1) });
+    $('#pzPgo', ov).onclick = async () => {
+      const at = new Date($('#pzPt', ov).value).getTime(); if (!at || at < Date.now() - 60e3) return toast('Scegli un orario nel futuro');
+      if (!sel.size) return toast('Scegli almeno un amico');
+      const b = $('#pzPgo', ov); b.disabled = true; b.textContent = 'Invio gli inviti…';
+      const when = new Date(at).toLocaleString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+      const tx = '🎉 Ti invito alla mia festa nella Piazza 3D! ' + when.charAt(0).toUpperCase() + when.slice(1) + '. Ci saranno luci, fuochi d’artificio e musica: a quell’ora ti arriva l’invito, tocca “Entra” 🕺';
+      let ok = 0; if (!VC.on && Real.on) await VC.start();
+      for (const rid of sel) { try { if (VC.canMsg(rid)) { await VC.send('d:' + rid, { tx }); ok++ } } catch (e) { } }
+      S.acc.pzParty = { at, to: [...sel], st: 0 }; save(); closeAll();
+      toast(ok ? '🎉 Festa organizzata! Inviti mandati a ' + ok + (ok === 1 ? ' amico' : ' amici') : 'Festa salvata, ma non sono riuscito a mandare i messaggi');
+    };
+  },
+  /* controllo dell'ora della festa (ogni 20 secondi, quando l'app è aperta) */
+  partyTick() {
+    const P = S.acc && S.acc.pzParty; if (!P || P.st) return; const now = Date.now();
+    if (now > P.at + 3 * 3600e3) { delete S.acc.pzParty; save(); return }
+    if (now < P.at - 30e3 || (typeof NIGHT !== 'undefined' && NIGHT.locked())) return;
+    P.st = 1; save();
+    if (this.g) { const g = this.g; this.party(g, true, true); (async () => { try { if (!g.rid) { const j = await this.api({ op: 'gstart', to: P.to.slice(0, this.MAX - 1), v: false, pz: 1, nm: '🎉 Festa di ' + (S.acc.name || '').split(' ')[0] }); g.rid = j.rid; const k = await this.api({ op: 'gjoin', rid: g.rid }); this.sync(k.m || []); this.loop(g) } else await this.api({ op: 'ginv', rid: g.rid, to: P.to }); this.tst('🎉 Inviti della festa mandati 💌') } catch (e) { } })(); return }
+    const ov = openSheet(`<div class="pzhead"><div class="pzglobe">🎉</div><h3>È l’ora della tua festa!</h3><p>Entra nella Piazza: mando l’invito ai tuoi amici e parte la festa con luci, fuochi e musica.</p></div><button class="btn" id="pzPin">🎉 Entra e inizia la festa</button><button class="btn ghost" id="pzPno" style="margin-top:8px">Più tardi</button>`);
+    $('#pzPno', ov).onclick = () => { P.st = 0; P.at = Date.now() + 10 * 60e3; save(); closeAll() };
+    $('#pzPin', ov).onclick = async () => {
+      const b = $('#pzPin', ov); b.disabled = true; b.textContent = 'Preparo la festa…'; let rid = null;
+      try { const j = await this.api({ op: 'gstart', to: P.to.slice(0, this.MAX - 1), v: false, pz: 1, nm: '🎉 Festa di ' + (S.acc.name || '').split(' ')[0] }); rid = j.rid } catch (e) { toast('Non riesco a invitare gli amici: entri da solo') }
+      closeAll(); this.partyOnEnter = 1; this.enter(rid, true);
+    };
+  }
+});
+/* pulsante "Organizza una festa" nella schermata della Piazza */
+{const oo = PZ.open; PZ.open = function (rid) { const r = oo.apply(this, arguments); if (!rid && !this.g) { const go = document.querySelector('#pzGo'); if (go && !document.querySelector('#pzPlan')) { go.insertAdjacentHTML('afterend', '<button class="btn ghost" id="pzPlan" style="margin-top:8px">🎉 Organizza una festa</button>'); document.querySelector('#pzPlan').onclick = () => { closeAll(); setTimeout(() => this.partyPlan(), 260) } } } return r }}
+/* quando entri per la festa, la festa parte da sola */
+{const ox = PZ.extras; PZ.extras = async function (g) { const r = await ox.apply(this, arguments); if (this.partyOnEnter) { this.partyOnEnter = 0; setTimeout(() => { if (this.g === g) this.party(g, true, true) }, 1200) } return r }}
+setInterval(() => { try { S.acc && PZ.partyTick() } catch (e) { } }, 20000);
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
