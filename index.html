@@ -9874,6 +9874,58 @@ const ONB = {
 /* il tutorial si può rifare dal menu del profilo */
 {const pm = profileMenu; profileMenu = function () { const r = pm.apply(this, arguments); try { const ms = $$('#layer .ov .menu'); const m = ms[ms.length - 1]; if (m && !$('#onbMenu', m)) { m.insertAdjacentHTML('afterbegin', '<button id="onbMenu"><span class="mi">🎓</span><div>Tutorial: mettiti online<small>Rifai la guida passo per passo</small></div></button>'); $('#onbMenu', m).onclick = () => { closeAll(); setTimeout(() => ONB.start(true), 300) } } } catch (e) { } return r }}
 
+/* ============ v122: modalità notte per i ragazzi ============
+   12–13 anni: Vybe si blocca dalle 22:30 alle 7:00.  14–17 anni: da mezzanotte alle 7:00.  18+: nessun blocco.
+   Lo schermo intero viene coperto da un avviso e si sblocca da solo alle 7. L'ora viene presa dal server
+   (così cambiare l'orologio del telefono non basta per aggirarlo). */
+const NIGHT = {
+  off: 0,
+  rule() {
+    if (!S.acc || !S.acc.birth) return null; try { computeAge() } catch (e) { }
+    const a = S.age; if (typeof a !== 'number' || a < 0 || a >= 18) return null;
+    return a < 14 ? { s: 22 * 60 + 30, lbl: 'alle 22:30', who: 'fino a 13 anni' } : { s: 0, lbl: 'a mezzanotte', who: 'dai 14 ai 17 anni' };
+  },
+  now() { return new Date(Date.now() + this.off) },
+  locked() {
+    const r = this.rule(); if (!r) return false; const d = this.now(), m = d.getHours() * 60 + d.getMinutes(), end = 7 * 60;
+    return r.s === 0 ? m < end : (m >= r.s || m < end);
+  },
+  left() { const d = this.now(), t = new Date(d); t.setHours(7, 0, 0, 0); if (t <= d) t.setDate(t.getDate() + 1); const min = Math.max(1, Math.round((t - d) / 60000)); const h = Math.floor(min / 60), mm = min % 60; return (h ? h + ' h ' : '') + mm + ' min' },
+  check() {
+    const L = this.locked(), ov = $('#nightx');
+    if (L && !ov) this.show(); else if (L && ov) { const c = $('#nightLeft'); if (c) c.textContent = this.left() }
+    else if (!L && ov) { ov.remove(); const m = $('#main'); if (m) m.inert = false; document.documentElement.classList.remove('nightlock') }
+  },
+  show() {
+    const r = this.rule(); if (!r) return;
+    try { $$('video,audio').forEach(v => { try { v.pause() } catch (e) { } }) } catch (e) { }
+    try { if (typeof CALL !== 'undefined' && CALL.cur && CALL.hang) CALL.hang('end') } catch (e) { }
+    try { closeAll() } catch (e) { }
+    const m = $('#main'); if (m) m.inert = true; document.documentElement.classList.add('nightlock');
+    document.body.insertAdjacentHTML('beforeend', `<div id="nightx" role="dialog" aria-modal="true"><div class="nxin"><div class="nxmoon">🌙</div>
+      <h2>È ora di riposare</h2><p>Per gli account <b>${r.who}</b> Vybe si ferma <b>${r.lbl}</b>.</p>
+      <div class="nxbox">Potrai usarlo di nuovo <b>${this.now().getHours() < 7 ? 'stamattina' : 'domani'} alle 7:00</b><small>tra <span id="nightLeft">${this.left()}</span></small></div>
+      <p class="nxs">Buonanotte! 💤</p></div></div>`);
+    const ov = $('#nightx'); ['touchstart', 'touchmove', 'click', 'wheel', 'keydown'].forEach(e => ov.addEventListener(e, ev => { ev.stopPropagation(); if (e !== 'touchstart') ev.preventDefault() }, { passive: false }));
+  },
+  /* ora vera dal server */
+  async sync() { try { const r = await fetch('/api/ver?t=' + Date.now(), { cache: 'no-store' }); const d = Date.parse(r.headers.get('date') || ''); if (d) { const o = d - Date.now(); this.off = Math.abs(o) > 120000 ? o : 0 } } catch (e) { } this.check() }
+};
+(() => {
+  const st = document.createElement('style');
+  st.textContent = `#nightx{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(120% 80% at 50% 20%,#1e1b4b 0%,#0b0a1a 60%,#05050c 100%);color:#fff;text-align:center;touch-action:none}
+#nightx .nxin{max-width:360px;animation:nxin .6s ease}@keyframes nxin{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+#nightx .nxmoon{font-size:74px;filter:drop-shadow(0 0 30px rgba(250,204,21,.45));animation:nxfloat 4s ease-in-out infinite}@keyframes nxfloat{50%{transform:translateY(-8px)}}
+#nightx h2{font-size:26px;margin:14px 0 8px}#nightx p{color:#c7c6e8;line-height:1.5;margin:0 0 14px}
+#nightx .nxbox{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;font-size:16px}
+#nightx .nxbox small{display:block;color:#a5a3d6;margin-top:6px;font-size:13.5px}#nightx .nxs{margin-top:16px;font-size:14px}
+html.nightlock body{overflow:hidden}`;
+  document.head.appendChild(st);
+})();
+{const ea = enterApp; enterApp = function () { const r = ea.apply(this, arguments); NIGHT.check(); NIGHT.sync(); return r }}
+setInterval(() => NIGHT.check(), 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') NIGHT.sync() });
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
