@@ -9926,6 +9926,392 @@ html.nightlock body{overflow:hidden}`;
 setInterval(() => NIGHT.check(), 20000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') NIGHT.sync() });
 
+/* ============ v123: LA PIAZZA — mondo 3D con gli amici (fino a 8 persone) ============
+   Avatar realistici, cielo vero (il sole segue l'ora reale), fontana con acqua che riflette, alberi, panchine,
+   lampioni che si accendono di sera, uccelli in volo, 2 personaggi NPC. Chat scritta con nuvolette e microfono
+   (si sente anche da lontano). Collegamento diretto tra i telefoni (WebRTC): il server serve solo per entrare. */
+const PZ = {
+  B: 'https://cdn.jsdelivr.net/gh/filideicristian21-tech/Vybe@638e06e504c9f1384c6c5d377db5b0765c5a2331/av/pz/',
+  MAX: 8, g: null,
+  api(o) { return vapi('/api/call', o) },
+  friends() { if (!Real.on) return []; return Real.list().filter(w => w && w.rid && Real.state(w.id) === 'on' && (Real.docs[w.rid] && (Real.docs[w.rid].fw || []).includes(Real.uid))) },
+  /* ---------- schermata iniziale: chi invito ---------- */
+  open(rid) {
+    if (rid) return this.join(rid);
+    if (this.g) return toast('Sei già nella Piazza');
+    const F = this.friends(); const sel = new Set();
+    const ov = openSheet(`<div class="pzhead"><div class="pzglobe">🌍</div><h3>La Piazza</h3><p>Un piccolo mondo 3D dove ti trovi con i tuoi amici: camminate, chattate e parlate col microfono. Fino a ${this.MAX} persone.</p></div>
+      <div class="pzsub">Invita fino a ${this.MAX - 1} amici <span id="pzN">0/${this.MAX - 1}</span></div>
+      <div class="pzlist">${F.length ? F.map(w => `<label class="pzf"><input type="checkbox" value="${w.rid}">${avHTML(w, 38)}<div><b>${esc(w.n || '')}</b><small>@${esc(w.u || '')}</small></div><i></i></label>`).join('') : '<p class="pzempty">Qui compaiono gli amici che vi seguite a vicenda. Puoi entrare anche da solo e invitarli dopo.</p>'}</div>
+      <button class="btn" id="pzGo">🌍 Entra nella Piazza</button>`);
+    $$('.pzf input', ov).forEach(c => c.onchange = () => { if (c.checked) { if (sel.size >= this.MAX - 1) { c.checked = false; return toast('Al massimo ' + (this.MAX - 1) + ' amici') } sel.add(c.value) } else sel.delete(c.value); $('#pzN', ov).textContent = sel.size + '/' + (this.MAX - 1) });
+    $('#pzGo', ov).onclick = async () => {
+      const b = $('#pzGo', ov); b.disabled = true; b.textContent = 'Preparo la Piazza…';
+      let rid = null;
+      if (sel.size) { try { const j = await this.api({ op: 'gstart', to: [...sel], v: false, pz: 1, nm: 'Piazza di ' + (S.acc.name || '').split(' ')[0] }); rid = j.rid } catch (e) { toast('Non riesco a invitare gli amici: entri da solo') } }
+      closeAll(); this.enter(rid, true);
+    };
+  },
+  async join(rid) {
+    if (this.g) return; let j = null; try { j = await this.api({ op: 'gget', rid }) } catch (e) { }
+    if (!j || j.st === 'end') return toast('Questa Piazza è chiusa');
+    this.enter(rid, false);
+  },
+  invite(j) {
+    if (this.g) return; try { RING.start('in') } catch (e) { }
+    const w = USERS['r_' + j.from]; const nm = w ? (w.first || w.u) : 'Un amico';
+    const ov = openSheet(`<div class="pzhead"><div class="pzglobe">🌍</div><h3>${esc(nm)} ti invita nella Piazza</h3><p>Un mondo 3D dove vi incontrate con gli avatar, chattate e parlate. ${j.n ? j.n + ' già dentro.' : ''}</p></div>
+      <div class="pzrow"><button class="btn ghost" id="pzNo">Non ora</button><button class="btn" id="pzYes">Entra</button></div>`);
+    const stop = () => { try { RING.stop() } catch (e) { } };
+    $('#pzNo', ov).onclick = () => { stop(); closeAll(); this.api({ op: 'gdec', rid: j.rid }).catch(() => { }) };
+    $('#pzYes', ov).onclick = () => { stop(); closeAll(); this.enter(j.rid, false) };
+    setTimeout(stop, 30000);
+  },
+  /* ---------- entrare ---------- */
+  async enter(rid, owner) {
+    if (this.g) return;
+    if (!AV3.gl()) return toast('La Piazza 3D non funziona su questo dispositivo');
+    const g = this.g = { rid, owner, peers: new Map(), mic: false, msgs: [], ents: new Map(), t0: Date.now() };
+    this.ui(g);
+    /* microfono: lo chiedo subito ma resta spento finché non tocchi 🎙️ */
+    try { g.local = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); g.local.getAudioTracks().forEach(t => t.enabled = false) } catch (e) { g.local = null }
+    if (this.g !== g) { g.local && g.local.getTracks().forEach(t => t.stop()); return }
+    try { await this.world(g) } catch (e) { console.log('pz world', e); this.status('Non riesco a caricare la Piazza. Controlla la connessione.'); return }
+    if (this.g !== g) return;
+    if (rid) {
+      let j; try { j = await this.api({ op: 'gjoin', rid }) } catch (e) { j = { st: 'err' } }
+      if (this.g !== g) return;
+      if (j.st !== 'on') { this.status(j.st === 'full' ? 'La Piazza è piena (massimo 8 persone)' : 'Questa Piazza è chiusa'); g.rid = null }
+      else { this.sync(j.m || []); this.loop(g) }
+    }
+    this.status('');
+  },
+  async loop(g) {
+    while (this.g === g && g.rid) {
+      const all = [...g.peers.values()]; const calm = all.length && all.every(p => p.dc && p.dc.readyState === 'open');
+      await new Promise(r => setTimeout(r, calm ? 5000 : 1800)); if (this.g !== g || !g.rid) return;
+      try { const j = await this.api({ op: 'gpoll', rid: g.rid }); if (this.g !== g) return; if (j.st === 'end') return; for (const x of j.msgs || []) await this.onSig(x); this.sync(j.m || []) } catch (e) { }
+    }
+  },
+  sync(members) {
+    const g = this.g; if (!g) return; const now = Date.now(); const me = VC.me;
+    for (const u of members) { if (u === me || g.peers.has(u)) continue; if (me > u) this.offer(u); else g.peers.set(u, { pc: null, since: now }) }
+    for (const [u, p] of g.peers) {
+      if (!members.includes(u) && now - p.since > 8000) this.closePeer(u);
+      else if (!p.pc && now - p.since > 15000 && me > u) this.closePeer(u);
+      else if (p.pc && ['failed', 'closed'].includes(p.pc.connectionState) && now - p.since > 6000) this.closePeer(u);
+    }
+    this.count();
+  },
+  mkPC(u) {
+    const g = this.g; const pc = new RTCPeerConnection({ iceServers: LIVE.ice });
+    if (g.local) g.local.getAudioTracks().forEach(t => pc.addTrack(t, g.local)); else pc.addTransceiver('audio', { direction: 'recvonly' });
+    const dc = pc.createDataChannel('pz', { negotiated: true, id: 0 });
+    const p = { pc, dc, since: Date.now() };
+    dc.onopen = () => { this.hello(dc); this.count() };
+    dc.onmessage = e => { try { this.onData(u, JSON.parse(e.data)) } catch (er) { } };
+    pc.ontrack = e => { const st = e.streams && e.streams[0] || new MediaStream([e.track]); const q = g.peers.get(u); if (!q) return; q.stream = st; let a = q.au; if (!a) { a = q.au = document.createElement('audio'); a.autoplay = true; a.playsInline = true; g.el.appendChild(a) } a.srcObject = st; a.play && a.play().catch(() => { }); this.meter(u, st) };
+    pc.onconnectionstatechange = () => this.count();
+    return p;
+  },
+  async offer(u) { const g = this.g; const p = this.mkPC(u); g.peers.set(u, p); try { await p.pc.setLocalDescription(await p.pc.createOffer()); await LIVE.waitIce(p.pc); if (this.g !== g || g.peers.get(u) !== p) return; await this.api({ op: 'gsig', rid: g.rid, to: u, d: { type: 'offer', sdp: p.pc.localDescription.sdp } }) } catch (e) { } },
+  async onSig(x) {
+    const g = this.g; if (!g || !x || !x.f) return;
+    if (x.type === 'offer') { const old = g.peers.get(x.f); if (old && old.pc) try { old.pc.close() } catch (e) { } const p = this.mkPC(x.f); g.peers.set(x.f, p);
+      try { await p.pc.setRemoteDescription({ type: 'offer', sdp: x.sdp }); await p.pc.setLocalDescription(await p.pc.createAnswer()); await LIVE.waitIce(p.pc); await this.api({ op: 'gsig', rid: g.rid, to: x.f, d: { type: 'answer', sdp: p.pc.localDescription.sdp } }) } catch (e) { } }
+    else if (x.type === 'answer') { const p = g.peers.get(x.f); if (p && p.pc && p.pc.signalingState === 'have-local-offer') try { await p.pc.setRemoteDescription({ type: 'answer', sdp: x.sdp }) } catch (e) { } }
+  },
+  closePeer(u) { const g = this.g; if (!g) return; const p = g.peers.get(u); if (p) { try { p.pc && p.pc.close() } catch (e) { } if (p.au) p.au.remove() } g.peers.delete(u); this.removeAvatar(u); this.count() },
+  send(o) { const g = this.g; if (!g) return; const s = JSON.stringify(o); for (const p of g.peers.values()) if (p.dc && p.dc.readyState === 'open') try { p.dc.send(s) } catch (e) { } },
+  hello(dc) { const g = this.g; if (!g || !g.me) return; const a = S.acc; const m = { t: 'h', n: (a.name || '').split(' ')[0] || a.username, u: a.username, av: AVR.clean(a.a3) || AVR.def(), x: g.me.pos.x, z: g.me.pos.z, r: g.me.yaw }; if (dc) { try { dc.send(JSON.stringify(m)) } catch (e) { } } else this.send(m) },
+  /* ---------- messaggi tra telefoni ---------- */
+  onData(u, d) {
+    const g = this.g; if (!g || !d) return;
+    if (d.t === 'h') { this.addAvatar(u, d) }
+    else if (d.t === 's') { const e = g.ents.get(u); if (e) { e.tx = +d.x || 0; e.tz = +d.z || 0; e.tr = +d.r || 0; e.netA = d.a || 'fermo' } }
+    else if (d.t === 'c') { const tx = String(d.tx || '').slice(0, 200); if (!tx) return; if (S.acc.settings && S.acc.settings.filter && isBad(tx)) return; const e = g.ents.get(u); this.say(e, tx); this.log(e ? e.name : '…', tx) }
+    else if (d.t === 'e') { const e = g.ents.get(u); if (e) this.emote(e, d.e, true) }
+  },
+  /* ---------- interfaccia ---------- */
+  ui(g) {
+    const el = document.createElement('div'); el.id = 'pzx'; g.el = el;
+    el.innerHTML = `<canvas id="pzC"></canvas>
+      <div class="pztop"><button class="pzb" id="pzX" aria-label="Esci">✕</button><div class="pztt"><b>🌍 La Piazza</b><small id="pzCnt">Solo tu</small></div><button class="pzb" id="pzInv" aria-label="Invita">➕</button></div>
+      <div class="pzlog" id="pzLog"></div><div class="pzst" id="pzSt">Costruisco la Piazza…</div>
+      <div class="pzjoy" id="pzJoy"><i></i></div>
+      <div class="pzemo" id="pzEmo"><button data-e="balla">💃</button><button data-e="si">👍</button><button data-e="no">🙅</button><button data-e="pronto">🫡</button></div>
+      <div class="pzbar"><button class="pzb pzmic" id="pzMic" aria-label="Microfono">🎙️</button><input id="pzIn" maxlength="200" placeholder="Scrivi a tutti…" enterkeyhint="send"><button class="pzb pzsend" id="pzSend" aria-label="Invia">➤</button></div>`;
+    document.documentElement.appendChild(el); requestAnimationFrame(() => el.classList.add('pzin'));
+    $('#pzX', el).onclick = () => this.leave();
+    $('#pzInv', el).onclick = () => this.more();
+    const inp = $('#pzIn', el), go = () => { const v = inp.value.trim(); if (!v) return; if (S.acc.settings && S.acc.settings.filter && isBad(v)) return toast('Messaggio non inviato: sembra offensivo'); inp.value = ''; this.send({ t: 'c', tx: v }); this.say(g.me, v); this.log('Tu', v) };
+    $('#pzSend', el).onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go() } e.stopPropagation() };
+    $('#pzMic', el).onclick = () => this.toggleMic();
+    $$('#pzEmo [data-e]', el).forEach(b => b.onclick = () => { if (g.me) { this.emote(g.me, b.dataset.e); this.send({ t: 'e', e: b.dataset.e }) } });
+    this.joystick(g);
+  },
+  status(t) { const g = this.g; if (!g || !g.el) return; const s = $('#pzSt', g.el); if (s) { s.textContent = t || ''; s.style.display = t ? '' : 'none' } },
+  count() { const g = this.g; if (!g || !g.el) return; const n = 1 + [...g.peers.values()].filter(p => p.dc && p.dc.readyState === 'open').length; const c = $('#pzCnt', g.el); if (c) c.textContent = n === 1 ? (g.rid ? 'Aspetto i tuoi amici…' : 'Solo tu') : n + ' persone nella Piazza' },
+  log(who, tx) { const g = this.g; if (!g) return; g.msgs.push({ who, tx }); g.msgs = g.msgs.slice(-30); const L = $('#pzLog', g.el); if (L) { L.innerHTML = g.msgs.slice(-6).map(m => `<div><b>${esc(m.who)}</b> ${esc(m.tx)}</div>`).join(''); L.scrollTop = 1e6 } },
+  toggleMic() {
+    const g = this.g; if (!g) return; if (!g.local) return toast('Consenti il microfono nelle impostazioni del telefono per parlare');
+    g.mic = !g.mic; g.local.getAudioTracks().forEach(t => t.enabled = g.mic); const b = $('#pzMic', g.el); b.classList.toggle('on', g.mic);
+    toast(g.mic ? '🎙️ Microfono acceso: ti sentono tutti nella Piazza' : 'Microfono spento');
+  },
+  more() {
+    const g = this.g; if (!g) return; const inside = new Set([...g.peers.keys()]);
+    const F = this.friends().filter(w => !inside.has(w.rid)); const sel = new Set();
+    const ov = openSheet(`<h3 style="margin:4px 0 10px">Invita nella Piazza</h3><div class="pzlist">${F.length ? F.map(w => `<label class="pzf"><input type="checkbox" value="${w.rid}">${avHTML(w, 38)}<div><b>${esc(w.n || '')}</b><small>@${esc(w.u || '')}</small></div><i></i></label>`).join('') : '<p class="pzempty">Nessun altro amico da invitare</p>'}</div><button class="btn" id="pzInv2">Invita</button>`);
+    $$('.pzf input', ov).forEach(c => c.onchange = () => { c.checked ? sel.add(c.value) : sel.delete(c.value); if (sel.size + 1 + inside.size > this.MAX) { c.checked = false; sel.delete(c.value); toast('Al massimo ' + this.MAX + ' persone') } });
+    $('#pzInv2', ov).onclick = async () => {
+      if (!sel.size) return closeAll();
+      try {
+        if (!g.rid) { const j = await this.api({ op: 'gstart', to: [...sel], v: false, pz: 1, nm: 'Piazza di ' + (S.acc.name || '').split(' ')[0] }); g.rid = j.rid; const k = await this.api({ op: 'gjoin', rid: g.rid }); this.sync(k.m || []); this.loop(g) }
+        else await this.api({ op: 'ginv', rid: g.rid, to: [...sel] });
+        toast('Invito mandato 💌');
+      } catch (e) { toast('Invito non riuscito, riprova') }
+      closeAll();
+    };
+  },
+  leave() {
+    const g = this.g; if (!g) return; this.g = null;
+    if (g.rid) this.api({ op: 'gleave', rid: g.rid }).catch(() => { });
+    for (const [, p] of g.peers) { try { p.pc && p.pc.close() } catch (e) { } }
+    try { g.local && g.local.getTracks().forEach(t => t.stop()) } catch (e) { }
+    try { g.actx && g.actx.close() } catch (e) { }
+    cancelAnimationFrame(g.raf); try { g.ro && g.ro.disconnect() } catch (e) { }
+    try { g.R && (g.R.dispose(), g.R.forceContextLoss && g.R.forceContextLoss()) } catch (e) { }
+    if (g.el) { g.el.classList.remove('pzin'); setTimeout(() => g.el.remove(), 350) }
+  },
+  /* ---------- joystick + tastiera + giro della telecamera ---------- */
+  joystick(g) {
+    g.in = { x: 0, y: 0 }; g.camYaw = 0; g.camPitch = .32; const J = $('#pzJoy', g.el), K = J.firstChild; let jid = null, cx = 0, cy = 0;
+    const R = 46;
+    J.addEventListener('pointerdown', e => { jid = e.pointerId; const r = J.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; J.setPointerCapture(jid); mv(e) });
+    const mv = e => { if (e.pointerId !== jid) return; let dx = e.clientX - cx, dy = e.clientY - cy; const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d } K.style.transform = `translate(${dx}px,${dy}px)`; g.in.x = dx / R; g.in.y = dy / R };
+    J.addEventListener('pointermove', mv);
+    const up = e => { if (e.pointerId !== jid) return; jid = null; K.style.transform = ''; g.in.x = g.in.y = 0 };
+    J.addEventListener('pointerup', up); J.addEventListener('pointercancel', up);
+    /* trascinare sullo schermo = girare la telecamera */
+    const C = $('#pzC', g.el); let did = null, lx = 0, ly = 0;
+    C.addEventListener('pointerdown', e => { did = e.pointerId; lx = e.clientX; ly = e.clientY; C.setPointerCapture(did) });
+    C.addEventListener('pointermove', e => { if (e.pointerId !== did) return; g.camYaw -= (e.clientX - lx) * .006; g.camPitch = Math.max(.08, Math.min(.9, g.camPitch + (e.clientY - ly) * .004)); lx = e.clientX; ly = e.clientY });
+    C.addEventListener('pointerup', () => did = null); C.addEventListener('pointercancel', () => did = null);
+    const keys = {}; g.keys = keys;
+    g.kd = e => { if (e.target && e.target.id === 'pzIn') return; keys[e.key.toLowerCase()] = 1 }; g.ku = e => { keys[e.key.toLowerCase()] = 0 };
+    window.addEventListener('keydown', g.kd); window.addEventListener('keyup', g.ku);
+  },
+  /* ---------- il mondo ---------- */
+  async world(g) {
+    const { T, G } = await AVR.lib(); const [{ Sky }, { Water }] = await Promise.all([import(this.B + 'sky.js'), import(this.B + 'water.js')]);
+    if (this.g !== g) return; g.T = T;
+    const C = $('#pzC', g.el); const R = g.R = new T.WebGLRenderer({ canvas: C, antialias: true, powerPreference: 'high-performance' });
+    R.setPixelRatio(Math.min(1.75, devicePixelRatio || 1)); R.toneMapping = T.ACESFilmicToneMapping; R.outputColorSpace = T.SRGBColorSpace; R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap;
+    const sc = g.sc = new T.Scene(); const cam = g.cam = new T.PerspectiveCamera(55, 1, .1, 600);
+    const size = () => { const w = g.el.clientWidth, h = g.el.clientHeight; R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix() }; size();
+    g.ro = window.ResizeObserver ? new ResizeObserver(size) : null; g.ro && g.ro.observe(g.el);
+    const TL = new T.TextureLoader(); const tex = (f, rep, srgb) => { const t = TL.load(this.B + f); t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 4; if (srgb) t.colorSpace = T.SRGBColorSpace; return t };
+    /* cielo e sole secondo l'ora vera */
+    const sky = new Sky(); sky.scale.setScalar(450); sc.add(sky); const U = sky.material.uniforms; U.turbidity.value = 3.5; U.rayleigh.value = 1.1; U.mieCoefficient.value = .005; U.mieDirectionalG.value = .8;
+    const d = new Date(), hr = d.getHours() + d.getMinutes() / 60;
+    const elev = Math.max(-8, 58 * Math.sin(Math.PI * (hr - 6.5) / 12.5)); const night = elev < 1; g.night = night;
+    const sun = new T.Vector3().setFromSphericalCoords(1, T.MathUtils.degToRad(90 - Math.max(elev, -4)), T.MathUtils.degToRad(200)); U.sunPosition.value.copy(sun);
+    const pm = new T.PMREMGenerator(R); const envS = new T.Scene(); envS.add(sky.clone()); sc.environment = pm.fromScene(envS).texture; pm.dispose();
+    R.toneMappingExposure = night ? .32 : elev < 12 ? .6 : .72;
+    if (night) { sc.background = new T.Color('#050817'); sky.visible = false;
+      const N = 900, pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) { const v = new T.Vector3().setFromSphericalCoords(380, Math.random() * Math.PI * .48, Math.random() * Math.PI * 2); pos.set([v.x, v.y, v.z], i * 3) }
+      const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(pos, 3)); sc.add(new T.Points(sg, new T.PointsMaterial({ color: '#ffffff', size: 1.6, sizeAttenuation: false }))) }
+    const hemi = new T.HemisphereLight(night ? '#33406b' : '#dfeeff', night ? '#0c0d14' : '#5d6b3b', night ? .35 : .55); sc.add(hemi);
+    const dl = new T.DirectionalLight(night ? '#8ea6ff' : '#fff2dd', night ? .35 : 2.6); dl.position.copy(sun.clone().multiplyScalar(60)); if (night) dl.position.set(-30, 50, -20);
+    dl.castShadow = true; dl.shadow.mapSize.set(1024, 1024); const sh = dl.shadow.camera; sh.left = sh.bottom = -32; sh.right = sh.top = 32; sh.near = 1; sh.far = 160; dl.shadow.bias = -.0005; dl.shadow.normalBias = .03; sc.add(dl); sc.add(dl.target);
+    sc.fog = new T.Fog(night ? '#070a18' : '#cfe0ef', 60, 260);
+    /* terreno: prato e piazza in pietra */
+    const grass = new T.Mesh(new T.CircleGeometry(140, 64), new T.MeshStandardMaterial({ map: tex('grasslight.jpg', 60, true), roughness: 1 })); grass.rotation.x = -Math.PI / 2; grass.receiveShadow = true; sc.add(grass);
+    const pave = new T.Mesh(new T.CircleGeometry(17, 64), new T.MeshStandardMaterial({ map: tex('brick_diffuse.jpg', 9, true), bumpMap: tex('brick_bump.jpg', 9), bumpScale: .6, roughnessMap: tex('brick_roughness.jpg', 9), roughness: 1, color: '#d9cfc4' }));
+    pave.rotation.x = -Math.PI / 2; pave.position.y = .02; pave.receiveShadow = true; sc.add(pave);
+    const ring = new T.Mesh(new T.RingGeometry(17, 17.6, 64), new T.MeshStandardMaterial({ color: '#bfb6aa', roughness: .8 })); ring.rotation.x = -Math.PI / 2; ring.position.y = .03; sc.add(ring);
+    const stone = new T.MeshStandardMaterial({ color: '#e6dfd2', roughness: .62, bumpMap: tex('brick_bump.jpg', 3), bumpScale: .12 });
+    /* fontana con acqua vera */
+    const prof = [[0, 0], [4.2, 0], [4.4, .15], [4.4, .7], [4.1, .78], [3.9, .7], [3.9, .2], [0, .2]].map(p => new T.Vector2(p[0], p[1]));
+    const basin = new T.Mesh(new T.LatheGeometry(prof, 64), stone); basin.castShadow = basin.receiveShadow = true; sc.add(basin);
+    const col = new T.Mesh(new T.CylinderGeometry(.35, .5, 2.3, 24), stone); col.position.y = 1.15; col.castShadow = true; sc.add(col);
+    const bowlP = [[0, 0], [1.6, .15], [1.7, .5], [1.55, .5], [1.4, .25], [0, .25]].map(p => new T.Vector2(p[0], p[1])); const bowl = new T.Mesh(new T.LatheGeometry(bowlP, 48), stone); bowl.position.y = 2.1; bowl.castShadow = true; sc.add(bowl);
+    const wn = TL.load(this.B + 'waternormals.jpg'); wn.wrapS = wn.wrapT = T.RepeatWrapping;
+    const water = new Water(new T.CircleGeometry(3.9, 48), { textureWidth: 256, textureHeight: 256, waterNormals: wn, sunDirection: sun.clone().normalize(), sunColor: 0xffffff, waterColor: night ? 0x0b2233 : 0x1f6f86, distortionScale: 1.6, fog: false });
+    water.rotation.x = -Math.PI / 2; water.position.y = .6; sc.add(water); g.water = water;
+    /* zampilli */
+    const NP = 260, ppos = new Float32Array(NP * 3), pv = []; for (let i = 0; i < NP; i++) { pv.push({ t: Math.random() * 1.4, a: Math.random() * Math.PI * 2, s: .6 + Math.random() * .5 }) }
+    const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.BufferAttribute(ppos, 3));
+    const spray = new T.Points(pg, new T.PointsMaterial({ color: '#e6f6ff', size: .07, transparent: true, opacity: .8, depthWrite: false })); sc.add(spray); g.spray = { pg, ppos, pv };
+    /* panchine, lampioni, alberi, aiuole */
+    const wood = new T.MeshStandardMaterial({ map: tex('hardwood2_diffuse.jpg', 1, true), color: '#a0703f', roughness: .7 }), iron = new T.MeshStandardMaterial({ color: '#2a2c30', roughness: .4, metalness: .8 });
+    g.obst = [{ x: 0, z: 0, r: 4.6 }]; g.seats = [];
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + Math.PI / 8, b = new T.Group();
+      for (let k = 0; k < 3; k++) { const s = new T.Mesh(new T.BoxGeometry(1.9, .06, .14), wood); s.position.set(0, .48, -.18 + k * .17); s.castShadow = true; b.add(s) }
+      for (let k = 0; k < 2; k++) { const s = new T.Mesh(new T.BoxGeometry(1.9, .14, .05), wood); s.position.set(0, .7 + k * .18, -.3); s.rotation.x = -.15; s.castShadow = true; b.add(s) }
+      [-.8, .8].forEach(x => { const l = new T.Mesh(new T.BoxGeometry(.07, .5, .5), iron); l.position.set(x, .25, -.08); b.add(l) });
+      b.position.set(Math.cos(a) * 11.5, 0, Math.sin(a) * 11.5); b.lookAt(0, 0, 0); sc.add(b); g.obst.push({ x: b.position.x, z: b.position.z, r: .9 }) }
+    g.lamps = [];
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, x = Math.cos(a) * 14.5, z = Math.sin(a) * 14.5;
+      const pole = new T.Mesh(new T.CylinderGeometry(.06, .09, 4, 12), iron); pole.position.set(x, 2, z); pole.castShadow = true; sc.add(pole);
+      const head = new T.Mesh(new T.SphereGeometry(.28, 18, 12), new T.MeshStandardMaterial({ color: '#fff3d0', emissive: '#ffcf7a', emissiveIntensity: night ? 3.2 : .15, roughness: .3 })); head.position.set(x, 4.1, z); sc.add(head); g.obst.push({ x, z, r: .3 });
+      if (night && i % 2 === 0) { const L = new T.PointLight('#ffc477', 18, 16, 1.6); L.position.set(x, 3.8, z); sc.add(L) } }
+    const leaf = new T.MeshStandardMaterial({ color: '#3e7a35', roughness: .9 }), leaf2 = new T.MeshStandardMaterial({ color: '#4e8f3c', roughness: .9 }), bark = new T.MeshStandardMaterial({ map: tex('hardwood2_diffuse.jpg', 1, true), color: '#6a4a33', roughness: .95 });
+    const rnd = (a, b) => a + Math.random() * (b - a); const blob = (r) => { const ge = new T.IcosahedronGeometry(r, 2), p = ge.attributes.position; for (let i = 0; i < p.count; i++) { const v = new T.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(1 + (Math.sin(v.x * 3.1) + Math.cos(v.y * 2.7) + Math.sin(v.z * 3.7)) * .07); p.setXYZ(i, v.x, v.y, v.z) } ge.computeVertexNormals(); return ge };
+    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + rnd(-.1, .1), r = rnd(21, 27), x = Math.cos(a) * r, z = Math.sin(a) * r, t = new T.Group(), hgt = rnd(2.2, 3.2);
+      const tr = new T.Mesh(new T.CylinderGeometry(.16, .28, hgt, 10), bark); tr.position.y = hgt / 2; tr.castShadow = true; t.add(tr);
+      for (let k = 0; k < 4; k++) { const m = new T.Mesh(blob(rnd(1.1, 1.7)), k % 2 ? leaf : leaf2); m.position.set(rnd(-.8, .8), hgt + rnd(.2, 1.4), rnd(-.8, .8)); m.castShadow = true; t.add(m) }
+      t.position.set(x, 0, z); t.rotation.y = Math.random() * 6; sc.add(t); g.obst.push({ x, z, r: .6 }) }
+    const hedge = new T.Mesh(new T.TorusGeometry(31, .7, 8, 96), leaf); hedge.rotation.x = Math.PI / 2; hedge.position.y = .35; hedge.castShadow = true; sc.add(hedge);
+    /* palco del DJ */
+    const stage = new T.Mesh(new T.CylinderGeometry(2.2, 2.4, .35, 32), new T.MeshStandardMaterial({ color: '#2b2140', roughness: .5, metalness: .2 })); stage.position.set(-9, .17, -9); stage.receiveShadow = true; sc.add(stage);
+    const spk = new T.Mesh(new T.BoxGeometry(.6, 1.1, .5), new T.MeshStandardMaterial({ color: '#111', roughness: .4 })); spk.position.set(-10.3, .9, -8); spk.castShadow = true; sc.add(spk); g.obst.push({ x: -9, z: -9, r: 1 });
+    /* animali e NPC */
+    const loadG = f => new Promise((res, rej) => new G.GLTFLoader().load(this.B + f, res, undefined, rej));
+    g.mixers = []; g.birds = [];
+    ['flamingo.glb', 'stork.glb', 'parrot.glb'].forEach((f, i) => loadG(f).then(gl => { if (this.g !== g) return; const m = gl.scene; m.scale.setScalar(f === 'parrot.glb' ? .06 : .045); m.traverse(o => { if (o.isMesh) o.castShadow = true }); sc.add(m); const mx = new T.AnimationMixer(m); mx.clipAction(gl.animations[0]).setDuration(1.1 + i * .2).play(); g.mixers.push(mx); g.birds.push({ m, r: 22 + i * 4, h: 13 + i * 2.5, s: .16 + i * .03, a: i * 2 }) }).catch(() => { }));
+    g.ducks = []; for (let i = 0; i < 2; i++) loadG('duck.glb').then(gl => { if (this.g !== g) return; const m = gl.scene; m.scale.setScalar(.35); sc.add(m); g.ducks.push({ m, a: i * Math.PI, r: 2.6 }) }).catch(() => { });
+    loadG('flower.glb').then(gl => { if (this.g !== g) return; for (let i = 0; i < 26; i++) { const m = gl.scene.clone(); const a = Math.random() * Math.PI * 2, r = 17.9 + Math.random() * 1.4; m.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); m.scale.setScalar(2 + Math.random() * 1.5); m.rotation.y = Math.random() * 6; sc.add(m) } }).catch(() => { });
+    /* io */
+    const mine = AVR.clean(S.acc.a3) || AVR.def();
+    g.me = await this.makeEnt(g, 'me', { n: 'Tu', av: mine, x: rnd(-3, 3), z: 8 + rnd(0, 2), r: Math.PI }, true);
+    if (this.g !== g) return;
+    /* NPC */
+    this.makeEnt(g, 'npc1', { n: 'Giulia', av: { m: 'michelle', mv: 'cammina', fx: 'no' }, x: 8, z: 0, npc: 1 }).then(e => { e.lines = ['Ciao! Che bella giornata 😊', 'Hai visto le anatre nella fontana? 🦆', 'Faccio il giro della piazza, vieni?', 'Di sera i lampioni sono bellissimi ✨']; e.walk = 1 });
+    this.makeEnt(g, 'npc2', { n: 'DJ Leo', av: { m: 'marco', mv: 'balla', fx: 'no' }, x: -9, z: -9, r: Math.PI / 4, npc: 1 }).then(e => { e.lines = ['Ehi! Balla con me 🕺', 'Questa canzone è una bomba 🔥', 'Benvenuto nella Piazza!', 'Tocca 💃 e balliamo insieme!']; e.base = 'balla'; e.y = .35 });
+    this.hello();
+    /* ciclo */
+    const clock = new T.Clock(); let sendT = 0, last = '';
+    const tick = () => {
+      if (this.g !== g) return; g.raf = requestAnimationFrame(tick); const dt = Math.min(.05, clock.getDelta()), t = clock.elapsedTime;
+      /* se il telefono fa fatica abbasso un po' la qualità (prima la risoluzione, poi le ombre) */
+      g.fN = (g.fN || 0) + 1; g.fT = (g.fT || 0) + dt; if (g.fN === 90) { const avg = g.fT / 90; if (avg > .034 && R.getPixelRatio() > 1) R.setPixelRatio(1); else if (avg > .045 && R.shadowMap.enabled) { R.shadowMap.enabled = false; sc.traverse(o => { if (o.material) o.material.needsUpdate = true }) } g.fN = 0; g.fT = 0 }
+      this.move(g, dt);
+      for (const e of g.ents.values()) this.updEnt(g, e, dt, t);
+      g.mixers.forEach(m => m.update(dt));
+      g.birds.forEach(b => { b.a += dt * b.s; b.m.position.set(Math.cos(b.a) * b.r, b.h + Math.sin(t * .7 + b.r) * 1.2, Math.sin(b.a) * b.r); b.m.rotation.y = -b.a });
+      g.ducks.forEach(d => { d.a += dt * .12; d.m.position.set(Math.cos(d.a) * d.r, .58 + Math.sin(t * 2 + d.a) * .02, Math.sin(d.a) * d.r); d.m.rotation.y = -d.a - Math.PI / 2 });
+      water.material.uniforms.time.value += dt * .5;
+      const S2 = g.spray; for (let i = 0; i < NP; i++) { const p = S2.pv[i]; p.t += dt; if (p.t > 1.4) { p.t = 0; p.a = Math.random() * Math.PI * 2; p.s = .6 + Math.random() * .5 } const tt = p.t, rr = tt * p.s * 1.2; S2.ppos.set([Math.cos(p.a) * rr, 2.55 + 2.6 * tt - 4.9 * tt * tt * .9, Math.sin(p.a) * rr], i * 3) } S2.pg.attributes.position.needsUpdate = true;
+      /* telecamera dietro di me */
+      const m = g.me; const cd = 5.2, ch = 1.2 + cd * Math.sin(g.camPitch);
+      const tx = m.pos.x + Math.sin(g.camYaw) * cd * Math.cos(g.camPitch), tz = m.pos.z + Math.cos(g.camYaw) * cd * Math.cos(g.camPitch);
+      cam.position.lerp(new T.Vector3(tx, ch, tz), 1 - Math.pow(.001, dt)); cam.lookAt(m.pos.x, 1.45, m.pos.z);
+      dl.target.position.set(m.pos.x, 0, m.pos.z); if (!night) dl.position.copy(sun.clone().multiplyScalar(60)).add(dl.target.position);
+      /* mando la mia posizione 8 volte al secondo (solo se cambia) */
+      sendT += dt; if (sendT > .125) { sendT = 0; const k = `${m.pos.x.toFixed(2)},${m.pos.z.toFixed(2)},${m.yaw.toFixed(2)},${m.anim}`; if (k !== last || t - (g.lastBeat || 0) > 1) { last = k; g.lastBeat = t; this.send({ t: 's', x: +m.pos.x.toFixed(2), z: +m.pos.z.toFixed(2), r: +m.yaw.toFixed(2), a: m.anim }) } }
+      this.npcTalk(g, t);
+      R.render(sc, cam);
+    };
+    tick();
+  },
+  /* ---------- personaggi ---------- */
+  async makeEnt(g, id, d, mine) {
+    const T = g.T; const cfg = AVR.clean(d.av) || AVR.def(); const ch = await AVR.char(T, cfg.m);
+    ch.root.traverse(o => { if (o.isMesh) { o.castShadow = true } });
+    const e = { id, ch, name: d.n || '…', pos: new T.Vector3(+d.x || 0, 0, +d.z || 0), yaw: +d.r || 0, tx: +d.x || 0, tz: +d.z || 0, tr: +d.r || 0, anim: '', base: 'fermo', netA: 'fermo', npc: !!d.npc, mine: !!mine, y: 0 };
+    g.sc.add(ch.pivot); e.label = this.label(T, e.npc ? e.name + ' · NPC' : e.name, e.npc ? '#a78bfa' : mine ? '#22d3ee' : '#ffffff'); e.label.position.y = 1.98; ch.pivot.add(e.label);
+    this.play(e, d.av && d.av.mv === 'balla' ? 'balla' : 'fermo');
+    g.ents.set(id, e); return e;
+  },
+  async addAvatar(u, d) {
+    const g = this.g; if (!g) return; const old = g.ents.get(u); if (old && old.cfgKey === JSON.stringify(d.av)) { old.name = d.n; return }
+    if (old) this.removeAvatar(u);
+    if (g.pending && g.pending[u]) return; (g.pending = g.pending || {})[u] = 1;
+    try { const e = await this.makeEnt(g, u, d); e.cfgKey = JSON.stringify(d.av); if (this.g !== g || !g.peers.has(u)) { this.removeAvatar(u); return } this.log('🌍', e.name + ' è nella Piazza 👋'); try { navigator.vibrate && navigator.vibrate(15) } catch (er) { } }
+    catch (er) { } finally { delete g.pending[u] }
+  },
+  removeAvatar(u) { const g = this.g; if (!g) return; const e = g.ents.get(u); if (!e) return; g.sc.remove(e.ch.pivot); g.ents.delete(u); this.log('🌍', e.name + ' ha lasciato la Piazza') },
+  play(e, k, once) {
+    const cl = e.ch.clips[k] || e.ch.clips.fermo; if (!cl) return; if (e.anim === k && !once) return;
+    let a = e.ch.acts[k]; if (!a) a = e.ch.acts[k] = e.ch.mixer.clipAction(cl);
+    a.reset(); a.setLoop(once ? 2200 : 2201, once ? 1 : Infinity); a.clampWhenFinished = !!once; a.fadeIn(.22).play();
+    if (e.cur && e.cur !== a) e.cur.fadeOut(.22); e.cur = a; e.anim = k; e.onceUntil = once ? performance.now() + cl.duration * 1000 - 150 : 0;
+  },
+  emote(e, k, remote) { if (!e) return; const loop = k === 'balla' || k === 'pronto'; if (loop) { e.base = k; this.play(e, k) } else this.play(e, k, true); if (!remote) try { navigator.vibrate && navigator.vibrate(10) } catch (er) { } },
+  move(g, dt) {
+    const m = g.me; if (!m) return; const k = g.keys || {};
+    let ix = g.in.x + ((k.d || k.arrowright) ? 1 : 0) - ((k.a || k.arrowleft) ? 1 : 0), iy = g.in.y + ((k.s || k.arrowdown) ? 1 : 0) - ((k.w || k.arrowup) ? 1 : 0);
+    const mag = Math.min(1, Math.hypot(ix, iy));
+    if (mag > .12) {
+      const ang = Math.atan2(ix, iy) + g.camYaw; const sp = mag > .8 ? 4.4 : 2.1;
+      let nx = m.pos.x + Math.sin(ang) * sp * dt * mag, nz = m.pos.z + Math.cos(ang) * sp * dt * mag;
+      for (const o of g.obst) { const dx = nx - o.x, dz = nz - o.z, dd = Math.hypot(dx, dz), rr = o.r + .35; if (dd < rr) { nx = o.x + dx / dd * rr; nz = o.z + dz / dd * rr } }
+      const dc = Math.hypot(nx, nz); if (dc > 29.5) { nx *= 29.5 / dc; nz *= 29.5 / dc }
+      m.pos.x = nx; m.pos.z = nz; let dy = ang - m.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); m.yaw += dy * Math.min(1, dt * 10);
+      m.base = 'fermo'; if (performance.now() > (m.onceUntil || 0)) this.play(m, mag > .8 ? 'corri' : 'cammina');
+    } else if (performance.now() > (m.onceUntil || 0)) this.play(m, m.base || 'fermo');
+  },
+  updEnt(g, e, dt, t) {
+    e.ch.mixer.update(dt);
+    if (e.npc && e.walk) { const a = t * .09; e.tx = Math.cos(a) * 8; e.tz = Math.sin(a) * 8; e.tr = -a + Math.PI; e.netA = 'cammina' }
+    if (!e.mine) {
+      const k = Math.min(1, dt * 8); const dx = e.tx - e.pos.x, dz = e.tz - e.pos.z; e.pos.x += dx * k; e.pos.z += dz * k;
+      let dy = e.tr - e.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); e.yaw += dy * k;
+      if (!e.npc || e.walk) { if (performance.now() > (e.onceUntil || 0)) { const na = e.netA || 'fermo'; if (na !== e.anim && ['fermo', 'cammina', 'corri', 'balla', 'pronto'].includes(na)) this.play(e, na) } }
+      else if (performance.now() > (e.onceUntil || 0) && e.anim !== e.base) this.play(e, e.base);
+    }
+    e.ch.pivot.position.set(e.pos.x, e.y || 0, e.pos.z); e.ch.pivot.rotation.y = e.yaw;
+    if (e.spk) { const p = g.peers.get(e.id); const lv = p && p.lv ? p.lv() : 0; e.spk.visible = lv > .045 }
+  },
+  npcTalk(g, t) {
+    const m = g.me; if (!m) return;
+    for (const e of g.ents.values()) { if (!e.npc || !e.lines) continue; const d = Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z); if (d < 3.2 && t - (e.saidT || -99) > 14) { e.saidT = t; this.say(e, e.lines[(e.li = ((e.li || 0) + 1) % e.lines.length)]) } }
+  },
+  /* ---------- etichette e nuvolette ---------- */
+  label(T, txt, col) {
+    const c = document.createElement('canvas'), x = c.getContext('2d'); x.font = '600 40px -apple-system,system-ui,sans-serif'; const w = Math.min(600, x.measureText(txt).width + 44); c.width = w; c.height = 64;
+    x.font = '600 40px -apple-system,system-ui,sans-serif'; x.fillStyle = 'rgba(0,0,0,.45)'; x.beginPath(); x.roundRect(0, 4, w, 56, 28); x.fill(); x.fillStyle = col; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(txt, w / 2, 33);
+    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; const s = new T.Sprite(new T.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(w / 64 * .2, .2, 1); s.renderOrder = 10; return s;
+  },
+  say(e, tx) {
+    const g = this.g; if (!g || !e) return; const T = g.T;
+    const c = document.createElement('canvas'), x = c.getContext('2d'); const F = '500 34px -apple-system,system-ui,sans-serif'; x.font = F;
+    const words = String(tx).split(/\s+/), lines = []; let cur = '';
+    for (const w of words) { const tt = cur ? cur + ' ' + w : w; if (x.measureText(tt).width > 420 && cur) { lines.push(cur); cur = w } else cur = tt } if (cur) lines.push(cur); const L = lines.slice(0, 4);
+    const w = Math.min(470, Math.max(...L.map(l => x.measureText(l).width)) + 40), h = L.length * 42 + 30; c.width = w; c.height = h + 16;
+    x.font = F; x.fillStyle = e.npc ? '#ede9fe' : '#ffffff'; x.beginPath(); x.roundRect(0, 0, w, h, 22); x.fill(); x.beginPath(); x.moveTo(w / 2 - 12, h); x.lineTo(w / 2, h + 14); x.lineTo(w / 2 + 12, h); x.fill();
+    x.fillStyle = '#111'; x.textBaseline = 'top'; L.forEach((l, i) => x.fillText(l, 20, 16 + i * 42));
+    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; const s = new T.Sprite(new T.SpriteMaterial({ map: t, depthTest: false, transparent: true })); const sc = .0042; s.scale.set(w * sc, (h + 16) * sc, 1); s.position.y = 2.18 + (h + 16) * sc / 2; s.renderOrder = 11;
+    if (e.bub) e.ch.pivot.remove(e.bub); e.bub = s; e.ch.pivot.add(s);
+    setTimeout(() => { if (e.bub === s) { e.ch.pivot.remove(s); e.bub = null } }, 6500 + Math.min(4000, tx.length * 40));
+  },
+  /* chi sta parlando: icona 🔊 sopra la testa */
+  meter(u, st) {
+    const g = this.g; if (!g) return; try { g.actx = g.actx || new (window.AudioContext || window.webkitAudioContext)(); const src = g.actx.createMediaStreamSource(st), an = g.actx.createAnalyser(); an.fftSize = 256; src.connect(an); const buf = new Uint8Array(an.fftSize);
+      const p = g.peers.get(u); if (!p) return; p.lv = () => { an.getByteTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v } return Math.sqrt(s / buf.length) };
+      const e = g.ents.get(u); if (e && !e.spk) { e.spk = this.label(g.T, '🔊', '#fff'); e.spk.position.y = 2.25; e.spk.visible = false; e.ch.pivot.add(e.spk) } } catch (er) { }
+  }
+};
+(() => {
+  const st = document.createElement('style');
+  st.textContent = `#pzx{position:fixed;inset:0;z-index:2147482000;background:#0b0d14;opacity:0;transition:opacity .35s;touch-action:none;user-select:none;-webkit-user-select:none}#pzx.pzin{opacity:1}
+#pzC{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pztop{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:10px;right:10px;display:flex;align-items:center;gap:10px}
+.pztt{flex:1;text-align:center;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}.pztt b{display:block;font-size:17px}.pztt small{opacity:.85;font-size:12.5px}
+.pzb{width:42px;height:42px;border-radius:50%;border:0;background:rgba(15,15,25,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-size:18px;flex:none}
+.pzlog{position:absolute;left:10px;top:calc(env(safe-area-inset-top) + 62px);max-width:62%;max-height:30vh;overflow:hidden;color:#fff;font-size:13.5px;line-height:1.35;text-shadow:0 1px 4px rgba(0,0,0,.9);pointer-events:none}.pzlog div{background:rgba(0,0,0,.28);border-radius:10px;padding:3px 8px;margin-bottom:3px;width:fit-content}
+.pzst{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);color:#fff;background:rgba(0,0,0,.55);padding:10px 16px;border-radius:14px;font-size:14.5px;text-align:center}
+.pzjoy{position:absolute;left:22px;bottom:calc(env(safe-area-inset-bottom) + 84px);width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.28);touch-action:none}
+.pzjoy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.78);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.pzemo{position:absolute;right:12px;bottom:calc(env(safe-area-inset-bottom) + 86px);display:grid;grid-template-columns:1fr 1fr;gap:8px}.pzemo button{width:46px;height:46px;border-radius:50%;border:0;background:rgba(15,15,25,.5);backdrop-filter:blur(10px);font-size:21px}
+.pzbar{position:absolute;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 12px);display:flex;gap:8px;align-items:center}
+.pzbar input{flex:1;min-width:0;height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.2);background:rgba(15,15,25,.6);backdrop-filter:blur(10px);color:#fff;padding:0 16px;font-size:16px}
+.pzmic.on{background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.35)}.pzsend{background:var(--acc,#a855f7)}
+.pzhead{text-align:center;padding:4px 6px 8px}.pzglobe{font-size:46px;animation:nxfloat 4s ease-in-out infinite}.pzhead h3{margin:6px 0}.pzhead p{color:var(--muted,#999);margin:0;line-height:1.45}
+.pzsub{display:flex;justify-content:space-between;font-weight:600;margin:12px 2px 6px}.pzsub span{color:var(--muted,#999);font-weight:500}
+.pzlist{max-height:42vh;overflow:auto;margin-bottom:12px}.pzf{display:flex;align-items:center;gap:10px;padding:8px 4px;cursor:pointer}.pzf>div{flex:1;min-width:0}.pzf b{display:block}.pzf small{color:var(--muted,#999)}
+.pzf input{display:none}.pzf i{width:24px;height:24px;border-radius:50%;border:2px solid rgba(127,127,127,.5)}.pzf input:checked~i{background:var(--acc,#a855f7);border-color:var(--acc,#a855f7);box-shadow:inset 0 0 0 4px var(--card,#16161c)}
+.pzempty{color:var(--muted,#999);text-align:center;padding:14px}.pzrow{display:flex;gap:10px}.pzrow .btn{flex:1}`;
+  document.head.appendChild(st);
+})();
+/* inviti in arrivo: la Piazza invece della solita chiamata di gruppo */
+{const gi = GCALL.incoming; GCALL.incoming = function (j) { if (j && j.pz) return PZ.invite(j); return gi.apply(this, arguments) }}
+/* link dalle notifiche (/?n=pz&g=...) */
+{const ea = enterApp; enterApp = function () { const r = ea.apply(this, arguments); try { const q = new URLSearchParams(location.search); if (q.get('n') === 'pz' && /^[0-9a-f]{20}$/.test(q.get('g') || '')) setTimeout(() => PZ.open(q.get('g')), 1800) } catch (e) { } return r }}
+/* da dove si entra: menu del profilo e chat */
+{const pm = profileMenu; profileMenu = function () { const r = pm.apply(this, arguments); try { const ms = $$('#layer .ov .menu'); const m = ms[ms.length - 1]; if (m && !$('#pzMenu', m)) { m.insertAdjacentHTML('afterbegin', '<button id="pzMenu"><span class="mi">🌍</span><div>La Piazza 3D<small>Incontra i tuoi amici in un mondo 3D</small></div></button>'); $('#pzMenu', m).onclick = () => { closeAll(); setTimeout(() => PZ.open(), 250) } } } catch (e) { } return r }}
+
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');
 (async()=>{const t0=Date.now();let acc=store.get('vybe_acc'),remote;
