@@ -3613,7 +3613,7 @@ const VC={on:false,ro:false,ready:false,me:null,db:null,priv:null,pubJ:null,sk:n
  async flush(){if(!this.ready||this.ro||this.busy)return;this.busy=true;
   try{while(this.dirty.size){const id=[...this.dirty][0];this.dirty.delete(id);const d=this.mine[id];if(!d)continue;this.trim(d);const sending=(d.msgs||[]).filter(m=>this.pend.has(m.id)).map(m=>m.id);
     try{await this.db.doc('chat/'+this.me+'/c/'+id).set(JSON.parse(JSON.stringify(d)));sending.forEach(x=>this.pend.delete(x))}
-    catch(e){if(e&&e.code==='invalid_argument'){this.ro=true;toast('Non puoi inviare messaggi: serve l’accesso “Editor” all’app')}else if(e&&e.code==='quota_exceeded')toast('Spazio della chat pieno');else{this.dirty.add(id);await new Promise(r=>setTimeout(r,1500))}}}}
+    catch(e){if(e&&e.code==='invalid_argument'){this.ro=true;toast('Non puoi inviare messaggi: serve l’accesso “Editor” all’app')}else if(e&&e.code==='quota_exceeded')toast('Spazio della chat pieno');else{this.dirty.add(id);if(navigator.onLine===false)break;await new Promise(r=>setTimeout(r,1500))}}}}
   finally{this.busy=false}this.changed()},
  presence(on,force){if(!this.ready)return;const hid=S.acc&&S.acc.status&&S.acc.status.online===false;const p=this.doc('p',{k:'p'});delete p.msgs;delete p.rd;delete p.dl;delete p.ty;
   const m=[this.me,...Real.list().map(w=>w.rid)];const st=hid?'hid':on?'on':'off';if(!force&&p.st===st&&Date.now()-(p.on||0)<60000)return;
@@ -4425,7 +4425,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 /* avvio del motore chat anche senza il database di Claude */
 {const vs=VC.start.bind(VC);VC.start=async function(){if(!CDB.isV())return vs();
   if(this.on||this._starting||!Real.on||!Real.uid||!this.cs()||!S.acc)return;this._starting=true;
-  try{if(!await CDB.auth()){return}
+  try{if(!await CDB.auth()&&!OFFD.canChat()){return}
    this.db=CDB;this.me=Real.uid;this.on=true;
    try{await this.initKeys()}catch(e){this.on=false;return}
    const a=S.acc;a.vc=a.vc||{mute:{},arch:{},wall:{},hid:{},seen:{}};
@@ -10394,6 +10394,51 @@ const OFFL={el:null,
   this.el.classList.toggle('on',off)},
  init(){this.reg();addEventListener('offline',()=>this.paint());addEventListener('online',()=>{const was=this.el&&this.el.classList.contains('on');this.paint();if(was&&S.acc)toast('Di nuovo online ✨')});this.paint()}};
 OFFL.init();
+
+/* ============ OFFLINE: feed degli amici e chat salvati sul telefono, invii in coda ============
+   - l'ultimo elenco delle persone e i profili/post di chi segui restano in IndexedDB: senza rete li vedi lo stesso
+   - le chat (già cifrate end-to-end) restano salvate così come arrivano dal server
+   - i messaggi scritti senza rete restano in coda (🕓) anche se chiudi l'app, e partono quando torna la rete */
+const OFFD={
+ k(p){const u=(typeof Real!=='undefined'&&Real.uid)||(typeof Cloud!=='undefined'&&Cloud.uid)||'';return u?p+'_'+u:null},
+ off(){return navigator.onLine===false},
+ /* --- persone e post --- */
+ vLoaded:false,vT:0,
+ async vLoad(){if(this.vLoaded)return;const k=this.k('vdb');if(!k)return;this.vLoaded=true;const c=await IDBS.get(k);
+  if(c&&c.dir&&typeof c.dir==='object'&&!VDB.dir){VDB.dir=c.dir;for(const id in c.full||{})if(!VDB.full[id])VDB.full[id]=c.full[id];try{VDB.emit()}catch(e){}}},
+ vSave(){clearTimeout(this.vT);this.vT=setTimeout(()=>{const k=this.k('vdb');if(!k||!VDB.dir||!Object.keys(VDB.dir).length)return;
+  const want=new Set([...(S.acc&&S.acc.rfw||[]),VDB.view].filter(Boolean));const full={};for(const id in VDB.full)if(want.has(id))full[id]=VDB.full[id];IDBS.set(k,{dir:VDB.dir,full,at:Date.now()})},2500)},
+ /* --- chat --- */
+ cDocs:null,cP:null,cT:0,
+ cLoad(){const k=this.k('cdb');if(!k)return Promise.resolve({});return this.cP||(this.cP=IDBS.get(k).then(c=>this.cDocs=(c&&typeof c==='object'?c:{})))},
+ cSave(){clearTimeout(this.cT);this.cT=setTimeout(()=>{const k=this.k('cdb');if(k&&this.cDocs)IDBS.set(k,this.cDocs)},1500)},
+ /* --- coda dei messaggi --- */
+ qT:0,
+ qSave(){clearTimeout(this.qT);this.qT=setTimeout(()=>{const k=this.k('vcq');if(!k||!VC.me)return;const ids=new Set(VC.dirty);
+  for(const id in VC.mine){const d=VC.mine[id];if(d&&(d.msgs||[]).some(m=>VC.pend.has(m.id)))ids.add(id)}
+  if(!ids.size)return IDBS.del(k);const mine={};ids.forEach(id=>{if(VC.mine[id])mine[id]=VC.mine[id]});IDBS.set(k,JSON.parse(JSON.stringify({mine,pend:[...VC.pend]})))},400)},
+ async qLoad(){const k=this.k('vcq');if(!k)return;const q=await IDBS.get(k);if(!q||!q.mine)return;
+  for(const id in q.mine){VC.mine[id]=q.mine[id];VC.dirty.add(id)}(q.pend||[]).forEach(x=>VC.pend.add(x))},
+ canChat(){try{return this.off()&&!!localStorage.getItem(CDB.key())&&!!localStorage.getItem('vybe_ck_'+Real.uid)}catch(e){return false}},
+ /* --- torna la rete: riparte tutto --- */
+ back(){try{if(typeof Real!=='undefined'&&Real.on){VDB.tick();Real.publishSoon(800)}}catch(e){}
+  try{if(CDB.isV()){if(!VC.on)VC.start();else{CDB.kick(0);VC.flush()}}}catch(e){}
+  try{HD.sync()}catch(e){}
+  try{for(const j of Object.values(VJOB.J))if(j.st==='err'&&j.blob&&j.code!=='big'&&j.code!=='stop')VJOB.up(j)}catch(e){}}};
+/* persone: prima la copia salvata, poi la rete */
+{const tk=VDB.tick.bind(VDB);VDB.tick=async function(){await OFFD.vLoad();const r=await tk();OFFD.vSave();return r}}
+{const lf=VDB.loadFull.bind(VDB);VDB.loadFull=async function(uid){await OFFD.vLoad();const r=await lf(uid);OFFD.vSave();return r}}
+/* chat: la copia salvata arriva subito, quella del server la sostituisce */
+{const w=CDB.watch.bind(CDB);CDB.watch=function(u,cb,err){const un=w(u,cb,err);OFFD.cLoad().then(c=>{if(this.w[u]&&this.w[u].cb===cb&&this.ver[u]===-1&&c[u])try{cb(this.snap(c[u]))}catch(e){}});return un}}
+{const cl=CDB.call.bind(CDB);CDB.call=async function(o,retry){const j=await cl(o,retry);if(o&&o.op==='sync'&&j&&j.docs&&await OFFD.cLoad()&&OFFD.cDocs){let ch=false;for(const u in j.docs){OFFD.cDocs[u]=j.docs[u];ch=true}if(ch)OFFD.cSave()}return j}}
+{const ik=VC.initKeys.bind(VC);VC.initKeys=async function(){const r=await ik();try{await OFFD.qLoad()}catch(e){}return r}}
+{const pt=VC.put.bind(VC);VC.put=function(id){const r=pt(id);OFFD.qSave();return r}}
+{const fl=VC.flush.bind(VC);VC.flush=async function(){if(OFFD.off()){OFFD.qSave();return}const r=await fl();OFFD.qSave();return r}}
+addEventListener('online',()=>setTimeout(()=>OFFD.back(),600));
+setInterval(()=>{try{if(VC.on&&VC.ready&&!VC.busy&&VC.dirty.size&&!OFFD.off())VC.flush()}catch(e){}},5000);
+/* post e storie creati senza rete: restano sul telefono e partono da soli quando torna la rete */
+{const ap=afterPublish;afterPublish=function(){const r=ap.apply(this,arguments);if(OFFD.off()){S.offPub=1;try{const t=[...document.querySelectorAll('#toasts .toast span')].reverse().find(x=>/Pubblicato/.test(x.textContent));if(t)t.textContent='Salvato sul telefono ⏳ Lo pubblico appena torna la rete'}catch(e){}}return r}}
+{const bk=OFFD.back.bind(OFFD);OFFD.back=function(){bk();if(S.offPub&&S.acc){S.offPub=0;setTimeout(()=>toast('Rete tornata: pubblico quello che hai creato offline ✨'),900)}}}
 
 /* ============ BOOT ============ */
 S.sp=mountSpace($('#splash'),'warp');

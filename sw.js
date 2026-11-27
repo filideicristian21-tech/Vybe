@@ -2,7 +2,7 @@
    - la pagina iniziale (/) viene salvata sul telefono: senza rete si apre lo stesso e
      carica l'app già salvata (la cache 'vybe-app' la gestisce la pagina iniziale)
    - font, librerie e modelli 3D con versione fissa vengono salvati la prima volta che servono
-   - le foto di Vybe (/b2/...) già viste restano visibili anche senza rete
+   - le foto già viste (/b2/... e Vercel Blob) restano visibili anche senza rete (max 300)
    - le chiamate /api/ vanno sempre in rete (niente dati vecchi) */
 const ICON='/icon-192.png';
 const SHELL='vybe-shell-v1',LIBS='vybe-libs-v1',MEDIA='vybe-media-v1',KEEP=[SHELL,LIBS,MEDIA,'vybe-app'];
@@ -34,6 +34,12 @@ async function swr(e,name,opaqueOk){const req=e.request;const c=await caches.mat
  const net=fetch(req).then(r=>{if(r.ok||(opaqueOk&&r.type==='opaque'))e.waitUntil(put(name,req,r.clone()));return r});
  if(c){e.waitUntil(net.catch(()=>{}));return c}return net}
 
+/* foto dei post su Vercel Blob / Supabase: le scarico in modalità cors (così la copia salvata è leggibile e non "gonfia" lo spazio) */
+const PUBIMG=/(^|\.)public\.blob\.vercel-storage\.com$|\.supabase\.co$/;
+async function pubImg(e){const req=e.request;const c=await caches.match(req.url,{cacheName:MEDIA});if(c)return c;
+ try{const r=await fetch(req.url,{mode:'cors',credentials:'omit'});if(r.ok){e.waitUntil(put(MEDIA,req.url,r.clone()).then(()=>trim(MEDIA,MEDIA_MAX)));return r}}catch(_){}
+ return fetch(req)}
+
 const VERSIONED=/^\/(npm\/[^/]+@\d[^/]*|npm\/@[^/]+\/[^/]+@\d[^/]*|gh\/[^/]+\/[^/]+@[0-9a-f]{7,40})\//;
 self.addEventListener('fetch',e=>{const req=e.request;if(req.method!=='GET'||req.headers.has('range'))return;
  let url;try{url=new URL(req.url)}catch(_){return}
@@ -44,6 +50,7 @@ self.addEventListener('fetch',e=>{const req=e.request;if(req.method!=='GET'||req
   if(SHELL_URLS.includes(url.pathname)||/\.(html|png|webmanifest|txt|xml)$/.test(url.pathname))return e.respondWith(swr(e,SHELL,false));
   return}
  if(url.hostname==='cdn.jsdelivr.net'&&VERSIONED.test(url.pathname)&&!url.pathname.endsWith('/index.html'))return e.respondWith(cacheFirst(e,LIBS,false));
+ if(req.destination==='image'&&PUBIMG.test(url.hostname)&&(url.hostname.endsWith('vercel-storage.com')||url.pathname.includes('/storage/v1/object/public/')))return e.respondWith(pubImg(e));
  if(url.hostname==='fonts.gstatic.com')return e.respondWith(cacheFirst(e,LIBS,true));
  if(url.hostname==='fonts.googleapis.com')return e.respondWith(swr(e,LIBS,true));
 });
