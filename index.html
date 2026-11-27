@@ -4415,7 +4415,7 @@ const CDB={sid:null,state:'idle',w:{},ver:{},timer:0,busy:false,authP:null,warne
  doc(path){const p=String(path).split('/');
   if(p[0]==='data'&&p[3]==='chatkey')return{get:async()=>({exists:!!(S.acc&&S.acc.chatkey),data:()=>S.acc&&S.acc.chatkey}),set:async k=>{if(S.acc){S.acc.chatkey=k;try{save()}catch(e){}}}};
   if(p[0]==='chat'&&p[2]==='c')return{set:async d=>{try{await this.call({op:'put',id:p[3],d});this.kick(this.fast()?300:1500)}catch(e){
-     if(e&&e.status===403){if(Date.now()-this.warned>8000){this.warned=Date.now();toast('Messaggio non inviato: potete scrivervi solo se vi seguite a vicenda')}return}
+     if(e&&e.status===403){if(/^d_/.test(p[3]||'')&&Date.now()-this.warned>8000){this.warned=Date.now();toast('Messaggio non inviato: potete scrivervi solo se vi seguite a vicenda')}return}
      if(e&&e.code==='nodb'){toast('Vybe Chat non è ancora attiva');return}await new Promise(r=>setTimeout(r,4000));throw e}},
    get:async()=>({exists:false,data:()=>undefined}),delete:async()=>{try{await this.call({op:'put',id:p[3],d:null})}catch(e){}}};
   if(p[0]==='chat'&&p[2]==='i')return{set:async d=>{await this.call({op:'img_put',id:p[3],d})},get:async()=>{const j=await this.call({op:'img_get',o:p[1],id:p[3]});return{exists:!!j.d,data:()=>j.d}}};
