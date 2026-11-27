@@ -1,0 +1,40 @@
+# Vybe per iPhone: Codemagic compila l'app su un Mac nel cloud e la manda su TestFlight / App Store Connect.
+# Si avvia a mano dal sito di Codemagic (pulsante "Start new build"). La guida passo passo è in app/GUIDA-APP-STORE.md.
+workflows:
+  ios-testflight:
+    name: Vybe iPhone → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: app
+    integrations:
+      # nome della chiave API di App Store Connect aggiunta in Codemagic (Team settings → Integrations)
+      app_store_connect: Vybe App Store Connect
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: it.vybe.app
+      vars:
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Installa le dipendenze
+        script: npm ci
+      - name: Prepara il progetto iPhone (Capacitor)
+        script: npx cap sync ios
+      - name: Usa i certificati di firma
+        script: xcode-project use-profiles
+      - name: Numero di build
+        script: |
+          cd ios/App
+          agvtool new-version -all "$BUILD_NUMBER"
+      - name: Compila l'app (.ipa)
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
