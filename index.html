@@ -1462,7 +1462,7 @@ function save(){if(!S.acc)return;S.acc.updated=Date.now();persistSoon();const ok
 function computeAge(){const b=new Date(S.acc.birth),n=new Date();let a=n.getFullYear()-b.getFullYear();const m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))a--;S.age=a;S.teen=a<18}
 function ME(){const a=S.acc;return{id:'me',n:a.name,first:a.name.split(' ')[0],u:a.username,c:['#7c3aed','#ec4899'],img:a.avatar||null,me:true,v:false,bio:a.bio}}
 const initials=n=>n.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
-function avHTML(p,s){return p.img?`<img class="av" src="${p.img}" style="width:${s}px;height:${s}px" alt="">`:`<span class="av" style="width:${s}px;height:${s}px;font-size:${Math.round(s*.38)}px;background:linear-gradient(135deg,${p.c[0]},${p.c[1]})">${esc(initials(p.n))}</span>`}
+function avHTML(p,s){p=p||{n:'?',c:['#6b7280','#374151']};const pc=p.c||['#6b7280','#374151'];return p.img?`<img class="av" src="${p.img}" style="width:${s}px;height:${s}px" alt="">`:`<span class="av" style="width:${s}px;height:${s}px;font-size:${Math.round(s*.38)}px;background:linear-gradient(135deg,${pc[0]},${pc[1]})">${esc(initials(p.n||'?'))}</span>`}
 function authorOf(p){return p.mine?ME():USERS[p.author]}
 
 function genPost(){
@@ -1703,7 +1703,7 @@ function buildApp(){
  document.addEventListener('visibilitychange',()=>{if(document.hidden){S.hiddenAt=Date.now();Music.stop();if(S.actReel)S.actReel.classList.remove('act');S.actReel=null}else if(S.acc&&S.hiddenAt&&Date.now()-S.hiddenAt>60000&&S.acc.settings.autolock&&!$('#main').classList.contains('hidden'))lockScreen()});
  schedule();
 }
-function refreshAll(){renderStories();renderTabs();renderGrid(true);S.reelN=0;$('#rscroll').innerHTML='';renderReels();S.actReel=null;requestAnimationFrame(reelFx);renderInbox();renderProfile();renderNav();updateBadges()}
+function refreshAll(){/* ogni parte si disegna da sola: se una si rompe, le altre (e l'avvio dell'app) vanno avanti */const T=(n,f)=>{try{f()}catch(e){try{console.log('refresh '+n,e)}catch(_){}}};T('stories',renderStories);T('tabs',renderTabs);T('grid',()=>renderGrid(true));T('reels',()=>{S.reelN=0;$('#rscroll').innerHTML='';renderReels();S.actReel=null;requestAnimationFrame(reelFx)});T('inbox',renderInbox);T('profile',renderProfile);T('nav',renderNav);T('badges',updateBadges)}
 function renderNav(){const me=S.acc?ME():null;$('#nav').innerHTML=`
  <button data-a="nav" data-v="home" class="${S.view==='home'?'on':''}" aria-label="Home">${ic('home',26)}</button>
  <button data-a="nav" data-v="reels" class="${S.view==='reels'?'on':''}" aria-label="Scorri">${ic('play',26)}</button>
@@ -2178,7 +2178,7 @@ function enterApp(){
  {const a=S.acc;if(!a.followerIds){a.followerIds=[];const r=mulberry(77),want=Math.min(a.followers||0,USERS.length-1);let g=0;while(a.followerIds.length<want&&g++<5000){const id=Math.floor(r()*USERS.length);if(!a.followerIds.includes(id))a.followerIds.push(id)}}
   a.followers=a.followerIds.length;if((a.v||1)<2){a.v=2;a.settings.autolock=false}a.loggedIn=true}
  ensureAcc();save();
- if(!S.booted){buildApp();initV4();S.booted=true}else refreshAll();
+ if(!S.booted){try{buildApp()}catch(e){try{console.log('buildApp',e)}catch(_){}}try{initV4()}catch(e){}S.booted=true}else refreshAll();
  setTimeout(()=>{vplusCheck();catchUp()},1400);applyTheme();
 }
 function initV4(){S.chats=S.acc.chats;
@@ -2487,13 +2487,13 @@ function openHighlight(id){const h=S.acc.highlights.find(x=>x.id===id);if(!h)ret
  openStory(0,[{mine:true,hl:h,who:ME(),frames,time:frames[0].time}])}
 /* ---------- Chat 2.0 ---------- */
 const lastT=c=>c.msgs.length?c.msgs[c.msgs.length-1].time:0;
-function chatList(){return S.acc.chats.filter(c=>c.type==='group'||(!isBlocked(c.u)&&(!S.teen||isFollow(c.u)))).sort((x,y)=>lastT(y)-lastT(x))}
+function chatList(){return(S.acc.chats||[]).filter(c=>c&&(c.type==='group'||(USERS[c.u]&&!isBlocked(c.u)&&(!S.teen||isFollow(c.u))))&&Array.isArray(c.msgs)).sort((x,y)=>lastT(y)-lastT(x))}
 function visibleChats(){return S.acc?chatList():[]}
 function chatOf(u){u=+u;let c=S.acc.chats.find(c=>c.type==='dm'&&c.u===u);if(!c){c={id:'d'+u,type:'dm',u,msgs:[],unread:false};S.acc.chats.push(c)}return c}
 function presence(u){const m=Math.floor(Date.now()/60000),h=(u*7919+Math.floor(m/9))%11;if(h<3)return{on:true};return{on:false,ago:Date.now()-(((u*31+Math.floor(m/9))%180)+2)*60000}}
 function presenceTxt(u){const st=S.acc.status,p=presence(u);if(p.on)return st.online?'Online':'';if(!st.lastSeen)return'';const a=ago(p.ago);return'Ultimo accesso '+(a==='adesso'?'adesso':a+' fa')}
 function avOn(w,s,u){return`<span class="avw">${avHTML(w,s)}${u!=null&&S.acc.status.online&&presence(u).on?'<i class="online"></i>':''}</span>`}
-function chatTitle(c){return c.type==='group'?c.name:USERS[c.u].n}
+function chatTitle(c){return c.type==='group'?(c.name||'Gruppo'):((USERS[c.u]||{}).n||'Utente')}
 function chatAv(c,s){if(c.type==='group'){const m=c.members.slice(0,2).map(u=>USERS[u]);return`<span class="gav">${avHTML(m[0],s*.72)}${avHTML(m[1]||ME(),s*.72)}</span>`}return avOn(USERS[c.u],s,c.u)}
 function msgPreview(m){return m.img?'📷 Foto':m.video?'🎬 Video':m.audio?'🎙️ Nota vocale':m.post?'↗️ Post condiviso':m.t}
 function renderInbox(){if(!S.acc)return;const L=chatList();
