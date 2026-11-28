@@ -11053,6 +11053,22 @@ Object.assign(PZ, {
   }
 });
 
+/* ============ v126: barra in alto (sotto l'ora e la batteria) dello stesso colore della schermata, niente più "fascia sfocata" ============
+   iOS 26 colora la zona dell'ora usando lo sfondo della pagina: se è diverso da quello dell'intestazione, compare una fascia/ombra.
+   Qui sfondo della pagina, colore del tema e fascia in alto prendono sempre il colore della parte alta della schermata aperta. */
+(() => {
+  const st = document.createElement('style');
+  st.textContent = 'html,body{background:var(--sbc,#07060c)!important}html::before{background:var(--sbc,#07060c)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important}';
+  document.head.appendChild(st);
+  const meta = () => { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m) } return m };
+  const solid = el => { while (el && el !== document.documentElement && el !== document.body) { const c = getComputedStyle(el).backgroundColor; const m = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/); if (m && (m[4] === undefined || +m[4] > .5)) return `rgb(${m[1] | 0},${m[2] | 0},${m[3] | 0})`; el = el.parentElement } return 'rgb(7,6,12)' };
+  let last = '';
+  const upd = () => { try { const a = document.getElementById('app'); const top = a ? Math.max(0, a.getBoundingClientRect().top) : 0; const el = document.elementFromPoint(innerWidth / 2, top + 3); const c = solid(el);
+    if (c !== last) { last = c; document.documentElement.style.setProperty('--sbc', c); meta().content = c } } catch (e) { } };
+  window.SBC = { upd };
+  setInterval(upd, 350); addEventListener('touchend', () => setTimeout(upd, 80), { passive: true }); addEventListener('click', () => setTimeout(upd, 80), true); upd();
+})();
+
 /* ============ BOOT ============ */
 /* avvio veloce: chi ha già l'account sul telefono non aspetta tutta l'animazione */
 const QUICK=(()=>{try{const a=JSON.parse(localStorage.getItem('vybe_acc')||'null');return!!(a&&a.username&&a.loggedIn!==false)}catch(e){return false}})();
