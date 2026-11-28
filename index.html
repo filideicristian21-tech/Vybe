@@ -10189,19 +10189,15 @@ const PZ = {
     /* alberi (tanti, disegnati tutti insieme per non pesare sul telefono) */
     const blob = r => { const ge = new T.IcosahedronGeometry(r, 2), p = ge.attributes.position; for (let i = 0; i < p.count; i++) { const v = new T.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(1 + (Math.sin(v.x * 3.1) + Math.cos(v.y * 2.7) + Math.sin(v.z * 3.7)) * .07); p.setXYZ(i, v.x, v.y, v.z) } ge.computeVertexNormals(); return ge };
     const trees = []; let guard = 0;
-    while (trees.length < 110 && guard++ < 4000) { const a = Math.random() * Math.PI * 2, r = rnd(27, W - 4), x = Math.cos(a) * r, z = Math.sin(a) * r;
+    while (trees.length < 80 && guard++ < 4000) { const a = Math.random() * Math.PI * 2, r = rnd(27, W - 4), x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (onPath(x, z) || (Math.abs(x) < 16 && Math.abs(z + 76) < 11) || (this.slots ? this.slots() : []).some(sl => Math.hypot(x - sl.x, z - sl.z) < 8) || Math.hypot(x - LX, z - LZ) < 14 || Math.hypot(x + 34, z + 34) < 14 || Math.hypot(x + 36, z - 34) < 16 || Math.hypot(x - 36, z + 34) < 11) continue;
       if (trees.some(t => Math.hypot(t.x - x, t.z - z) < 4.2)) continue; trees.push({ x, z, h: rnd(2.2, 3.4), s: rnd(.85, 1.25), ry: Math.random() * 6 }) }
-    const bark = new T.MeshStandardMaterial({ map: tex('hardwood2_diffuse.jpg', 1, true), color: '#6a4a33', roughness: .95 });
-    const trunkI = new T.InstancedMesh(new T.CylinderGeometry(.16, .28, 1, 8), bark, trees.length); trunkI.castShadow = true;
-    const leafGeo = [blob(1.4), blob(1.2), blob(1.6)], leafM = [new T.MeshStandardMaterial({ color: '#3e7a35', roughness: .9 }), new T.MeshStandardMaterial({ color: '#4e8f3c', roughness: .9 }), new T.MeshStandardMaterial({ color: '#376e30', roughness: .9 })];
-    const leafI = leafGeo.map((ge, k) => { const m = new T.InstancedMesh(ge, leafM[k], trees.length); m.castShadow = true; return m });
-    const M4 = new T.Matrix4(), Q = new T.Quaternion(), V = new T.Vector3(), Sv = new T.Vector3(), OFF = [[-.5, 1.0, .3], [.6, .55, -.4], [0, 1.5, 0]];
-    trees.forEach((t, i) => { Q.setFromAxisAngle(new T.Vector3(0, 1, 0), t.ry); M4.compose(V.set(t.x, t.h / 2, t.z), Q, Sv.set(1, t.h, 1)); trunkI.setMatrixAt(i, M4);
-      leafI.forEach((m, k) => { const o = OFF[k]; M4.compose(V.set(t.x + o[0] * t.s, t.h + o[1] * t.s, t.z + o[2] * t.s), Q, Sv.setScalar(t.s)); m.setMatrixAt(i, M4) }); g.obst.push({ x: t.x, z: t.z, r: .55 }) });
-    sc.add(trunkI); leafI.forEach(m => sc.add(m));
+    /* alberi veri: rami, corteccia e foglie (v125) */
+    trees.forEach(t => g.obst.push({ x: t.x, z: t.z, r: .55 }));
+    try { this.realTrees(g, T, sc, trees, W) } catch (e) { console.log('pz trees', e) }
+    const leafM = [new T.MeshStandardMaterial({ color: '#3e7a35', roughness: .9 })]; const M4 = new T.Matrix4(), Q = new T.Quaternion(), V = new T.Vector3(), Sv = new T.Vector3();
     /* siepe che chiude il mondo */
-    const hedge = new T.Mesh(new T.TorusGeometry(W + 2, .8, 8, 180), leafM[0]); hedge.rotation.x = Math.PI / 2; hedge.position.y = .4; sc.add(hedge);
+
     /* zona DJ con pista da ballo luminosa (nord-ovest) */
     const DX = -34, DZ = -34; g.zones.push({ n: '🎧 Pista da ballo', x: DX, z: DZ });
     const stage = new T.Mesh(new T.CylinderGeometry(3, 3.2, .4, 40), new T.MeshStandardMaterial({ color: '#2b2140', roughness: .5, metalness: .2 })); stage.position.set(DX - 6, .2, DZ - 6); stage.receiveShadow = true; sc.add(stage); g.obst.push({ x: DX - 6, z: DZ - 6, r: 3.2 });
@@ -10237,6 +10233,9 @@ const PZ = {
       const COLS = ['#ef4444', '#f59e0b', '#fde047', '#ec4899', '#a855f7', '#ffffff', '#f97316', '#e11d48'].map(c => new T.Color(c));
       spots.forEach((p, i) => { M4.compose(V.set(p.x, p.h / 2, p.z), Q.identity(), Sv.set(1, p.h, 1)); stemI.setMatrixAt(i, M4); M4.compose(V.set(p.x, p.h, p.z), Q, Sv.setScalar(rnd(.8, 1.3))); headI.setMatrixAt(i, M4); headI.setColorAt(i, COLS[(Math.random() * COLS.length) | 0]) });
       sc.add(stemI); sc.add(headI) }
+    /* prato vero con i fili d'erba (non sui viali, sull'acqua, sui campi e nelle case) */
+    try { const F = this.FIELD || { x: 0, z: -76, w: 24, h: 14 }; const sl = this.slots ? this.slots() : [];
+      this.grass(g, T, sc, (x, z) => onPath(x, z) || Math.hypot(x - LX, z - LZ) < 10.8 || (Math.abs(x - BX) < 14 && Math.abs(z - BZ) < 8) || (Math.abs(x - F.x) < F.w / 2 + .6 && Math.abs(z - F.z) < F.h / 2 + .6) || (Math.abs(x - DX) < 8 && Math.abs(z - DZ) < 8) || Math.hypot(x - DX + 6, z - DZ + 6) < 3.5 || (Math.abs(x - GX) < 3 && Math.abs(z - GZ) < 2.2) || sl.some(p => Math.hypot(x - p.x, z - p.z) < 5.2)) } catch (e) { console.log('pz grass', e) }
     /* io */
     const mine = AVR.clean(S.acc.a3) || AVR.def();
     g.me = await this.makeEnt(g, 'me', { n: 'Tu', av: mine, x: rnd(-3, 3), z: 17 + rnd(0, 2), r: Math.PI }, true);
@@ -10600,7 +10599,7 @@ Object.assign(PZ, {
     /* maglietta (solo l'avatar Marco ha la maglia separata) */
     e.ch.root.traverse(m => { if (m.isMesh && m.material && m.material.name === 'Wolf3D_Outfit_Top') { if (!m.userData.c0) m.userData.c0 = m.material.color.clone(); m.material.color.copy(o.c ? new T.Color(o.c) : m.userData.c0) } });
     if (!o.h && !o.o) return;
-    let head = null; e.ch.root.traverse(b => { if (!head && b.isBone && /(^|:)Head$/.test(b.name)) head = b }); if (!head) return; e.head = head;
+    let head = null; e.ch.root.traverse(b => { if (!head && b.isBone && /Head$/.test(b.name)) head = b }); if (!head) return; e.head = head;
     const G = new T.Group(); const mat = c => new T.MeshStandardMaterial({ color: c, roughness: .5, metalness: .1 });
     const hy = .17;
     if (o.h === 'cap') { const c = new T.Mesh(new T.SphereGeometry(.115, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#2563eb')); c.position.y = hy - .03; G.add(c); const v = new T.Mesh(new T.CylinderGeometry(.11, .11, .015, 20, 1, false, -Math.PI / 2, Math.PI), mat('#1e40af')); v.position.set(0, hy - .03, .07); G.add(v) }
@@ -10896,6 +10895,163 @@ SAVER.apply();
 /* post e storie creati senza rete: restano sul telefono e partono da soli quando torna la rete */
 {const ap=afterPublish;afterPublish=function(){const r=ap.apply(this,arguments);if(OFFD.off()){S.offPub=1;try{const t=[...document.querySelectorAll('#toasts .toast span')].reverse().find(x=>/Pubblicato/.test(x.textContent));if(t)t.textContent='Salvato sul telefono ⏳ Lo pubblico appena torna la rete'}catch(e){}}return r}}
 {const bk=OFFD.back.bind(OFFD);OFFD.back=function(){bk();if(S.offPub&&S.acc){S.offPub=0;setTimeout(()=>toast('Rete tornata: pubblico quello che hai creato offline ✨'),900)}}}
+
+/* ============ v125: Piazza realistica — alberi veri (rami, corteccia, foglie che si muovono col vento), prato con fili d'erba, cespugli ============ */
+Object.assign(PZ, {
+  /* numeri casuali ripetibili */
+  rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } },
+  /* ---------- texture disegnate al volo (niente download) ---------- */
+  barkTex(T, kind) {
+    const w = 256, h = 512, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); const r = this.rng(kind === 'birch' ? 7 : kind === 'pine' ? 11 : 3);
+    const hm = new Float32Array(w * h);
+    if (kind === 'birch') {
+      x.fillStyle = '#e9e5dc'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 90; i++) { const y = r() * h, xx = r() * w, L = 8 + r() * 50, H = 2 + r() * 5; x.fillStyle = `rgba(${30 + r() * 30},${28 + r() * 25},${26 + r() * 20},${.55 + r() * .4})`; x.beginPath(); x.ellipse(xx, y, L / 2, H / 2, 0, 0, 7); x.fill() }
+      for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(150,140,125,${r() * .25})`; x.fillRect(r() * w, r() * h, 1 + r() * 3, 1) }
+    } else {
+      const base = kind === 'pine' ? [112, 72, 52] : [92, 76, 62];
+      x.fillStyle = `rgb(${base})`; x.fillRect(0, 0, w, h);
+      /* creste verticali della corteccia */
+      for (let i = 0; i < 140; i++) { let xx = r() * w; const y0 = r() * h, len = 60 + r() * 260, wd = 2 + r() * 7, d = r() < .5;
+        x.strokeStyle = d ? `rgba(${base[0] * .45},${base[1] * .45},${base[2] * .45},${.5 + r() * .4})` : `rgba(${Math.min(255, base[0] * 1.45)},${Math.min(255, base[1] * 1.4)},${Math.min(255, base[2] * 1.3)},${.25 + r() * .3})`;
+        x.lineWidth = wd; x.beginPath(); x.moveTo(xx, y0); for (let y = y0; y < y0 + len; y += 16) { xx += (r() - .5) * 6; x.lineTo(xx, y) } x.stroke() }
+      if (kind === 'pine') for (let i = 0; i < 160; i++) { x.fillStyle = `rgba(${60 + r() * 50},${35 + r() * 25},${25 + r() * 15},${.5 + r() * .4})`; x.fillRect(r() * w, r() * h, 10 + r() * 30, 5 + r() * 12) }
+      for (let i = 0; i < 2500; i++) { const v = r() * 60 - 30; x.fillStyle = `rgba(${128 + v},${120 + v},${105 + v},.12)`; x.fillRect(r() * w, r() * h, 2, 2) }
+      /* un po' di muschio alla base */
+      for (let i = 0; i < 60; i++) { x.fillStyle = `rgba(${70 + r() * 30},${100 + r() * 30},${40 + r() * 20},${r() * .25})`; x.beginPath(); x.arc(r() * w, h - r() * 90, 3 + r() * 10, 0, 7); x.fill() }
+    }
+    const id = x.getImageData(0, 0, w, h).data; for (let i = 0; i < w * h; i++) hm[i] = (id[i * 4] + id[i * 4 + 1] + id[i * 4 + 2]) / 765;
+    const nc = document.createElement('canvas'); nc.width = w; nc.height = h; const nx = nc.getContext('2d'); const nd = nx.createImageData(w, h); const k = kind === 'birch' ? 2 : 5;
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) { const i = yy * w + xx, l = hm[yy * w + ((xx - 1 + w) % w)], rr = hm[yy * w + (xx + 1) % w], u = hm[((yy - 1 + h) % h) * w + xx], dd = hm[((yy + 1) % h) * w + xx];
+      let X = (l - rr) * k, Y = (u - dd) * k, Z = 1; const L = Math.hypot(X, Y, Z); nd.data[i * 4] = (X / L * .5 + .5) * 255; nd.data[i * 4 + 1] = (Y / L * .5 + .5) * 255; nd.data[i * 4 + 2] = (Z / L * .5 + .5) * 255; nd.data[i * 4 + 3] = 255 }
+    nx.putImageData(nd, 0, 0);
+    const map = new T.CanvasTexture(c), nrm = new T.CanvasTexture(nc); [map, nrm].forEach(t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = 4 }); map.colorSpace = T.SRGBColorSpace;
+    return { map, nrm };
+  },
+  /* foglie: 4 mazzetti diversi in una sola immagine (2x2) */
+  leafTex(T, kind) {
+    const S = 512, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); const r = this.rng(kind.length * 97 + 5);
+    const pal = { oak: [[52, 92, 34], [74, 116, 42], [96, 136, 52]], birch: [[92, 138, 48], [120, 160, 60], [150, 178, 72]], pine: [[42, 78, 38], [58, 96, 44], [74, 112, 52]], bush: [[44, 86, 34], [62, 106, 40], [84, 128, 48]], ash: [[60, 100, 38], [84, 124, 46], [108, 146, 58]] }[kind] || [[52, 92, 34], [74, 116, 42], [96, 136, 52]];
+    const leaf = (cx, cy, L, Wd, a, col, needle) => { x.save(); x.translate(cx, cy); x.rotate(a);
+      if (needle) { x.strokeStyle = `rgb(${col})`; x.lineWidth = 2; x.beginPath(); x.moveTo(0, 0); x.lineTo(L, 0); x.stroke(); x.restore(); return }
+      const g = x.createLinearGradient(0, -Wd, 0, Wd); g.addColorStop(0, `rgb(${col.map(v => v * .7 | 0)})`); g.addColorStop(.5, `rgb(${col.map(v => Math.min(255, v * 1.18) | 0)})`); g.addColorStop(1, `rgb(${col.map(v => v * .78 | 0)})`);
+      x.fillStyle = g; x.beginPath(); x.moveTo(0, 0); x.bezierCurveTo(L * .25, -Wd, L * .7, -Wd * .8, L, 0); x.bezierCurveTo(L * .7, Wd * .8, L * .25, Wd, 0, 0); x.fill();
+      x.strokeStyle = `rgba(${col.map(v => Math.min(255, v * 1.5) | 0)},.55)`; x.lineWidth = 1.2; x.beginPath(); x.moveTo(1, 0); x.lineTo(L * .92, 0); x.stroke();
+      x.lineWidth = .7; for (let i = 1; i < 5; i++) { const px = L * i / 5.5; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + L * .1, -Wd * .55); x.moveTo(px, 0); x.lineTo(px + L * .1, Wd * .55); x.stroke() } x.restore() };
+    for (let cell = 0; cell < 4; cell++) { const ox = (cell % 2) * S / 2, oy = (cell >> 1) * S / 2, H = S / 2;
+      if (kind === 'pine') { for (let b = 0; b < 7; b++) { const bx = ox + H * (.2 + r() * .6), by = oy + H * (.2 + r() * .6); for (let i = 0; i < 60; i++) { const a = r() * Math.PI * 2; leaf(bx, by, 18 + r() * 30, 0, a, pal[(r() * 3) | 0], 1) } } continue }
+      const n = kind === 'birch' ? 26 : kind === 'bush' ? 30 : 22; const sz = kind === 'birch' ? .2 : kind === 'bush' ? .2 : .26;
+      for (let i = 0; i < n; i++) { const a = r() * Math.PI * 2, d = r() * H * .3; const cx = ox + H / 2 + Math.cos(a) * d, cy = oy + H / 2 + Math.sin(a) * d; const L = H * sz * (.75 + r() * .5);
+        leaf(cx, cy, L, L * (kind === 'birch' ? .42 : .34), a + (r() - .5) * .8, pal[(r() * 3) | 0]) } }
+    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.generateMipmaps = true; return t;
+  },
+  /* vento: le foglie e l'erba ondeggiano */
+  windMat(mat, g, amp, flutter) {
+    mat.onBeforeCompile = sh => { sh.uniforms.uTime = g.windT; sh.uniforms.uCam = g.windCam;
+      sh.vertexShader = 'uniform float uTime;\nuniform vec3 uCam;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        vec3 ip = vec3(instanceMatrix[3][0], 0.0, instanceMatrix[3][2]);
+        #else
+        vec3 ip = vec3(0.0);
+        #endif
+        float hh = max(position.y, 0.0);
+        float ph = uTime * 1.25 + ip.x * 0.21 + ip.z * 0.17;
+        float sw = (sin(ph) * 0.65 + sin(ph * 2.3 + position.y * 0.6) * 0.35) * ${amp.toFixed(4)} * hh * hh;
+        transformed.x += sw; transformed.z += sw * 0.55;
+        ${flutter ? 'transformed += normal * sin(uTime * 7.0 + position.x * 9.0 + position.z * 7.0 + position.y * 5.0) * 0.022;' : ''}
+        ${flutter === 2 ? 'float dc = distance(ip, vec3(uCam.x, 0.0, uCam.z)); transformed.y *= clamp((27.0 - dc) / 7.0, 0.0, 1.0);' : ''}
+        ${flutter === 1 ? '#ifdef USE_INSTANCING\n vWPz = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\n vWPz = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif' : ''}`);
+      /* foglie vicinissime alla telecamera: spariscono sfumando, così non ti coprono la vista */
+      if (flutter === 1) { sh.vertexShader = 'varying vec3 vWPz;\n' + sh.vertexShader; sh.fragmentShader = 'uniform vec3 uCam;\nvarying vec3 vWPz;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n float dcf = distance(vWPz, uCam); if (dcf < 3.2) { float th = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453); if (th > (dcf - 1.6) / 1.6) discard; }') } };
+    mat.customProgramCacheKey = () => 'wind' + amp + flutter; return mat;
+  },
+  /* ---------- un albero vero: tronco, rami che si dividono, foglie in fondo ai rami ---------- */
+  genTree(T, P, seed) {
+    const r = this.rng(seed); const bp = [], bn = [], bu = [], bi = [], lp = [], ln = [], lu = []; let vb = 0;
+    const up = new T.Vector3(0, 1, 0), tmp = new T.Vector3(), q = new T.Quaternion(); const crown = new T.Vector3(0, P.len * (P.crownY || .85), 0);
+    const addLeaves = (pts, rad, n) => { for (let i = 0; i < n; i++) { const t = P.leafFrom + r() * (1 - P.leafFrom); const k = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))); const f = t * (pts.length - 1) - k;
+        const c = pts[k].clone().lerp(pts[k + 1], f).add(new T.Vector3((r() - .5), (r() - .5), (r() - .5)).multiplyScalar(P.leafSpread)); const s = P.leafSize * (.75 + r() * .5);
+        const cell = (r() * 4) | 0, u0 = (cell % 2) * .5, v0 = (cell >> 1) * .5; const yaw = r() * Math.PI * 2, tilt = (r() - .5) * 1.2;
+        const nrm = c.clone().sub(crown).normalize().lerp(up, .35).normalize();
+        for (let pl = 0; pl < 2; pl++) { const a = yaw + pl * Math.PI / 2; const ax = new T.Vector3(Math.cos(a), 0, Math.sin(a)), ay = new T.Vector3(0, 1, 0).applyAxisAngle(ax, tilt);
+          const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+          corners.forEach(([cx, cy]) => { const p = c.clone().addScaledVector(ax, cx * s / 2).addScaledVector(ay, cy * s / 2); lp.push(p.x, p.y, p.z); ln.push(nrm.x, nrm.y, nrm.z); lu.push(u0 + (cx + 1) / 4, v0 + (cy + 1) / 4) }) } } };
+    const branch = (start, dir, len, r0, lvl) => {
+      const segs = lvl === 0 ? 9 : lvl === 1 ? 6 : 4, rad = lvl === 0 ? 11 : lvl === 1 ? 5 : 3; const pts = [start.clone()], ds = [dir.clone().normalize()];
+      let d = dir.clone().normalize(); for (let i = 1; i <= segs; i++) { d.add(new T.Vector3(r() - .5, (r() - .5) * .5, r() - .5).multiplyScalar(P.gnarl[lvl] || .2)); if (lvl > 0) d.y += P.upward * (i / segs); d.normalize(); ds.push(d.clone()); pts.push(pts[i - 1].clone().addScaledVector(d, len / segs)) }
+      /* anelli del ramo */
+      let vlen = 0; for (let i = 0; i <= segs; i++) { const t = i / segs; const rr = Math.max(.012, r0 * (1 - t * (lvl === 0 ? P.taper : .82))) * (lvl === 0 && i === 0 ? 1.35 : 1);
+        q.setFromUnitVectors(up, ds[i]); if (i) vlen += len / segs;
+        for (let j = 0; j <= rad; j++) { const a = j / rad * Math.PI * 2; tmp.set(Math.cos(a), 0, Math.sin(a)).applyQuaternion(q); const p = pts[i].clone().addScaledVector(tmp, rr);
+          bp.push(p.x, p.y, p.z); bn.push(tmp.x, tmp.y, tmp.z); bu.push(j / rad * Math.max(1, Math.round(r0 * 9)), vlen / (P.barkScale || 1.4)) } }
+      for (let i = 0; i < segs; i++) for (let j = 0; j < rad; j++) { const a = vb + i * (rad + 1) + j, b = a + rad + 1; bi.push(a, b, a + 1, b, b + 1, a + 1) } vb += (segs + 1) * (rad + 1);
+      if (lvl >= P.leafLvl) addLeaves(pts, r0, P.leafN[lvl] || 0);
+      if (lvl >= P.levels) return;
+      const n = P.kids[lvl]; for (let k = 0; k < n; k++) { const t = P.kidFrom[lvl] + (1 - P.kidFrom[lvl]) * ((k + r() * .7) / n); const ii = Math.min(segs - 1, Math.floor(t * segs)); const f = t * segs - ii;
+        const s = pts[ii].clone().lerp(pts[ii + 1], f); const pd = ds[ii].clone(); const az = k * 2.39996 + r() * .6; const ang = (P.angle[lvl] + (r() - .5) * 14) * Math.PI / 180;
+        let perp = new T.Vector3(1, 0, 0); if (Math.abs(pd.x) > .9) perp.set(0, 0, 1); perp.cross(pd).normalize(); const nd = pd.clone().applyAxisAngle(perp, ang).applyAxisAngle(pd, az);
+        const cl = len * P.lenR[lvl] * (1 - t * P.shrink) * (.8 + r() * .4); branch(s, nd, cl, r0 * (1 - t * .7) * P.radR, lvl + 1) } };
+    if (P.bush) { for (let k = 0; k < 7; k++) { const a = k * 2.4; branch(new T.Vector3(0, 0, 0), new T.Vector3(Math.cos(a) * .9, 1, Math.sin(a) * .9), P.len * (.7 + r() * .4), P.r0, 1) } }
+    else branch(new T.Vector3(0, 0, 0), new T.Vector3((r() - .5) * .12, 1, (r() - .5) * .12), P.len, P.r0, 0);
+    const bg = new T.BufferGeometry(); bg.setAttribute('position', new T.Float32BufferAttribute(bp, 3)); bg.setAttribute('normal', new T.Float32BufferAttribute(bn, 3)); bg.setAttribute('uv', new T.Float32BufferAttribute(bu, 2)); bg.setIndex(bi);
+    const lg = new T.BufferGeometry(); lg.setAttribute('position', new T.Float32BufferAttribute(lp, 3)); lg.setAttribute('normal', new T.Float32BufferAttribute(ln, 3)); lg.setAttribute('uv', new T.Float32BufferAttribute(lu, 2));
+    const li = []; for (let i = 0; i < lp.length / 12; i++) { const a = i * 4; li.push(a, a + 1, a + 2, a, a + 2, a + 3) } lg.setIndex(li);
+    bg.computeBoundingSphere(); lg.computeBoundingSphere(); return { bg, lg };
+  },
+  SPECIES: {
+    /* quercia larga */
+    oak: { len: 3.4, r0: .34, levels: 2, kids: [7, 5], kidFrom: [.42, .25], angle: [58, 46], lenR: [.66, .62], shrink: .45, radR: .62, taper: .55, gnarl: [.12, .35, .4], upward: .08, leafLvl: 1, leafN: [0, 4, 12], leafFrom: .35, leafSize: 1.35, leafSpread: .7, bark: 'oak', leaves: 'oak', crownY: 1.2 },
+    /* tiglio / frassino, più alto */
+    ash: { len: 5.2, r0: .3, levels: 2, kids: [8, 5], kidFrom: [.45, .3], angle: [42, 42], lenR: [.52, .62], shrink: .55, radR: .6, taper: .6, gnarl: [.08, .3, .35], upward: .18, leafLvl: 1, leafN: [0, 4, 11], leafFrom: .3, leafSize: 1.25, leafSpread: .65, bark: 'oak', leaves: 'ash', crownY: 1.25 },
+    /* betulla bianca */
+    birch: { len: 6.2, r0: .17, levels: 2, kids: [10, 4], kidFrom: [.4, .3], angle: [34, 40], lenR: [.4, .6], shrink: .6, radR: .55, taper: .7, gnarl: [.05, .25, .3], upward: .22, leafLvl: 1, leafN: [0, 3, 9], leafFrom: .25, leafSize: 1.0, leafSpread: .55, bark: 'birch', leaves: 'birch', crownY: 1.1 },
+    /* pino domestico (l'ombrello delle piazze italiane) */
+    pine: { len: 6.8, r0: .3, levels: 2, kids: [6, 5], kidFrom: [.78, .3], angle: [56, 55], lenR: [.6, .58], shrink: .3, radR: .6, taper: .55, gnarl: [.1, .2, .25], upward: .02, leafLvl: 1, leafN: [0, 4, 14], leafFrom: .4, leafSize: 1.4, leafSpread: .7, bark: 'pine', leaves: 'pine', crownY: 1.2 },
+    /* cespuglio */
+    bush: { bush: 1, len: 1.1, r0: .05, levels: 1, kids: [0, 0], kidFrom: [0, .3], angle: [0, 50], lenR: [0, .6], shrink: .4, radR: .7, taper: .7, gnarl: [0, .4, .4], upward: .1, leafLvl: 1, leafN: [0, 14], leafFrom: .15, leafSize: .7, leafSpread: .45, bark: 'oak', leaves: 'bush', crownY: .5 }
+  },
+  realTrees(g, T, sc, trees, W) {
+    g.windT = g.windT || { value: 0 }; g.windCam = g.windCam || { value: new T.Vector3() };
+    const kinds = ['oak', 'ash', 'oak', 'birch', 'pine', 'ash'], VAR = 2; const barks = {}, leaves = {};
+    /* raggruppo per zona (45 m): così il telefono disegna, anche per le ombre, solo gli alberi vicini o inquadrati */
+    const cell = t => Math.floor((t.x + 200) / 45) + '_' + Math.floor((t.z + 200) / 45); const geos = {};
+    const groups = {}; trees.forEach((t, i) => { const r = Math.hypot(t.x, t.z); let k = kinds[i % kinds.length]; if (r > 70 && i % 3 === 0) k = 'pine'; t.kind = k; t.v = i % VAR; const key = k + t.v + '|' + cell(t); (groups[key] = groups[key] || []).push(t) });
+    /* cespugli lungo il bordo del mondo e attorno alla piazza */
+    const bushes = []; for (let i = 0; i < 80; i++) { const a = i / 80 * Math.PI * 2; bushes.push({ x: Math.cos(a) * (W + 1.5), z: Math.sin(a) * (W + 1.5), s: 1.9 + Math.random() * .7, kind: 'bush', v: i % VAR }) }
+    for (let i = 0; i < 44; i++) { const a = i / 44 * Math.PI * 2 + .05; const x = Math.cos(a) * 24.2, z = Math.sin(a) * 24.2; if (Math.abs(x) < 4.5 || Math.abs(z) < 4.5) continue; bushes.push({ x, z, s: .75 + Math.random() * .3, kind: 'bush', v: i % VAR }) }
+    bushes.forEach(b => { const key = 'bush' + b.v + '|' + cell(b); (groups[key] = groups[key] || []).push(b) });
+    const M4 = new T.Matrix4(), Q = new T.Quaternion(), V = new T.Vector3(), Sv = new T.Vector3(), col = new T.Color(); let tris = 0;
+    for (const key in groups) { const L = groups[key], kind = L[0].kind, P = this.SPECIES[kind]; const gk = kind + L[0].v; const { bg, lg } = geos[gk] || (geos[gk] = this.genTree(T, P, kind.length * 1000 + L[0].v * 77 + 13));
+      if (!barks[P.bark]) { const bt = this.barkTex(T, P.bark); barks[P.bark] = this.windMat(new T.MeshStandardMaterial({ map: bt.map, normalMap: bt.nrm, normalScale: new T.Vector2(1.4, 1.4), roughness: .95, color: P.bark === 'birch' ? '#ffffff' : '#d8cfc4' }), g, .0016, 0) }
+      if (!leaves[P.leaves]) leaves[P.leaves] = this.windMat(new T.MeshStandardMaterial({ map: this.leafTex(T, P.leaves), alphaTest: .45, side: T.DoubleSide, roughness: .8, metalness: 0 }), g, .0028, 1);
+      const bI = new T.InstancedMesh(bg, barks[P.bark], L.length), fI = new T.InstancedMesh(lg, leaves[P.leaves], L.length); bI.castShadow = true; bI.receiveShadow = true; fI.castShadow = true; fI.receiveShadow = true;
+      L.forEach((t, i) => { const s = t.s != null ? t.s * (kind === 'bush' ? 1 : .9 + Math.random() * .3) : 1; Q.setFromAxisAngle(V.set(0, 1, 0), t.ry != null ? t.ry : Math.random() * 6.28); M4.compose(V.set(t.x, 0, t.z), Q, Sv.setScalar(s)); bI.setMatrixAt(i, M4); fI.setMatrixAt(i, M4);
+        col.setHSL(.26 + (Math.random() - .5) * .05, .25 + Math.random() * .2, .42 + Math.random() * .14); fI.setColorAt(i, col.multiplyScalar(1.65)) });
+      bI.computeBoundingSphere(); fI.computeBoundingSphere(); sc.add(bI); sc.add(fI); tris += (bg.index.count + lg.index.count) / 3 * L.length }
+    g.treeTris = tris | 0;
+  },
+  /* ---------- prato vero: ciuffi di fili d'erba, solo vicino a te (così il telefono non soffre) ---------- */
+  grass(g, T, sc, skip) {
+    g.windT = g.windT || { value: 0 }; g.windCam = g.windCam || { value: new T.Vector3() };
+    const r = this.rng(4242); const P = [], N = [], C = [], I = []; let v = 0;
+    const BL = 14; for (let b = 0; b < BL; b++) { const a = r() * Math.PI * 2, d = r() * .26, bx = Math.cos(a) * d, bz = Math.sin(a) * d, h = .1 + r() * .17, w = .011 + r() * .008, lean = (r() - .5) * .7, ry = r() * Math.PI;
+      const ca = Math.cos(ry), sa = Math.sin(ry); const base = new T.Color().setHSL(.25 + r() * .04, .6, .07 + r() * .04), tip = new T.Color().setHSL(.2 + r() * .07, .45 + r() * .2, .2 + r() * .1); const nx = Math.sin(ry) * .45, nz = Math.cos(ry) * .45;
+      const rows = 2; for (let k = 0; k <= rows; k++) { const t = k / rows, ww = w * (1 - t * .92), off = lean * t * t * h; const y = h * t;
+        for (const sd of k === rows ? [0] : [-1, 1]) { const lx = sd * ww; P.push(bx + lx * ca + off * sa, y, bz - lx * sa + off * ca); N.push(nx * sd, 1, nz * sd); const cc = base.clone().lerp(tip, t); C.push(cc.r, cc.g, cc.b) } }
+      for (let k = 0; k < rows - 1; k++) { const a0 = v + k * 2; I.push(a0, a0 + 1, a0 + 2, a0 + 1, a0 + 3, a0 + 2) } I.push(v + (rows - 1) * 2, v + (rows - 1) * 2 + 1, v + rows * 2); v += rows * 2 + 1 }
+    const ge = new T.BufferGeometry(); ge.setAttribute('position', new T.Float32BufferAttribute(P, 3)); ge.setAttribute('normal', new T.Float32BufferAttribute(N, 3)); ge.setAttribute('color', new T.Float32BufferAttribute(C, 3)); ge.setIndex(I); ge.computeBoundingSphere();
+    const mat = this.windMat(new T.MeshStandardMaterial({ vertexColors: true, side: T.DoubleSide, roughness: .85 }), g, .5, 2);
+    const TS = 12, W = this.W || 90, dens = 2.2, M4 = new T.Matrix4(), Q = new T.Quaternion(), V = new T.Vector3(), Sv = new T.Vector3(); g.grassTiles = [];
+    for (let tx = -W; tx < W; tx += TS) for (let tz = -W; tz < W; tz += TS) { const pts = []; const n = TS * TS * dens;
+      for (let i = 0; i < n; i++) { const x = tx + r() * TS, z = tz + r() * TS; if (Math.hypot(x, z) > W - .5 || skip(x, z)) continue; pts.push([x, z]) }
+      if (!pts.length) continue; const im = new T.InstancedMesh(ge, mat, pts.length); im.receiveShadow = true;
+      pts.forEach(([x, z], i) => { Q.setFromAxisAngle(V.set(0, 1, 0), r() * 6.28); M4.compose(V.set(x, 0, z), Q, Sv.set(1, .75 + r() * .6, 1)); im.setMatrixAt(i, M4) });
+      im.computeBoundingSphere(); im.visible = false; im.userData.c = [tx + TS / 2, tz + TS / 2]; sc.add(im); g.grassTiles.push(im) }
+    g.upd = g.upd || [];
+    g.upd.push((dt, t) => { g.windT.value = t; const cp = g.cam.position; g.windCam.value.copy(cp);
+      if ((g.gT = (g.gT || 0) + dt) > .25) { g.gT = 0; g.grassTiles.forEach(m => { m.visible = Math.hypot(m.userData.c[0] - cp.x, m.userData.c[1] - cp.z) < 34 }) } });
+  }
+});
 
 /* ============ BOOT ============ */
 /* avvio veloce: chi ha già l'account sul telefono non aspetta tutta l'animazione */
